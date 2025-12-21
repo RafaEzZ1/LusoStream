@@ -7,7 +7,7 @@ import Navbar from "@/components/Navbar";
 import DynamicTitle from "@/components/DynamicTitle";
 import { supabase } from "@/lib/supabaseClient";
 import { getMovieEmbed } from "@/lib/embeds";
-import { touchMovieProgress } from "@/lib/progress";
+// Removi a importação do touchMovieProgress pois não vamos usar aqui
 
 export const dynamic = "force-dynamic";
 
@@ -36,13 +36,10 @@ export default function MoviePage() {
       const embedUrl = await getMovieEmbed(id);
       setHasEmbed(!!embedUrl);
 
-      // 3) gravar progresso
-      await touchMovieProgress(id, {
-        estimated_duration_seconds: data?.runtime ? data.runtime * 60 : null,
-        status: "in_progress",
-      });
+      // (REMOVIDO) O passo 3 de gravar progresso foi apagado daqui.
+      // Só deve acontecer na página /watch.
 
-      // 4) ver se já estava concluído
+      // 4) ver se já estava concluído (para mostrar o visto verde)
       const { data: sess } = await supabase.auth.getSession();
       const userId = sess?.session?.user?.id;
       if (userId) {

@@ -18,7 +18,7 @@ export default function WatchMoviePage() {
   const [embedLink, setEmbedLink] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // carrega info + embed + toca progresso
+  // Carrega info + embed + Guarda o progresso
   useEffect(() => {
     let cancelled = false;
 
@@ -33,11 +33,17 @@ export default function WatchMoviePage() {
         const fromDb = await getMovieEmbed(id);
         if (!cancelled) setEmbedLink(fromDb || null);
 
-        // 👇 toca progresso logo que abriu
-        await touchMovieProgress(id, {
-          status: "in_progress",
-          estimated_duration_seconds: d?.runtime ? d.runtime * 60 : null,
-        });
+        // ✅ AQUI ESTÁ A CORREÇÃO:
+        // O progresso só é tocado (guardado) aqui, quando o player abre.
+        if (d?.id) {
+            await touchMovieProgress(id, {
+            status: "in_progress",
+            // Passamos a duração para cálculos futuros, se necessário
+            estimated_duration_seconds: d?.runtime ? d.runtime * 60 : null,
+            // Adicionalmente, podes forçar "watched_seconds: 1" na tua função touchMovieProgress 
+            // se quiseres garantir que conta como iniciado, mas status: "in_progress" costuma chegar.
+            });
+        }
       } catch (e) {
         console.error(e);
         if (!cancelled) {
@@ -59,6 +65,7 @@ export default function WatchMoviePage() {
   async function handleMarkDone() {
     await markMovieFinished(id, movie?.runtime ? movie.runtime * 60 : null);
     alert("Marcado como concluído ✅");
+    router.back(); // Opcional: voltar atrás depois de acabar
   }
 
   return (
@@ -92,9 +99,9 @@ export default function WatchMoviePage() {
             </div>
             <button
               onClick={handleMarkDone}
-              className="mt-4 bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded"
+              className="mt-4 bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded text-sm font-medium transition-colors"
             >
-              Marcar como concluído
+              ✅ Marcar como visto
             </button>
           </>
         ) : (
