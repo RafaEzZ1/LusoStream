@@ -7,7 +7,8 @@ import Navbar from "@/components/Navbar";
 import DynamicTitle from "@/components/DynamicTitle";
 import { supabase } from "@/lib/supabaseClient";
 import { getMovieEmbed } from "@/lib/embeds";
-// Removi a importação do touchMovieProgress pois não vamos usar aqui
+// Importar o novo botão
+import WatchlistButton from "@/components/WatchlistButton";
 
 export const dynamic = "force-dynamic";
 
@@ -32,14 +33,11 @@ export default function MoviePage() {
       const data = await res.json();
       setMovieInfo(data);
 
-      // 2) embed
+      // 2) Embed
       const embedUrl = await getMovieEmbed(id);
       setHasEmbed(!!embedUrl);
 
-      // (REMOVIDO) O passo 3 de gravar progresso foi apagado daqui.
-      // Só deve acontecer na página /watch.
-
-      // 4) ver se já estava concluído (para mostrar o visto verde)
+      // 3) Verificar status (visto)
       const { data: sess } = await supabase.auth.getSession();
       const userId = sess?.session?.user?.id;
       if (userId) {
@@ -109,20 +107,25 @@ export default function MoviePage() {
             {movieInfo.runtime ? `${movieInfo.runtime} min` : "—"}
           </p>
 
-          {hasEmbed ? (
-            <button
-              onClick={goWatch}
-              className="bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded font-semibold"
-            >
-              ▶ Ver filme
-            </button>
-          ) : (
-            <div className="bg-gray-800 p-6 rounded-lg w-full md:w-2/3 text-center">
-              <p className="text-red-500 text-xl font-semibold">
-                Ainda não temos este filme disponível.
-              </p>
-            </div>
-          )}
+          <div className="flex flex-wrap gap-3">
+            {/* Botão de Ver Filme */}
+            {hasEmbed ? (
+              <button
+                onClick={goWatch}
+                className="bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded font-semibold"
+              >
+                ▶ Ver filme
+              </button>
+            ) : (
+              <div className="bg-gray-800 px-5 py-2 rounded text-red-400 font-semibold border border-red-900/30">
+                Indisponível
+              </div>
+            )}
+
+            {/* Novo Botão da Watchlist */}
+            <WatchlistButton itemId={id} itemType="movie" />
+          </div>
+
         </div>
       </div>
     </div>
