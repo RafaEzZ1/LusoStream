@@ -1,14 +1,16 @@
+// src/app/suggestions/SuggestionsClient.jsx
 "use client";
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/useAuth";
 
+// 👇 CATEGORIAS ATUALIZADAS
 const CATEGORIES = [
-  { value: "pedidos", label: "Pedido de filme/série" },
-  { value: "bug", label: "Erro / bug" },
+  { value: "pedidos", label: "Pedir Filme ou Série (Novo)" },
+  { value: "bug_site", label: "Bug no Site / Conta" },
   { value: "melhoria", label: "Sugestão de melhoria" },
-  { value: "outro", label: "Outro" },
+  { value: "parceria", label: "Parcerias / Outro" },
 ];
 
 export default function SuggestionsClient() {
@@ -113,8 +115,12 @@ export default function SuggestionsClient() {
         <h1 className="text-2xl md:text-3xl font-bold mb-2">
           Pedidos &amp; Sugestões
         </h1>
-        <p className="text-gray-400 text-sm">
-          Podes pedir filmes/séries que não estão, ou reportar bugs.
+        <p className="text-gray-400 text-sm mb-1">
+          Podes pedir filmes/séries que não estão aqui, ou dar ideias para o site.
+        </p>
+        {/* 👇 NOTA INFORMATIVA */}
+        <p className="text-xs text-red-400">
+          Nota: Se um filme não estiver a funcionar, usa o botão &quot;Reportar erro&quot; que está na página do próprio filme!
         </p>
       </div>
 
@@ -173,7 +179,7 @@ export default function SuggestionsClient() {
         <button
           type="submit"
           disabled={sending}
-          className="bg-red-600 hover:bg-red-700 disabled:opacity-60 px-4 py-2 rounded font-semibold"
+          className="bg-red-600 hover:bg-red-700 disabled:opacity-60 px-4 py-2 rounded font-semibold transition-colors"
         >
           {sending ? "A enviar…" : "Enviar sugestão"}
         </button>

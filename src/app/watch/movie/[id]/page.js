@@ -7,6 +7,8 @@ import Navbar from "@/components/Navbar";
 import DynamicTitle from "@/components/DynamicTitle";
 import { getMovieEmbed } from "@/lib/embeds";
 import { touchMovieProgress, markMovieFinished } from "@/lib/progress";
+// 👇 IMPORT NOVO
+import ReportButton from "@/components/ReportButton";
 
 const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
 
@@ -18,7 +20,7 @@ export default function WatchMoviePage() {
   const [embedLink, setEmbedLink] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Carrega info + embed + Guarda o progresso
+  // carrega info + embed + toca progresso
   useEffect(() => {
     let cancelled = false;
 
@@ -33,16 +35,12 @@ export default function WatchMoviePage() {
         const fromDb = await getMovieEmbed(id);
         if (!cancelled) setEmbedLink(fromDb || null);
 
-        // ✅ AQUI ESTÁ A CORREÇÃO:
-        // O progresso só é tocado (guardado) aqui, quando o player abre.
+        // 👇 toca progresso logo que abriu
         if (d?.id) {
-            await touchMovieProgress(id, {
+          await touchMovieProgress(id, {
             status: "in_progress",
-            // Passamos a duração para cálculos futuros, se necessário
             estimated_duration_seconds: d?.runtime ? d.runtime * 60 : null,
-            // Adicionalmente, podes forçar "watched_seconds: 1" na tua função touchMovieProgress 
-            // se quiseres garantir que conta como iniciado, mas status: "in_progress" costuma chegar.
-            });
+          });
         }
       } catch (e) {
         console.error(e);
@@ -65,7 +63,6 @@ export default function WatchMoviePage() {
   async function handleMarkDone() {
     await markMovieFinished(id, movie?.runtime ? movie.runtime * 60 : null);
     alert("Marcado como concluído ✅");
-    router.back(); // Opcional: voltar atrás depois de acabar
   }
 
   return (
@@ -97,12 +94,18 @@ export default function WatchMoviePage() {
                 referrerPolicy="no-referrer"
               />
             </div>
-            <button
-              onClick={handleMarkDone}
-              className="mt-4 bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded text-sm font-medium transition-colors"
-            >
-              ✅ Marcar como visto
-            </button>
+            
+            <div className="mt-4 flex flex-col items-start gap-2">
+              <button
+                onClick={handleMarkDone}
+                className="bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded font-medium transition-colors"
+              >
+                ✅ Marcar como concluído
+              </button>
+              
+              {/* 👇 BOTÃO NOVO AQUI */}
+              <ReportButton itemId={id} itemType="movie" />
+            </div>
           </>
         ) : (
           <div className="mt-4 bg-gray-900 p-6 rounded-lg border border-gray-800">

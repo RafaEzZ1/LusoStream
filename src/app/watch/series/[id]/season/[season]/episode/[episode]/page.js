@@ -8,6 +8,8 @@ import DynamicTitle from "@/components/DynamicTitle";
 import { getEpisodeEmbed } from "@/lib/embeds";
 import { STREAMING_LINKS } from "@/lib/streamingLinks";
 import { touchEpisodeProgress, markEpisodeFinished } from "@/lib/progress";
+// 👇 IMPORT NOVO
+import ReportButton from "@/components/ReportButton";
 
 const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
 
@@ -107,19 +109,29 @@ export default function WatchEpisodePage() {
               />
             </div>
 
-            <div className="mt-4 flex gap-3">
-              <button
-                onClick={handleDone}
-                className="bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded"
-              >
-                Marcar como concluído
-              </button>
-              <button
-                onClick={goToNextEpisode}
-                className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded"
-              >
-                Próximo episódio →
-              </button>
+            <div className="mt-4 flex flex-col items-start gap-4">
+              <div className="flex gap-3">
+                <button
+                  onClick={handleDone}
+                  className="bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded font-medium transition-colors"
+                >
+                  ✅ Visto
+                </button>
+                <button
+                  onClick={goToNextEpisode}
+                  className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded font-medium transition-colors"
+                >
+                  Próximo episódio →
+                </button>
+              </div>
+
+              {/* 👇 BOTÃO NOVO AQUI */}
+              <ReportButton 
+                itemId={seriesId} 
+                itemType="series" 
+                season={seasonNumber} 
+                episode={episodeNumber} 
+              />
             </div>
           </>
         ) : (
