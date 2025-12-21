@@ -1,10 +1,8 @@
-// src/hooks/useAuthRole.js
 "use client";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
-/** * 1. Hook Simples: Só busca o User (Sessão)
- */
+/** 1. Hook Base: Deteta sessão e login/logout em tempo real */
 export function useAuthUser() {
   const [state, setState] = useState({
     loading: true,
@@ -15,7 +13,7 @@ export function useAuthUser() {
   useEffect(() => {
     let mounted = true;
 
-    // ler sessão atual
+    // Ler sessão inicial
     supabase.auth.getSession().then(({ data }) => {
       if (!mounted) return;
       setState({
@@ -25,7 +23,7 @@ export function useAuthUser() {
       });
     });
 
-    // subscrever a eventos
+    // Escutar mudanças (Login, Logout, etc)
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!mounted) return;
       setState({
@@ -44,8 +42,7 @@ export function useAuthUser() {
   return state;
 }
 
-/** * 2. Hook Específico: Busca a role dado um ID
- */
+/** 2. Hook Auxiliar: Busca a role de um ID específico */
 export function useUserRole(userId) {
   const [state, setState] = useState({ loading: !!userId, role: null });
 
@@ -65,12 +62,7 @@ export function useUserRole(userId) {
       .maybeSingle()
       .then(({ data, error }) => {
         if (cancelled) return;
-        if (error) {
-          console.warn("useUserRole error:", error.message);
-          setState({ loading: false, role: null });
-        } else {
-          setState({ loading: false, role: data?.role || "user" });
-        }
+        setState({ loading: false, role: data?.role || "user" });
       });
 
     return () => {
@@ -81,50 +73,41 @@ export function useUserRole(userId) {
   return state;
 }
 
-/**
- * 3. Hook Combinado (O QUE FALTAVA): Busca User + Role automaticamente
- * É este que o Navbar está a tentar usar!
+/** * 3. Hook Principal (O que o Navbar usa): 
+ * Junta o User e a Role numa só chamada.
  */
 export function useAuthRole() {
-  const [state, setState] = useState({ 
-    user: null, 
-    role: null, 
-    loading: true 
-  });
+  const { user, loading: userLoading } = useAuthUser();
+  const [role, setRole] = useState(null);
+  const [roleLoading, setRoleLoading] = useState(true);
 
   useEffect(() => {
-    let mounted = true;
+    if (userLoading) return; // Espera que o user carregue
 
-    async function load() {
-      // 1. Pega no user
-      const { data: { session } } = await supabase.auth.getSession();
-      const user = session?.user || null;
-
-      if (!user) {
-        if (mounted) setState({ user: null, role: null, loading: false });
-        return;
-      }
-
-      // 2. Pega na role
-      const { data } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (mounted) {
-        setState({
-          user,
-          role: data?.role || "user",
-          loading: false
-        });
-      }
+    if (!user) {
+      setRole(null);
+      setRoleLoading(false);
+      return;
     }
 
-    load();
-  }, []);
+    // Se temos user, vamos buscar a role
+    supabase
+      .from("profiles")
+      .select("role")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        setRole(data?.role || "user");
+        setRoleLoading(false);
+      });
+      
+  }, [user, userLoading]);
 
-  return state;
+  return { 
+    user, 
+    role, 
+    loading: userLoading || roleLoading 
+  };
 }
 
 export function isModOrAdmin(role) {
