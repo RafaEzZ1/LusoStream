@@ -1,0 +1,43 @@
+# --- Dependências / build ---
+node_modules/
+.next/
+out/
+dist/
+build/
+.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# --- Logs / debug ---
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-debug.log*
+*.log
+
+# --- Testes / cache ---
+coverage/
+.eslintcache
+.cache/
+
+# --- Ambiente / segredos ---
+.env*
+!.env.example        # permite manter um template público
+
+# --- Vercel / ferramentas ---
+.vercel/
+
+# --- SO / editores ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# --- Next.js (TS) ---
+next-env.d.ts
+*.tsbuildinfo
