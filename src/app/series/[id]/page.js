@@ -9,6 +9,8 @@ import DynamicTitle from "@/components/DynamicTitle";
 import { isEpisodeCompleted } from "@/lib/progress";
 import { listSeasonEmbeds } from "@/lib/embeds";
 import { touchEpisodeProgress } from "@/lib/progress";
+// 👇 Importar o botão da lista
+import WatchlistButton from "@/components/WatchlistButton";
 
 export const dynamic = "force-dynamic";
 
@@ -154,23 +156,35 @@ export default function SeriesPage() {
         {/* cabeçalho */}
         <div className="flex flex-col md:flex-row gap-6 mb-8">
           <img
-            src={`https://image.tmdb.org/t/p/w300${series.poster_path}`}
+            src={
+              series.poster_path
+                ? `https://image.tmdb.org/t/p/w300${series.poster_path}`
+                : "/no-image.jpg"
+            }
             alt={series.name}
-            className="rounded-md object-cover shadow-lg"
+            className="rounded-md object-cover shadow-lg w-full max-w-[300px]"
           />
           <div className="flex-1">
             <h1 className="text-3xl font-bold mb-3">{series.name}</h1>
-            <p className="text-gray-300">
+            <p className="text-gray-300 mb-4">
               {series.overview || "Sem sinopse disponível."}
             </p>
-            <p className="mt-2 text-sm text-gray-400">
-              ⭐ Avaliação: {series.vote_average?.toFixed(1) || "N/A"}
-            </p>
+            
+            <div className="flex flex-wrap items-center gap-4 mb-6">
+              <span className="text-sm text-gray-400 border border-gray-700 px-3 py-1 rounded-full">
+                ⭐ {series.vote_average?.toFixed(1) || "N/A"}
+              </span>
+              
+              {/* Botão da Watchlist para Séries */}
+              <WatchlistButton itemId={id} itemType="series" />
+            </div>
+
           </div>
         </div>
 
         {/* temporadas */}
         <div>
+          <h2 className="text-2xl font-bold mb-4 border-l-4 border-red-600 pl-3">Temporadas</h2>
           {seasons.map((season) => (
             <div
               key={season.id}
