@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
-/** Hidrata sessão assim que o app arranca e mantém em sync via onAuthStateChange */
+/** * 1. Hook Simples: Só busca o User (Sessão)
+ */
 export function useAuthUser() {
   const [state, setState] = useState({
     loading: true,
@@ -14,7 +15,7 @@ export function useAuthUser() {
   useEffect(() => {
     let mounted = true;
 
-    // 1) ler sessão atual
+    // ler sessão atual
     supabase.auth.getSession().then(({ data }) => {
       if (!mounted) return;
       setState({
@@ -24,7 +25,7 @@ export function useAuthUser() {
       });
     });
 
-    // 2) subscrever a eventos (SIGNED_IN, TOKEN_REFRESHED, SIGNED_OUT, etc.)
+    // subscrever a eventos
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!mounted) return;
       setState({
@@ -40,10 +41,11 @@ export function useAuthUser() {
     };
   }, []);
 
-  return state; // { loading, user, session }
+  return state;
 }
 
-/** Lê role do utilizador em `profiles.role` (user_id FK) */
+/** * 2. Hook Específico: Busca a role dado um ID
+ */
 export function useUserRole(userId) {
   const [state, setState] = useState({ loading: !!userId, role: null });
 
@@ -76,7 +78,53 @@ export function useUserRole(userId) {
     };
   }, [userId]);
 
-  return state; // { loading, role }
+  return state;
+}
+
+/**
+ * 3. Hook Combinado (O QUE FALTAVA): Busca User + Role automaticamente
+ * É este que o Navbar está a tentar usar!
+ */
+export function useAuthRole() {
+  const [state, setState] = useState({ 
+    user: null, 
+    role: null, 
+    loading: true 
+  });
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function load() {
+      // 1. Pega no user
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user || null;
+
+      if (!user) {
+        if (mounted) setState({ user: null, role: null, loading: false });
+        return;
+      }
+
+      // 2. Pega na role
+      const { data } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (mounted) {
+        setState({
+          user,
+          role: data?.role || "user",
+          loading: false
+        });
+      }
+    }
+
+    load();
+  }, []);
+
+  return state;
 }
 
 export function isModOrAdmin(role) {
