@@ -9,7 +9,8 @@ import DynamicTitle from "@/components/DynamicTitle";
 import { supabase } from "@/lib/supabaseClient";
 import WatchlistButton from "@/components/WatchlistButton";
 import Recommendations from "@/components/Recommendations";
-import SkeletonLoader from "@/components/SkeletonLoader"; // 👇 Importar Skeleton
+// 👇 Importar o Skeleton
+import SkeletonLoader from "@/components/SkeletonLoader";
 
 export const dynamic = "force-dynamic";
 
@@ -35,14 +36,13 @@ export default function SeriesPage() {
     (async () => {
       setLoading(true);
       try {
-        // TMDB
         const res = await fetch(
           `https://api.themoviedb.org/3/tv/${id}?api_key=${API_KEY}&language=pt-BR`
         );
         const data = await res.json();
         setSeriesInfo(data);
 
-        // Verificar se já viu a série toda (opcional)
+        // Verificar se já viu
         const { data: sess } = await supabase.auth.getSession();
         const userId = sess?.session?.user?.id;
         if (userId) {
@@ -76,29 +76,27 @@ export default function SeriesPage() {
         const data = await res.json();
         setEpisodes(data.episodes || []);
       } catch (e) {
-        console.error("Erro ao buscar episódios", e);
+        console.error("Erro episódios", e);
       } finally {
         setLoadingEpisodes(false);
       }
     })();
-  }, [id, selectedSeason, seriesInfo]); // Corre sempre que mudas a temporada
+  }, [id, selectedSeason, seriesInfo]);
 
-  // Função para começar (botão grande)
   function startWatching() {
     router.push(`/watch/series/${id}/season/1/episode/1`);
   }
 
+  // 👇 Se estiver a carregar, mostra o SKELETON
   if (loading || !seriesInfo) {
     return (
       <div className="bg-black min-h-screen text-white">
         <Navbar />
-        {/* 👇 AQUI ESTÁ A TUA CENA DE CARREGAR */}
         <SkeletonLoader />
       </div>
     );
   }
 
-  // Filtrar temporadas reais (ignorar a temporada 0 "Specials" se quiseres, aqui mostro todas se existirem)
   const seasons = seriesInfo.seasons || [];
 
   return (
@@ -108,9 +106,8 @@ export default function SeriesPage() {
 
       <div className="pt-24 px-6 max-w-6xl mx-auto pb-12">
         
-        {/* --- HEADER DA SÉRIE --- */}
-        <div className="flex flex-col md:flex-row gap-8 mb-12">
-          {/* Poster */}
+        {/* HEADER DA SÉRIE */}
+        <div className="flex flex-col md:flex-row gap-8 mb-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
           <div className="w-full md:w-1/3 max-w-[300px] mx-auto md:mx-0">
             <img
               src={seriesInfo.poster_path ? `https://image.tmdb.org/t/p/w500${seriesInfo.poster_path}` : "/no-image.jpg"}
@@ -119,7 +116,6 @@ export default function SeriesPage() {
             />
           </div>
 
-          {/* Info */}
           <div className="flex-1">
             <div className="flex items-center gap-3 mb-2">
                <h1 className="text-4xl md:text-5xl font-bold">{seriesInfo.name}</h1>
@@ -150,20 +146,19 @@ export default function SeriesPage() {
           </div>
         </div>
 
-        {/* --- SELETOR DE TEMPORADAS E EPISÓDIOS --- */}
+        {/* SELETOR DE TEMPORADAS */}
         <div className="mt-12">
           <h2 className="text-2xl font-bold mb-6 border-l-4 border-red-600 pl-4">Episódios</h2>
           
-          {/* Tabs das Temporadas */}
           <div className="flex overflow-x-auto gap-3 pb-4 mb-6 scrollbar-thin scrollbar-thumb-gray-800">
             {seasons.map((season) => (
-              season.season_number > 0 && ( // Esconde a season 0 (extras) se quiseres
+              season.season_number > 0 && (
                 <button
                   key={season.id}
                   onClick={() => setSelectedSeason(season.season_number)}
                   className={`px-5 py-2 rounded-full whitespace-nowrap font-medium transition ${
                     selectedSeason === season.season_number
-                      ? "bg-white text-black scale-105"
+                      ? "bg-white text-black scale-105 shadow-lg shadow-white/20"
                       : "bg-gray-900 text-gray-400 hover:bg-gray-800 hover:text-white"
                   }`}
                 >
@@ -173,10 +168,10 @@ export default function SeriesPage() {
             ))}
           </div>
 
-          {/* Lista de Episódios */}
+          {/* LISTA DE EPISÓDIOS */}
           {loadingEpisodes ? (
-             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 animate-pulse">
-                {[1,2,3].map(i => <div key={i} className="h-32 bg-gray-900 rounded-lg"></div>)}
+             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 animate-pulse">
+                {[1,2,3,4].map(i => <div key={i} className="aspect-video bg-gray-800 rounded-lg"></div>)}
              </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -186,7 +181,6 @@ export default function SeriesPage() {
                   href={`/watch/series/${id}/season/${selectedSeason}/episode/${ep.episode_number}`}
                   className="group bg-gray-900 hover:bg-gray-800 rounded-lg overflow-hidden border border-gray-800 hover:border-gray-600 transition flex flex-col"
                 >
-                  {/* Thumbnail do Episódio */}
                   <div className="relative aspect-video bg-black">
                      <img 
                         src={ep.still_path ? `https://image.tmdb.org/t/p/w500${ep.still_path}` : "/no-image.jpg"} 
@@ -196,27 +190,18 @@ export default function SeriesPage() {
                      <div className="absolute top-2 left-2 bg-black/60 px-2 py-0.5 rounded text-xs font-bold backdrop-blur-sm">
                         Ep {ep.episode_number}
                      </div>
-                     {/* Ícone Play ao passar o rato */}
                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition bg-black/30">
                         <div className="bg-red-600 rounded-full p-2 shadow-lg">
                            <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                         </div>
                      </div>
                   </div>
-
-                  {/* Info Episódio */}
                   <div className="p-4 flex-1 flex flex-col justify-between">
                      <div>
-                        <h4 className="font-bold text-gray-200 group-hover:text-white mb-1 line-clamp-1">
-                           {ep.name}
-                        </h4>
-                        <p className="text-xs text-gray-500 line-clamp-2 mb-3">
-                           {ep.overview || "Sem descrição."}
-                        </p>
+                        <h4 className="font-bold text-gray-200 group-hover:text-white mb-1 line-clamp-1">{ep.name}</h4>
+                        <p className="text-xs text-gray-500 line-clamp-2 mb-3">{ep.overview || "Sem descrição."}</p>
                      </div>
-                     <span className="text-xs text-gray-600 font-mono">
-                        {ep.air_date}
-                     </span>
+                     <span className="text-xs text-gray-600 font-mono">{ep.air_date}</span>
                   </div>
                 </Link>
               ))}
@@ -228,7 +213,6 @@ export default function SeriesPage() {
         <div className="border-t border-gray-800 mt-16 pt-8">
            <Recommendations type="tv" id={id} />
         </div>
-
       </div>
     </div>
   );
