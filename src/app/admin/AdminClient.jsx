@@ -1,9 +1,8 @@
-// src/app/admin/AdminClient.jsx
 "use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link"; // Adicionado para os botões novos
+import Link from "next/link";
 import { getUserAndRole, isModOrAdmin } from "@/lib/roles";
 import {
   upsertMovieEmbed,
