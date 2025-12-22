@@ -1,3 +1,4 @@
+// src/app/auth/AuthClient.jsx
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -7,12 +8,19 @@ import HCaptcha from "@hcaptcha/react-hcaptcha";
 
 const SITEKEY = process.env.NEXT_PUBLIC_HCAPTCHA_SITEKEY;
 
+// Ícones SVG para os inputs
+const Icons = {
+  Mail: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>,
+  User: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>,
+  Lock: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>,
+  Eye: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>,
+  EyeOff: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>,
+};
+
 const passwordRules = [
-  { test: (v) => v.length >= 8, label: "≥ 8 caracteres" },
-  { test: (v) => /[a-z]/.test(v), label: "letra minúscula" },
-  { test: (v) => /[A-Z]/.test(v), label: "letra maiúscula" },
-  { test: (v) => /[0-9]/.test(v), label: "número" },
-  { test: (v) => /[^A-Za-z0-9]/.test(v), label: "símbolo" },
+  { test: (v) => v.length >= 8, label: "8+ caracteres" },
+  { test: (v) => /[0-9]/.test(v), label: "Número" },
+  { test: (v) => /[A-Z]/.test(v), label: "Maiúscula" },
 ];
 
 const normalizeUsername = (v) =>
@@ -21,34 +29,21 @@ const normalizeUsername = (v) =>
 export default function AuthClient() {
   const router = useRouter();
 
-  // UI
-  const [mode, setMode] = useState("login"); // login | signup
+  const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [showPwd, setShowPwd] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-
-  // hCaptcha
   const [captchaToken, setCaptchaToken] = useState("");
   const captchaRef = useRef(null);
-
-  // Feedback
   const [submitting, setSubmitting] = useState(false);
-  const [msg, setMsg] = useState(null); // {type:'ok'|'error', text}
+  const [msg, setMsg] = useState(null);
 
-  const strength = useMemo(() => {
-    let s = 0;
-    for (const r of passwordRules) if (r.test(password)) s++;
-    return s;
-  }, [password]);
-
-  // Evita “ficar logado só depois de clicar em algo”: ouvimos o evento de auth e redirecionamos.
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_IN") {
-        // garante que a sessão está hidratada
         setTimeout(async () => {
           await supabase.auth.getUser();
           router.replace("/");
@@ -58,308 +53,258 @@ export default function AuthClient() {
     return () => sub?.subscription?.unsubscribe?.();
   }, [router]);
 
-  // Limpa mensagem quando mudas de modo
   useEffect(() => setMsg(null), [mode]);
 
-  // Tenta criar/garantir row em profiles ( não bloqueia o login )
   async function ensureProfile(user) {
     try {
-      const wanted =
-        user?.user_metadata?.username ||
-        (user?.email ? user.email.split("@")[0] : `user_${user?.id?.slice(0, 6) || "new"}`);
-      await supabase.from("profiles").upsert(
-        {
-          user_id: user.id,
+      const wanted = user?.user_metadata?.username || (user?.email ? user.email.split("@")[0] : `user_${user?.id?.slice(0, 6)}`);
+      await supabase.from("profiles").upsert({
+        user_id: user.id,
         username: normalizeUsername(wanted),
-          avatar_url: user?.user_metadata?.avatar_url || null,
-        },
-        { onConflict: "user_id" }
-      );
-    } catch {
-      /* ignora */
-    }
+        avatar_url: user?.user_metadata?.avatar_url || null,
+      }, { onConflict: "user_id" });
+    } catch {}
   }
 
   function resetCaptcha() {
-    try {
-      captchaRef.current?.resetCaptcha();
-    } catch {}
+    try { captchaRef.current?.resetCaptcha(); } catch {}
     setCaptchaToken("");
   }
 
-  async function handleLogin(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
     setMsg(null);
 
     if (!captchaToken) {
-      setMsg({ type: "error", text: "Confirma o hCaptcha antes de continuar." });
+      setMsg({ type: "error", text: "Por favor, completa o captcha." });
       return;
     }
 
+    setSubmitting(true);
     try {
-      setSubmitting(true);
-
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-        options: { captchaToken }, // ← OBRIGATÓRIO quando Bot Protection está ON
-      });
-      if (error) throw error;
-
-      if (data?.user) ensureProfile(data.user);
-
-      setMsg({ type: "ok", text: "Login com sucesso! 🎉" });
-      // onAuthStateChange fará o redirect; apenas limpamos o captcha
+      if (mode === "login") {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+          options: { captchaToken },
+        });
+        if (error) throw error;
+        if (data?.user) ensureProfile(data.user);
+        setMsg({ type: "ok", text: "Bem-vindo de volta! 🍿" });
+      } else {
+        const uname = normalizeUsername(username);
+        if (!uname) throw new Error("Nome de utilizador inválido.");
+        if (password !== confirm) throw new Error("As passwords não coincidem.");
+        
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { username: uname },
+            captchaToken,
+            emailRedirectTo: typeof window !== "undefined" ? window.location.origin + "/auth" : undefined,
+          },
+        });
+        if (error) throw error;
+        setMsg({ type: "ok", text: "Conta criada! Verifica o teu email." });
+      }
       resetCaptcha();
     } catch (err) {
-      setMsg({
-        type: "error",
-        text:
-          err?.message ||
-          "Falha no login. Se o captcha expirou, confirma novamente e tenta outra vez.",
-      });
+      setMsg({ type: "error", text: err.message || "Ocorreu um erro." });
       resetCaptcha();
     } finally {
       setSubmitting(false);
     }
   }
 
-  async function handleSignup(e) {
-    e.preventDefault();
-    setMsg(null);
-
-    if (!captchaToken) {
-      setMsg({ type: "error", text: "Confirma o hCaptcha antes de continuar." });
-      return;
-    }
-
-    const uname = normalizeUsername(username);
-    if (!uname) {
-      setMsg({ type: "error", text: "O nome de utilizador é obrigatório." });
-      return;
-    }
-    if (password !== confirm) {
-      setMsg({ type: "error", text: "As palavras-passe não coincidem." });
-      return;
-    }
-    const fails = passwordRules.filter((r) => !r.test(password));
-    if (fails.length) {
-      setMsg({ type: "error", text: "A password não cumpre os requisitos." });
-      return;
-    }
-
-    try {
-      setSubmitting(true);
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { username: uname },
-          captchaToken, // ← OBRIGATÓRIO
-          emailRedirectTo:
-            typeof window !== "undefined" ? window.location.origin + "/auth" : undefined,
-        },
-      });
-      if (error) throw error;
-
-      setMsg({
-        type: "ok",
-        text: "Conta criada. Verifica o teu e-mail para confirmar a conta.",
-      });
-      resetCaptcha();
-    } catch (err) {
-      setMsg({
-        type: "error",
-        text:
-          err?.message ||
-          "Falha ao criar conta. Se o captcha expirou, confirma novamente e tenta outra vez.",
-      });
-      resetCaptcha();
-    } finally {
-      setSubmitting(false);
-    }
-  }
+  // Barra de Força da Password
+  const strength = useMemo(() => {
+    if (!password) return 0;
+    let s = 0;
+    if (password.length >= 8) s++;
+    if (/[0-9]/.test(password)) s++;
+    if (/[A-Z]/.test(password)) s++;
+    return s; // 0 a 3
+  }, [password]);
 
   return (
-    <div className="bg-gray-900/60 border border-gray-800 rounded-2xl p-6">
-      {/* Tabs */}
-      <div className="flex gap-3 mb-4">
-        <button
-          className={`px-4 py-2 rounded ${mode === "login" ? "bg-red-600" : "bg-gray-800 hover:bg-gray-700"}`}
-          onClick={() => setMode("login")}
-        >
-          Entrar
-        </button>
-        <button
-          className={`px-4 py-2 rounded ${mode === "signup" ? "bg-red-600" : "bg-gray-800 hover:bg-gray-700"}`}
-          onClick={() => setMode("signup")}
-        >
-          Criar conta
-        </button>
-      </div>
-
-      {/* Mensagens */}
-      {msg && (
-        <div
-          className={`mb-4 text-sm rounded p-3 ${
-            msg.type === "error"
-              ? "bg-red-900/50 text-red-200 border border-red-800"
-              : "bg-green-900/40 text-green-200 border border-green-800"
-          }`}
-        >
-          {msg.text}
+    <div className="w-full max-w-md">
+      <div className="bg-black/60 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl">
+        
+        {/* Cabeçalho */}
+        <div className="text-center mb-8">
+          <h2 className="text-3xl font-bold mb-2">
+            {mode === "login" ? "Bem-vindo!" : "Criar Conta"}
+          </h2>
+          <p className="text-gray-400 text-sm">
+            {mode === "login" 
+              ? "Entra para continuar a ver os teus favoritos." 
+              : "Junta-te a nós e começa a tua maratona."}
+          </p>
         </div>
-      )}
 
-      {/* Form */}
-      <form onSubmit={mode === "login" ? handleLogin : handleSignup} className="space-y-3">
-        <div>
-          <label className="block text-sm mb-1">E-mail</label>
-          <input
-            type="email"
-            required
-            autoComplete="email"
-            className="w-full bg-gray-800 rounded px-3 py-2 outline-none focus:ring-2 focus:ring-red-600"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="o.teu@email.com"
+        {/* Tabs Modernas */}
+        <div className="flex p-1 bg-gray-800/50 rounded-xl mb-6 relative">
+          <div 
+            className="absolute top-1 bottom-1 bg-gray-700/80 rounded-lg transition-all duration-300 shadow-sm"
+            style={{ 
+              left: mode === "login" ? "4px" : "50%", 
+              width: "calc(50% - 4px)" 
+            }}
           />
+          <button
+            onClick={() => setMode("login")}
+            className={`flex-1 py-2 text-sm font-medium z-10 transition-colors ${mode === "login" ? "text-white" : "text-gray-400 hover:text-white"}`}
+          >
+            Entrar
+          </button>
+          <button
+            onClick={() => setMode("signup")}
+            className={`flex-1 py-2 text-sm font-medium z-10 transition-colors ${mode === "signup" ? "text-white" : "text-gray-400 hover:text-white"}`}
+          >
+            Registar
+          </button>
         </div>
 
-        {mode === "signup" && (
-          <div>
-            <label className="block text-sm mb-1">Nome de utilizador</label>
-            <input
-              type="text"
-              required
-              className="w-full bg-gray-800 rounded px-3 py-2 outline-none focus:ring-2 focus:ring-red-600"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              onBlur={() => setUsername((v) => normalizeUsername(v))}
-              placeholder="ex: rafa_ezz"
-              maxLength={24}
-            />
-            <p className="text-xs text-gray-400 mt-1">
-              Apenas letras, números e underscore. Máx. 24 caracteres.
-            </p>
+        {/* Mensagens de Erro/Sucesso */}
+        {msg && (
+          <div className={`mb-6 p-3 rounded-lg text-sm flex items-center gap-2 animate-in slide-in-from-top-2 ${
+            msg.type === "error" 
+              ? "bg-red-500/10 border border-red-500/20 text-red-200" 
+              : "bg-green-500/10 border border-green-500/20 text-green-200"
+          }`}>
+            <span>{msg.type === "error" ? "⚠️" : "✅"}</span>
+            {msg.text}
           </div>
         )}
 
-        <div>
-          <label className="block text-sm mb-1">Palavra-passe</label>
-          <div className="relative">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          
+          {/* E-mail */}
+          <div className="relative group">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-red-500 transition">
+              <Icons.Mail />
+            </div>
+            <input
+              type="email"
+              required
+              className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-10 pr-4 outline-none focus:border-red-600 focus:bg-white/10 transition text-white placeholder-gray-500"
+              placeholder="E-mail"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+
+          {/* Nome de Utilizador (Só Signup) */}
+          {mode === "signup" && (
+            <div className="relative group animate-in slide-in-from-left-2">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-red-500 transition">
+                <Icons.User />
+              </div>
+              <input
+                type="text"
+                required
+                maxLength={24}
+                className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-10 pr-4 outline-none focus:border-red-600 focus:bg-white/10 transition text-white placeholder-gray-500"
+                placeholder="Nome de Utilizador"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                onBlur={() => setUsername((v) => normalizeUsername(v))}
+              />
+            </div>
+          )}
+
+          {/* Password */}
+          <div className="relative group">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-red-500 transition">
+              <Icons.Lock />
+            </div>
             <input
               type={showPwd ? "text" : "password"}
               required
-              autoComplete={mode === "login" ? "current-password" : "new-password"}
-              className="w-full bg-gray-800 rounded px-3 py-2 pr-10 outline-none focus:ring-2 focus:ring-red-600"
+              className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-10 pr-10 outline-none focus:border-red-600 focus:bg-white/10 transition text-white placeholder-gray-500"
+              placeholder="Palavra-passe"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
             />
             <button
               type="button"
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-gray-300 hover:text-white"
-              onClick={() => setShowPwd((s) => !s)}
-              aria-label={showPwd ? "Esconder password" : "Mostrar password"}
+              onClick={() => setShowPwd(!showPwd)}
+              className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-white transition"
             >
-              {showPwd ? "🙈" : "👁️"}
+              {showPwd ? <Icons.EyeOff /> : <Icons.Eye />}
             </button>
           </div>
-        </div>
 
-        {mode === "signup" && (
-          <>
-            <div>
-              <label className="block text-sm mb-1">Confirmar palavra-passe</label>
-              <div className="relative">
-                <input
-                  type={showConfirm ? "text" : "password"}
-                  required
-                  autoComplete="new-password"
-                  className="w-full bg-gray-800 rounded px-3 py-2 pr-10 outline-none focus:ring-2 focus:ring-red-600"
-                  value={confirm}
-                  onChange={(e) => setConfirm(e.target.value)}
-                  placeholder="••••••••"
-                />
-                <button
-                  type="button"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-gray-300 hover:text-white"
-                  onClick={() => setShowConfirm((s) => !s)}
-                  aria-label={showConfirm ? "Esconder confirmação" : "Mostrar confirmação"}
-                >
-                  {showConfirm ? "🙈" : "👁️"}
-                </button>
-              </div>
+          {/* Medidor de Força da Password (Signup) */}
+          {mode === "signup" && password && (
+            <div className="flex gap-1 h-1 mt-1 mb-2">
+              <div className={`flex-1 rounded-full transition-colors ${strength >= 1 ? "bg-red-500" : "bg-gray-700"}`} />
+              <div className={`flex-1 rounded-full transition-colors ${strength >= 2 ? "bg-yellow-500" : "bg-gray-700"}`} />
+              <div className={`flex-1 rounded-full transition-colors ${strength >= 3 ? "bg-green-500" : "bg-gray-700"}`} />
             </div>
-
-            <div className="text-xs text-gray-300 grid grid-cols-2 gap-1">
-              {passwordRules.map((r) => {
-                const ok = r.test(password);
-                return (
-                  <div key={r.label} className={`flex items-center gap-2 ${ok ? "text-green-300" : "text-gray-400"}`}>
-                    <span>{ok ? "✓" : "•"}</span>
-                    <span>{r.label}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </>
-        )}
-
-        {/* hCaptcha */}
-        <div className="mt-2">
-          {!SITEKEY ? (
-            <p className="text-red-300 text-sm">
-              ⚠️ Falta definir <code>NEXT_PUBLIC_HCAPTCHA_SITEKEY</code>.
-            </p>
-          ) : (
-            <HCaptcha
-              ref={captchaRef}
-              sitekey={SITEKEY}
-              theme="dark"
-              onVerify={(token) => setCaptchaToken(token)}
-              onExpire={() => setCaptchaToken("")}
-              onError={() => setCaptchaToken("")}
-            />
           )}
-        </div>
 
-        <button
-          type="submit"
-          disabled={submitting || !captchaToken}
-          className="w-full mt-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed rounded px-4 py-2 font-semibold"
-        >
-          {submitting ? "A processar..." : mode === "login" ? "Entrar" : "Criar conta"}
-        </button>
-      </form>
+          {/* Confirmar Password (Signup) */}
+          {mode === "signup" && (
+            <div className="relative group animate-in slide-in-from-left-2">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-red-500 transition">
+                <Icons.Lock />
+              </div>
+              <input
+                type={showConfirm ? "text" : "password"}
+                required
+                className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-10 pr-10 outline-none focus:border-red-600 focus:bg-white/10 transition text-white placeholder-gray-500"
+                placeholder="Confirmar palavra-passe"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+              />
+            </div>
+          )}
 
-      {/* Reset password */}
-      <div className="text-sm text-gray-300 mt-4">
-        Esqueceste a password?{" "}
-        <button
-          className="text-red-400 hover:text-red-300 underline"
-          onClick={async () => {
-            setMsg(null);
-            if (!email) {
-              setMsg({ type: "error", text: "Indica o e-mail para recuperar a password." });
-              return;
-            }
-            try {
-              const { error } = await supabase.auth.resetPasswordForEmail(email, {
-                redirectTo:
-                  typeof window !== "undefined" ? `${window.location.origin}/auth` : undefined,
-              });
-              if (error) throw error;
-              setMsg({ type: "ok", text: "Email de recuperação enviado (verifica o spam)." });
-            } catch (e) {
-              setMsg({ type: "error", text: e.message || "Falha ao enviar e-mail." });
-            }
-          }}
-        >
-          Recuperar
-        </button>
+          {/* Recuperar Password (Login) */}
+          {mode === "login" && (
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!email) { setMsg({ type: "error", text: "Escreve o teu email primeiro." }); return; }
+                  try {
+                    await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + "/auth" });
+                    setMsg({ type: "ok", text: "Email de recuperação enviado!" });
+                  } catch (e) { setMsg({ type: "error", text: "Erro ao enviar email." }); }
+                }}
+                className="text-xs text-gray-400 hover:text-white transition hover:underline"
+              >
+                Esqueceste-te da password?
+              </button>
+            </div>
+          )}
+
+          {/* Captcha */}
+          <div className="flex justify-center my-2">
+            {!SITEKEY ? (
+              <p className="text-red-400 text-xs">⚠️ Configura o hCaptcha no .env</p>
+            ) : (
+              <HCaptcha
+                ref={captchaRef}
+                sitekey={SITEKEY}
+                theme="dark"
+                onVerify={setCaptchaToken}
+                onExpire={() => setCaptchaToken("")}
+              />
+            )}
+          </div>
+
+          <button
+            type="submit"
+            disabled={submitting || !captchaToken}
+            className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl transition transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-red-900/30"
+          >
+            {submitting ? "A processar..." : mode === "login" ? "Entrar na Ação" : "Criar Conta Grátis"}
+          </button>
+        </form>
       </div>
     </div>
   );
-}
+} 
