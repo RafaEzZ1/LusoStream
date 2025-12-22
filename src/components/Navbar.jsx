@@ -1,3 +1,4 @@
+// src/components/Navbar.jsx
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -5,8 +6,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase, hardLogout } from "@/lib/supabaseClient";
 import { useAuthRole } from "@/hooks/useAuthRole";
-// Importar o novo componente de notificações
 import NotificationBell from "@/components/NotificationBell";
+// 👇 IMPORTAR O LOGO NOVO
+import Logo from "@/components/Logo";
 
 const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
 const NAV_HEIGHT = 56; 
@@ -14,10 +16,9 @@ const NAV_HEIGHT = 56;
 export default function Navbar() {
   const { user, role, loading: authLoading } = useAuthRole();
   const isAdmin = role === "admin" || role === "mod";
-  
   const [pendingCount, setPendingCount] = useState(0);
 
-  // Verifica notificações Admin (Reports + Sugestões) para mostrar no botão Admin
+  // Notificações Admin
   useEffect(() => {
     async function checkPending() {
       if (!isAdmin) return;
@@ -39,7 +40,7 @@ export default function Navbar() {
   const router = useRouter();
   const dropdownRef = useRef(null);
 
-  // Lógica de pesquisa com delay (debounce)
+  // Pesquisa
   useEffect(() => {
     const t = setTimeout(() => { if (searchTerm.trim()) fetchResults(searchTerm); else setResults([]); }, 350);
     return () => clearTimeout(t);
@@ -68,7 +69,6 @@ export default function Navbar() {
     setMobileOpen(false);
   }
 
-  // Fechar dropdown ao clicar fora
   useEffect(() => {
     function out(e) { if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setShowDropdown(false); }
     document.addEventListener("mousedown", out); return () => document.removeEventListener("mousedown", out);
@@ -80,82 +80,117 @@ export default function Navbar() {
 
   return (
     <>
-      <nav className="fixed top-0 left-0 w-full bg-black/80 backdrop-blur-md z-50 px-4 sm:px-6 h-14 flex items-center justify-between border-b border-gray-800">
-        <div className="flex items-center gap-4 sm:gap-6">
-          <Link href="/" className="text-2xl font-bold text-red-600 tracking-tighter hover:text-red-500 transition">LusoStream</Link>
-          <div className="hidden md:flex items-center gap-4">
-            <Link href="/movies" className="hover:text-red-500 transition font-medium">Filmes</Link>
-            <Link href="/series" className="hover:text-red-500 transition font-medium">Séries</Link>
-            <Link href="/animes" className="hover:text-red-500 transition font-medium">Animes</Link>
-            <Link href="/suggestions" className="hover:text-red-500 transition font-medium">Pedidos</Link>
+      <nav className="fixed top-0 left-0 w-full bg-black/90 backdrop-blur-md z-50 px-4 sm:px-6 h-16 flex items-center justify-between border-b border-gray-800 shadow-lg shadow-black/50">
+        
+        {/* ESQUERDA: LOGO + LINKS */}
+        <div className="flex items-center gap-6 md:gap-8">
+          {/* 👇 LOGO AQUI */}
+          <Logo />
+          
+          <div className="hidden md:flex items-center gap-5 text-sm font-medium text-gray-300">
+            <Link href="/movies" className="hover:text-white transition">Filmes</Link>
+            <Link href="/series" className="hover:text-white transition">Séries</Link>
+            <Link href="/animes" className="hover:text-white transition">Animes</Link>
+            <Link href="/suggestions" className="hover:text-white transition">Pedidos</Link>
             {isAdmin && (
-              <Link href="/admin" className="relative px-3 py-1 rounded text-sm font-bold text-yellow-100 bg-yellow-900/20 border border-yellow-700/50 hover:bg-yellow-900/40 flex items-center gap-2 transition">
-                Admin
-                {pendingCount > 0 && <span className="bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-sm border border-black animate-pulse">{pendingCount}</span>}
+              <Link href="/admin" className="relative px-3 py-1 rounded-full text-xs font-bold text-yellow-100 bg-yellow-900/30 border border-yellow-600/30 hover:bg-yellow-900/50 flex items-center gap-2 transition">
+                ADMIN
+                {pendingCount > 0 && <span className="bg-red-600 text-white text-[10px] px-1.5 py-0.5 rounded-full animate-pulse">{pendingCount}</span>}
               </Link>
             )}
           </div>
         </div>
 
-        <div className="hidden md:flex items-center gap-4">
+        {/* DIREITA: PESQUISA + USER */}
+        <div className="hidden md:flex items-center gap-5">
           {/* Barra de Pesquisa */}
           <div className="relative" ref={dropdownRef}>
-            <form onSubmit={handleSearchSubmit} className="flex">
-              <input className="w-40 sm:w-56 md:w-72 p-2 rounded-l bg-gray-800 placeholder-gray-400 outline-none text-sm text-white focus:ring-2 focus:ring-red-600 transition-all" placeholder="Pesquisar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} onFocus={() => setShowDropdown(true)} />
-              <button type="submit" className="bg-red-600 px-3 rounded-r hover:bg-red-700 transition">🔍</button>
+            <form onSubmit={handleSearchSubmit} className="relative group">
+              <input 
+                className="w-40 sm:w-64 py-2 pl-4 pr-10 rounded-full bg-gray-900 border border-gray-700 placeholder-gray-500 outline-none text-sm text-white focus:ring-2 focus:ring-red-600 focus:border-transparent transition-all group-hover:bg-gray-800" 
+                placeholder="Pesquisar..." 
+                value={searchTerm} 
+                onChange={(e) => setSearchTerm(e.target.value)} 
+                onFocus={() => setShowDropdown(true)} 
+              />
+              <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition p-1">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+              </button>
             </form>
+            
             {showDropdown && results.length > 0 && (
-              <div className="absolute right-0 mt-2 w-[320px] max-h-72 overflow-auto bg-gray-900 rounded shadow-lg z-50 border border-gray-700">
+              <div className="absolute right-0 mt-3 w-80 max-h-96 overflow-auto bg-gray-900 rounded-xl shadow-2xl z-50 border border-gray-700 ring-1 ring-black/50">
                 {results.slice(0, 8).map((item) => (
-                  <div key={item.id + item.type} onClick={() => { router.push(item.type === "movie" ? `/movies/${item.id}` : `/series/${item.id}`); setShowDropdown(false); }} className="flex items-center gap-3 px-3 py-2 hover:bg-gray-800 cursor-pointer border-b border-gray-800/50 last:border-0 transition">
-                    <img src={item.poster_path ? `https://image.tmdb.org/t/p/w92${item.poster_path}` : "/no-image.jpg"} alt={item.title || item.name} className="w-10 h-14 object-cover rounded" />
-                    <div className="text-sm"><div className="font-semibold text-gray-100">{item.title || item.name}</div><div className="text-xs text-gray-400 capitalize">{item.type === "movie" ? "Filme" : "Série"}</div></div>
+                  <div key={item.id + item.type} onClick={() => { router.push(item.type === "movie" ? `/movies/${item.id}` : `/series/${item.id}`); setShowDropdown(false); }} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-800 cursor-pointer border-b border-gray-800 last:border-0 transition">
+                    <img src={item.poster_path ? `https://image.tmdb.org/t/p/w92${item.poster_path}` : "/no-image.jpg"} alt={item.title} className="w-10 h-14 object-cover rounded bg-black" />
+                    <div className="text-sm overflow-hidden">
+                      <div className="font-semibold text-gray-100 truncate">{item.title || item.name}</div>
+                      <div className="text-xs text-gray-500 capitalize">{item.type === "movie" ? "Filme" : "Série"}</div>
+                    </div>
                   </div>
                 ))}
-                <div className="p-2 sticky bottom-0 bg-gray-900 border-t border-gray-700">
-                  <button onClick={() => handleSearchSubmit()} className="w-full bg-red-600 py-2 rounded text-sm hover:bg-red-700 font-semibold text-white transition">Ver todos os resultados</button>
+                <div className="p-2 bg-gray-900 border-t border-gray-700 sticky bottom-0">
+                  <button onClick={() => handleSearchSubmit()} className="w-full bg-red-600 hover:bg-red-700 py-2 rounded-lg text-sm font-bold text-white transition shadow-lg shadow-red-900/20">Ver todos</button>
                 </div>
               </div>
             )}
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4 border-l border-gray-800 pl-4">
             {authLoading ? (
-              <div className="w-6 h-6 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
+              <div className="w-8 h-8 rounded-full bg-gray-800 animate-pulse"></div>
             ) : user ? (
               <>
-                {/* Sininho de Notificações */}
                 <NotificationBell user={user} />
-                
-                <Link href="/account" className="text-sm text-gray-300 hover:text-white underline-offset-2 hover:underline max-w-[160px] truncate" title={displayName}>{displayName}</Link>
-                <button onClick={handleLogout} className="bg-zinc-800 border border-zinc-700 px-3 py-1 rounded hover:bg-zinc-700 text-sm transition">Sair</button>
+                <Link href="/account" className="flex items-center gap-2 group">
+                   <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-red-600 to-orange-600 flex items-center justify-center text-xs font-bold text-white shadow ring-2 ring-transparent group-hover:ring-red-500 transition">
+                      {displayName.charAt(0).toUpperCase()}
+                   </div>
+                </Link>
+                <button onClick={handleLogout} className="text-xs text-gray-400 hover:text-white transition font-medium">SAIR</button>
               </>
             ) : (
-              <Link href="/auth" className="bg-red-600 px-4 py-1.5 rounded hover:bg-red-700 text-sm font-semibold transition shadow-lg shadow-red-900/20">Entrar</Link>
+              <Link href="/auth" className="bg-white text-black px-5 py-2 rounded-full text-sm font-bold hover:bg-gray-200 transition shadow-lg shadow-white/10">
+                Entrar
+              </Link>
             )}
           </div>
         </div>
 
-        {/* Botão Menu Mobile */}
-        <button type="button" className="md:hidden w-10 h-10 flex items-center justify-center rounded bg-gray-900/70 border border-gray-700 hover:bg-gray-800 transition" onClick={() => setMobileOpen((s) => !s)}>{mobileOpen ? "✕" : "☰"}</button>
+        {/* MOBILE TOGGLE */}
+        <button type="button" className="md:hidden p-2 text-gray-300" onClick={() => setMobileOpen((s) => !s)}>
+           {mobileOpen ? (
+             <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+           ) : (
+             <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" /></svg>
+           )}
+        </button>
       </nav>
 
-      {/* Menu Mobile Expandido */}
+      {/* MENU MOBILE */}
       {mobileOpen && (
-        <div className="md:hidden fixed left-0 right-0 bottom-0 bg-black/95 backdrop-blur-xl transition-all duration-300 ease-in-out" style={{ top: NAV_HEIGHT, zIndex: 9999 }}>
-          <form onSubmit={handleSearchSubmit} className="flex px-4 pt-4 gap-2">
-            <input className="flex-1 p-3 rounded bg-gray-800 placeholder-gray-400 outline-none text-sm text-white border border-gray-700 focus:border-red-600" placeholder="Pesquisar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-            <button type="submit" className="bg-red-600 px-4 rounded hover:bg-red-700 text-sm font-bold">🔍</button>
+        <div className="md:hidden fixed inset-0 z-40 bg-black/95 backdrop-blur-xl pt-20 px-6 animate-in fade-in slide-in-from-top-5">
+          <form onSubmit={handleSearchSubmit} className="mb-8">
+            <input className="w-full p-4 rounded-xl bg-gray-800 border border-gray-700 text-white outline-none focus:border-red-600 transition" placeholder="Pesquisar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
           </form>
-          <div className="flex flex-col mt-6 space-y-1">
-            <button onClick={() => goMobile("/movies")} className="text-left py-3 px-6 border-b border-gray-800 text-lg hover:bg-gray-900/50">Filmes</button>
-            <button onClick={() => goMobile("/series")} className="text-left py-3 px-6 border-b border-gray-800 text-lg hover:bg-gray-900/50">Séries</button>
-            <button onClick={() => goMobile("/animes")} className="text-left py-3 px-6 border-b border-gray-800 text-lg hover:bg-gray-900/50">Animes</button>
-            <button onClick={() => goMobile("/suggestions")} className="text-left py-3 px-6 border-b border-gray-800 text-lg hover:bg-gray-900/50">Pedidos</button>
-            {isAdmin && <button onClick={() => goMobile("/admin")} className="text-left py-3 px-6 border-b border-gray-800 text-yellow-300 font-bold flex justify-between items-center hover:bg-gray-900/50">Painel Admin {pendingCount > 0 && <span className="bg-red-600 text-white text-xs px-2 py-0.5 rounded-full">{pendingCount} novos</span>}</button>}
+          
+          <div className="space-y-4 text-lg font-medium text-gray-300">
+            <button onClick={() => goMobile("/movies")} className="block w-full text-left py-2 border-b border-gray-800">Filmes</button>
+            <button onClick={() => goMobile("/series")} className="block w-full text-left py-2 border-b border-gray-800">Séries</button>
+            <button onClick={() => goMobile("/animes")} className="block w-full text-left py-2 border-b border-gray-800">Animes</button>
+            <button onClick={() => goMobile("/suggestions")} className="block w-full text-left py-2 border-b border-gray-800">Pedidos</button>
+            {isAdmin && <button onClick={() => goMobile("/admin")} className="block w-full text-left py-2 border-b border-gray-800 text-yellow-400">Painel Admin</button>}
           </div>
-          <div className="absolute bottom-10 left-4 right-4">
-            {authLoading ? <p className="text-center text-gray-500">A carregar...</p> : user ? <div className="flex gap-3"><button onClick={() => goMobile("/account")} className="flex-1 bg-gray-800 py-3 rounded text-center font-semibold border border-gray-700">Minha Conta</button><button onClick={handleLogout} className="flex-1 bg-red-600 py-3 rounded text-center font-semibold text-white">Sair</button></div> : <button onClick={() => goMobile("/auth")} className="w-full bg-red-600 py-3 rounded text-center font-bold text-white shadow-lg shadow-red-900/30">Entrar / Criar Conta</button>}
+
+          <div className="mt-8 pt-8 border-t border-gray-800">
+            {user ? (
+              <div className="flex flex-col gap-3">
+                 <button onClick={() => goMobile("/account")} className="bg-gray-800 py-3 rounded-xl font-bold">Minha Conta</button>
+                 <button onClick={handleLogout} className="bg-red-600 py-3 rounded-xl font-bold text-white shadow-lg shadow-red-900/20">Terminar Sessão</button>
+              </div>
+            ) : (
+              <button onClick={() => goMobile("/auth")} className="w-full bg-white text-black py-4 rounded-xl font-bold shadow-lg shadow-white/10">Entrar / Criar Conta</button>
+            )}
           </div>
         </div>
       )}
