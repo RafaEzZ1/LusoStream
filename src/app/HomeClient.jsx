@@ -13,52 +13,90 @@ const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
 export default function HomeClient() {
   const [continueList, setContinueList] = useState([]);
   const [myList, setMyList] = useState([]); 
-  const [debugMsg, setDebugMsg] = useState(null); // Para vermos o que se passa
+  
+  // Variáveis de Diagnóstico (Para vermos o erro no ecrã)
+  const [status, setStatus] = useState("A carregar...");
+  const [userId, setUserId] = useState(null);
+  const [dbCount, setDbCount] = useState(0);
 
   useEffect(() => {
-    async function load() {
-      const { data: { session } } = await supabase.auth.getSession();
+    // 1. OUVIR O LOGIN EM TEMPO REAL (Para não falhar o timing)
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       
-      if (session) {
-        // 1. Continuar a ver
-        const progressItems = await listContinueWatching(10);
-        if (progressItems) setContinueList(progressItems);
-
-        // 2. Minha Lista
-        const { data: listRows, error } = await supabase
-          .from("watchlists")
-          .select("*")
-          .eq("user_id", session.user.id)
-          .order("created_at", { ascending: false });
-
-        if (error) {
-          console.error(error);
-          return;
-        }
-
-        if (listRows && listRows.length > 0) {
-          const enrichedList = await Promise.all(listRows.map(async (row) => {
-             try {
-               // Mapeia "movie" -> movie, tudo o resto -> tv
-               const type = row.item_type === 'movie' ? 'movie' : 'tv';
-               const res = await fetch(`https://api.themoviedb.org/3/${type}/${row.item_id}?api_key=${API_KEY}&language=pt-BR`);
-               if (!res.ok) return null;
-               const tmdb = await res.json();
-               return { ...tmdb, item_type: type }; 
-             } catch(e) { return null; }
-          }));
-          
-          setMyList(enrichedList.filter(i => i !== null));
-        } else {
-          setDebugMsg("A tua lista está vazia na Base de Dados.");
-        }
+      if (!session?.user) {
+        setStatus("Utilizador NÃO detetado (Faz Login!)");
+        return;
       }
-    }
-    load();
+
+      setUserId(session.user.id);
+      setStatus("Utilizador detetado. A buscar lista...");
+
+      // 2. Carregar Continuar a Ver
+      const progressItems = await listContinueWatching(10);
+      if (progressItems) setContinueList(progressItems);
+
+      // 3. Carregar Minha Lista (DEBUG ATIVO)
+      // Vamos buscar TUDO o que está na tabela watchlists para este user
+      const { data: listRows, error } = await supabase
+        .from("watchlists")
+        .select("*")
+        .eq("user_id", session.user.id);
+
+      if (error) {
+        setStatus(`ERRO SQL: ${error.message}`);
+        return;
+      }
+
+      setDbCount(listRows?.length || 0);
+
+      if (listRows && listRows.length > 0) {
+        setStatus(`Encontrei ${listRows.length} filmes na BD. A buscar imagens...`);
+        
+        const enrichedList = await Promise.all(listRows.map(async (row) => {
+            try {
+              // Converte o tipo para o que o TMDB entende
+              // Se na BD estiver 'series' ou 'tv', usa 'tv'. Se for 'movie', usa 'movie'.
+              const apiType = (row.item_type === 'movie') ? 'movie' : 'tv';
+              
+              const res = await fetch(`https://api.themoviedb.org/3/${apiType}/${row.item_id}?api_key=${API_KEY}&language=pt-BR`);
+              const tmdb = await res.json();
+              
+              // Se a API der erro ou não encontrar
+              if (!tmdb.id) return null;
+
+              return { ...tmdb, item_type: apiType }; 
+            } catch(e) { 
+              console.error(e);
+              return null; 
+            }
+        }));
+
+        const final = enrichedList.filter(i => i !== null);
+        setMyList(final);
+        setStatus(`Sucesso! A mostrar ${final.length} itens.`);
+      } else {
+        setStatus("A lista na Base de Dados está vazia (0 linhas).");
+      }
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
   }, []);
 
   return (
     <main className="pb-24 overflow-x-hidden bg-black">
+      
+      {/* --- CAIXA DE DEBUG (APAGA ISTO DEPOIS DE FUNCIONAR) --- */}
+      <div className="bg-gray-800 border-2 border-red-500 p-4 m-4 rounded text-white text-xs font-mono relative z-50">
+        <p className="font-bold text-red-400 mb-1">🔧 MODO DIAGNÓSTICO:</p>
+        <p>Estado: {status}</p>
+        <p>User ID: {userId || "Nenhum"}</p>
+        <p>Itens na BD: {dbCount}</p>
+        <p>Itens no Ecrã: {myList.length}</p>
+      </div>
+      {/* ------------------------------------------------------- */}
+
       <HeroSection />
 
       <div className="relative z-20 -mt-10 space-y-2">
@@ -71,22 +109,14 @@ export default function HomeClient() {
         )}
 
         {/* Minha Lista */}
-        {myList.length > 0 ? (
+        {myList.length > 0 && (
           <MediaRow title="📂 A Minha Lista" itemsProp={myList} />
-        ) : (
-          /* Só aparece se estivermos a testar e não houver lista */
-          debugMsg && (
-            <div className="px-6 text-gray-500 text-xs mb-4">
-              Info: {debugMsg} (Adiciona um filme para aparecer aqui o carrossel)
-            </div>
-          )
         )}
 
         {/* Resto */}
         <MediaRow title="🔥 Filmes em Alta" endpoint="trending/movie/week?" type="movie" />
         <MediaRow title="📺 Séries do Momento" endpoint="trending/tv/week?" type="tv" />
         <MediaRow title="🎬 Ação & Aventura" endpoint="discover/movie?with_genres=28,12&sort_by=popularity.desc" type="movie" />
-        <MediaRow title="👻 Terror & Suspense" endpoint="discover/movie?with_genres=27,53&sort_by=popularity.desc" type="movie" />
         <MediaRow title="😂 Comédia" endpoint="discover/movie?with_genres=35&sort_by=popularity.desc" type="movie" />
         <MediaRow title="🐉 Animação & Anime" endpoint="discover/tv?with_genres=16&sort_by=popularity.desc" type="tv" />
       </div>
