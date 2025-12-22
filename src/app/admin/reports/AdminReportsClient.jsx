@@ -17,7 +17,7 @@ export default function AdminReportsClient() {
 
   async function fetchReports() {
     setLoading(true);
-    // 1. Buscar reports ordenados pelos mais recentes
+    // Buscar reports ordenados
     const { data, error } = await supabase
       .from("reports")
       .select("*")
@@ -29,7 +29,7 @@ export default function AdminReportsClient() {
       return;
     }
 
-    // 2. Ir ao TMDB buscar o nome dos filmes/séries para não aparecer só IDs
+    // Enriquecer com nomes do TMDB
     const enriched = await Promise.all(
       data.map(async (rep) => {
         let title = `ID: ${rep.item_id}`;
@@ -60,15 +60,21 @@ export default function AdminReportsClient() {
 
   // Marcar como resolvido ou reabrir
   async function updateStatus(id, newStatus) {
+    // 👇 AQUI ESTÁ A CORREÇÃO: Atualizamos o 'updated_at' para AGORA
     const { error } = await supabase
       .from("reports")
-      .update({ status: newStatus })
+      .update({ 
+        status: newStatus,
+        updated_at: new Date().toISOString() 
+      })
       .eq("id", id);
 
     if (!error) {
       setReports((prev) =>
         prev.map((r) => (r.id === id ? { ...r, status: newStatus } : r))
       );
+    } else {
+      alert("Erro ao atualizar: " + error.message);
     }
   }
 
@@ -81,7 +87,6 @@ export default function AdminReportsClient() {
     }
   }
 
-  // Gerar link para ir ver o problema
   function getLink(rep) {
     if (rep.item_type === "movie") {
       return `/watch/movie/${rep.item_id}`;
@@ -92,7 +97,6 @@ export default function AdminReportsClient() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto text-white">
-      {/* Cabeçalho */}
       <div className="flex items-center gap-4 mb-8">
         <Link href="/admin" className="bg-gray-800 hover:bg-gray-700 p-2 rounded transition">
           ← Voltar
@@ -108,7 +112,7 @@ export default function AdminReportsClient() {
         <div className="bg-gray-900/50 p-12 rounded-xl text-center border border-gray-800">
           <p className="text-4xl mb-4">🎉</p>
           <p className="text-xl font-semibold text-gray-200">Tudo limpo!</p>
-          <p className="text-gray-400">Nenhum erro reportado por enquanto.</p>
+          <p className="text-gray-400">Nenhum erro reportado.</p>
         </div>
       ) : (
         <div className="grid gap-4">
@@ -122,8 +126,6 @@ export default function AdminReportsClient() {
               }`}
             >
               <div className="flex flex-col md:flex-row justify-between gap-6">
-                
-                {/* Informação do Erro */}
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
                     <span
@@ -163,7 +165,6 @@ export default function AdminReportsClient() {
                   </div>
                 </div>
 
-                {/* Botões de Ação */}
                 <div className="flex flex-col items-end gap-2 min-w-[160px]">
                   <a
                     href={getLink(rep)}
