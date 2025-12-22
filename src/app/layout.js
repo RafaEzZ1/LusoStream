@@ -1,23 +1,23 @@
 // src/app/layout.js
+import { Inter } from "next/font/google";
 import "./globals.css";
+// 👇 Importar Footer
+import Footer from "@/components/Footer"; 
+
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
   title: "LusoStream",
-  description: "Streamy — filmes e séries",
-};
-
-export const viewport = {
-  width: "device-width",
-  initialScale: 1,
-  viewportFit: "cover", // respeita notch (iPhone)
-  themeColor: "#000000",
+  description: "A tua plataforma de filmes e séries",
 };
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="pt-BR">
-      <body className="bg-black text-white min-h-screen">
-        <div className="safe-px safe-pt">{children}</div>
+    <html lang="pt">
+      <body className={inter.className}>
+        {children}
+        {/* 👇 Adicionar Footer aqui no fim */}
+        <Footer />
       </body>
     </html>
   );
