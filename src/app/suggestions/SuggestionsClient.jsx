@@ -1,237 +1,101 @@
 // src/app/suggestions/SuggestionsClient.jsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { useAuth } from "@/lib/useAuth";
-
-// 👇 CATEGORIAS ATUALIZADAS
-const CATEGORIES = [
-  { value: "pedidos", label: "Pedir Filme ou Série (Novo)" },
-  { value: "bug_site", label: "Bug no Site / Conta" },
-  { value: "melhoria", label: "Sugestão de melhoria" },
-  { value: "parceria", label: "Parcerias / Outro" },
-];
+import Link from "next/link";
+// 👇 Importar Modal
+import { useAuthModal } from "@/context/AuthModalContext";
 
 export default function SuggestionsClient() {
-  const { user, authLoading } = useAuth();
   const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
-  const [category, setCategory] = useState("pedidos");
-  const [sending, setSending] = useState(false);
-  const [msg, setMsg] = useState(null);
+  const [loading, setLoading] = useState(false);
   const [mySuggestions, setMySuggestions] = useState([]);
-  const [loadingList, setLoadingList] = useState(true);
+  
+  // 👇 Usar o Hook
+  const { openModal } = useAuthModal();
 
-  // buscar as minhas
   useEffect(() => {
-    if (!user) {
-      setMySuggestions([]);
-      setLoadingList(false);
-      return;
-    }
-    (async () => {
-      setLoadingList(true);
-      const { data, error } = await supabase
-        .from("suggestions")
-        .select(
-          "id, title, body, category, status, admin_reply, created_at, replied_at"
-        )
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
+    fetchMySuggestions();
+  }, []);
 
-      if (!error) setMySuggestions(data || []);
-      setLoadingList(false);
-    })();
-  }, [user]);
+  async function fetchMySuggestions() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    const { data } = await supabase.from("suggestions").select("*").eq("user_id", session.user.id).order("created_at", { ascending: false });
+    if (data) setMySuggestions(data);
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
-    setMsg(null);
+    if (!title.trim()) return;
 
-    if (!user) {
-      setMsg({ type: "error", text: "Tens de entrar primeiro." });
+    setLoading(true);
+    const { data: { session } } = await supabase.auth.getSession();
+
+    // 👇 SE NÃO TIVER LOGIN, ABRE O POP-UP
+    if (!session) {
+      setLoading(false);
+      openModal();
       return;
     }
-    if (!title.trim() || !body.trim()) {
-      setMsg({ type: "error", text: "Preenche título e descrição." });
-      return;
-    }
-
-    setSending(true);
 
     const { data, error } = await supabase
       .from("suggestions")
-      .insert({
-        user_id: user.id,
-        email: user.email ?? user.user_metadata?.email ?? null,
-        title: title.trim(),
-        body: body.trim(),
-        category,
-        status: "pending",
-      })
+      .insert({ title, user_id: session.user.id })
       .select()
-      .maybeSingle();
+      .single();
 
-    setSending(false);
-
-    if (error) {
-      console.error("erro a inserir sugestão:", error);
-      setMsg({
-        type: "error",
-        text: `Não foi possível enviar a sugestão: ${error.message}`,
-      });
-      return;
+    if (!error && data) {
+      setMySuggestions([data, ...mySuggestions]);
+      setTitle("");
+      // Opcional: Enviar notificação para o Discord/Admin aqui
+      try { await fetch("/api/notify-suggestion", { method: "POST", body: JSON.stringify({ title }) }); } catch {}
+    } else {
+      alert("Erro ao enviar. Tenta mais tarde.");
     }
-
-    setMsg({ type: "ok", text: "Sugestão enviada ✅" });
-    setTitle("");
-    setBody("");
-    // mete no topo
-    setMySuggestions((prev) => [data, ...prev]);
-  }
-
-  if (authLoading) {
-    return <p className="text-gray-400">A carregar utilizador…</p>;
-  }
-
-  if (!user) {
-    return (
-      <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-5 text-center">
-        <p className="mb-3">Precisas de estar logado para mandar pedidos.</p>
-        <a
-          href="/auth"
-          className="inline-block bg-red-600 hover:bg-red-700 px-4 py-2 rounded font-semibold"
-        >
-          Entrar / Criar conta
-        </a>
-      </div>
-    );
+    setLoading(false);
   }
 
   return (
-    <div className="space-y-10">
-      <div>
-        <h1 className="text-2xl md:text-3xl font-bold mb-2">
-          Pedidos &amp; Sugestões
-        </h1>
-        <p className="text-gray-400 text-sm mb-1">
-          Podes pedir filmes/séries que não estão aqui, ou dar ideias para o site.
-        </p>
-        {/* 👇 NOTA INFORMATIVA */}
-        <p className="text-xs text-red-400">
-          Nota: Se um filme não estiver a funcionar, usa o botão &quot;Reportar erro&quot; que está na página do próprio filme!
-        </p>
-      </div>
-
-      <form
-        onSubmit={handleSubmit}
-        className="bg-gray-900/40 border border-gray-800 rounded-xl p-4 space-y-4"
-      >
-        {msg && (
-          <div
-            className={`rounded px-3 py-2 text-sm ${
-              msg.type === "ok"
-                ? "bg-green-900/30 border border-green-700 text-green-200"
-                : "bg-red-900/30 border border-red-700 text-red-200"
-            }`}
-          >
-            {msg.text}
-          </div>
-        )}
-
-        <div className="flex flex-col gap-1">
-          <label className="text-sm text-gray-200">Título</label>
+    <div className="max-w-2xl mx-auto">
+      <div className="bg-gray-900/50 p-6 rounded-2xl border border-gray-800 mb-10">
+        <h2 className="text-xl font-bold mb-4">Qual é o filme/série que falta?</h2>
+        <form onSubmit={handleSubmit} className="flex gap-3">
           <input
+            className="flex-1 bg-black border border-gray-700 rounded-xl px-4 py-3 outline-none focus:border-red-600 transition"
+            placeholder="Ex: Oppenheimer, One Piece..."
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="bg-gray-950 border border-gray-700 rounded px-3 py-2 outline-none focus:ring-2 focus:ring-red-600"
-            placeholder="Ex: Adicionar 'Breaking Bad'"
           />
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <label className="text-sm text-gray-200">Tipo</label>
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            className="bg-gray-950 border border-gray-700 rounded px-3 py-2 outline-none focus:ring-2 focus:ring-red-600"
+          <button 
+            type="submit" 
+            disabled={loading}
+            className="bg-red-600 hover:bg-red-700 text-white font-bold px-6 py-3 rounded-xl transition disabled:opacity-50"
           >
-            {CATEGORIES.map((c) => (
-              <option key={c.value} value={c.value}>
-                {c.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <label className="text-sm text-gray-200">Descrição</label>
-          <textarea
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            rows={4}
-            className="bg-gray-950 border border-gray-700 rounded px-3 py-2 outline-none focus:ring-2 focus:ring-red-600 resize-y"
-            placeholder="Diz o nome completo, ano, temporada, episódio…"
-          />
-        </div>
-
-        <button
-          type="submit"
-          disabled={sending}
-          className="bg-red-600 hover:bg-red-700 disabled:opacity-60 px-4 py-2 rounded font-semibold transition-colors"
-        >
-          {sending ? "A enviar…" : "Enviar sugestão"}
-        </button>
-      </form>
-
-      <div>
-        <h2 className="text-xl font-semibold mb-3">As minhas sugestões</h2>
-        {loadingList ? (
-          <p className="text-gray-400 text-sm">A carregar…</p>
-        ) : mySuggestions.length === 0 ? (
-          <p className="text-gray-500 text-sm">Ainda não enviaste nada.</p>
-        ) : (
-          <div className="space-y-3">
-            {mySuggestions.map((sug) => (
-              <div
-                key={sug.id}
-                className="bg-gray-900/30 border border-gray-800 rounded-lg p-3"
-              >
-                <div className="flex items-center justify-between gap-4">
-                  <h3 className="font-semibold">{sug.title}</h3>
-                  <span
-                    className={`text-xs px-2 py-1 rounded ${
-                      sug.status === "answered"
-                        ? "bg-green-900/40 text-green-100"
-                        : "bg-yellow-900/40 text-yellow-100"
-                    }`}
-                  >
-                    {sug.status === "answered" ? "Respondido" : "Pendente"}
-                  </span>
-                </div>
-                <p className="text-sm text-gray-200 mt-2 whitespace-pre-line">
-                  {sug.body}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  {new Date(sug.created_at).toLocaleString()}
-                  {sug.category ? ` • ${sug.category}` : ""}
-                </p>
-                {sug.admin_reply ? (
-                  <div className="mt-3 bg-black/30 rounded p-2 border border-green-900/30">
-                    <p className="text-xs text-gray-400 uppercase mb-1">
-                      Resposta do admin
-                    </p>
-                    <p className="text-sm text-green-100 whitespace-pre-line">
-                      {sug.admin_reply}
-                    </p>
-                  </div>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        )}
+            {loading ? "..." : "Pedir"}
+          </button>
+        </form>
       </div>
+
+      <h3 className="text-lg font-bold mb-4 border-l-4 border-gray-700 pl-3">Os teus pedidos</h3>
+      {mySuggestions.length === 0 ? (
+        <p className="text-gray-500 italic">Ainda não fizeste nenhum pedido.</p>
+      ) : (
+        <div className="space-y-3">
+          {mySuggestions.map((s) => (
+            <div key={s.id} className="bg-gray-900 p-4 rounded-lg flex justify-between items-center border border-gray-800">
+              <span className="font-medium text-gray-200">{s.title}</span>
+              <span className={`text-xs px-2 py-1 rounded font-bold uppercase ${
+                s.status === 'pending' ? 'bg-yellow-900/30 text-yellow-500' :
+                s.status === 'added' ? 'bg-green-900/30 text-green-500' : 'bg-gray-800 text-gray-500'
+              }`}>
+                {s.status === 'pending' ? 'Pendente' : s.status === 'added' ? 'Adicionado' : s.status}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
