@@ -36,17 +36,22 @@ export default function Footer() {
             <ul className="space-y-2 text-sm">
               <li><Link href="/suggestions" className="hover:text-white transition">Pedir Filmes</Link></li>
               <li><Link href="/auth" className="hover:text-white transition">Criar Conta</Link></li>
-              <li><a href="#" className="hover:text-white transition">Discord (Brevemente)</a></li>
+              <li><span className="text-gray-600 cursor-not-allowed">Discord (Brevemente)</span></li>
             </ul>
           </div>
 
-          {/* Coluna 4: Legal */}
+          {/* Coluna 4: Legal (ATUALIZADO) */}
           <div>
             <h4 className="text-white font-bold mb-4 uppercase text-xs tracking-wider">Legal</h4>
             <ul className="space-y-2 text-sm">
-              <li><a href="#" className="hover:text-white transition">Termos de Uso</a></li>
-              <li><a href="#" className="hover:text-white transition">Política de Privacidade</a></li>
-              <li><a href="#" className="hover:text-white transition">DMCA</a></li>
+              {/* Todos apontam para a mesma página, mas com secções diferentes */}
+              <li><Link href="/terms" className="hover:text-white transition">Termos de Uso</Link></li>
+              <li><Link href="/terms" className="hover:text-white transition">Privacidade</Link></li>
+              <li>
+                <Link href="/terms#dmca" className="hover:text-red-400 transition text-red-600 font-bold">
+                  DMCA
+                </Link>
+              </li>
             </ul>
           </div>
         </div>
