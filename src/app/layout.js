@@ -1,8 +1,9 @@
 // src/app/layout.js
 import { Inter } from "next/font/google";
 import "./globals.css";
-// 👇 Importar Footer
-import Footer from "@/components/Footer"; 
+import Footer from "@/components/Footer";
+// 👇 1. Importar o Provider
+import { AuthModalProvider } from "@/context/AuthModalContext";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -15,9 +16,11 @@ export default function RootLayout({ children }) {
   return (
     <html lang="pt">
       <body className={inter.className}>
-        {children}
-        {/* 👇 Adicionar Footer aqui no fim */}
-        <Footer />
+        {/* 👇 2. Envolver tudo aqui dentro */}
+        <AuthModalProvider>
+          {children}
+          <Footer />
+        </AuthModalProvider>
       </body>
     </html>
   );

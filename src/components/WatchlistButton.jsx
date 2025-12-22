@@ -1,87 +1,98 @@
+// src/components/WatchlistButton.jsx
 "use client";
-import { useState, useEffect } from "react";
+
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+// 👇 1. Importar o Hook do Modal
+import { useAuthModal } from "@/context/AuthModalContext";
 
 export default function WatchlistButton({ itemId, itemType }) {
   const [isInList, setIsInList] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState(null);
+  
+  // 👇 2. Usar o Hook
+  const { openModal } = useAuthModal();
 
-  // 1. Verificar se já está na lista ao carregar
   useEffect(() => {
-    async function checkStatus() {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-
-      if (user) {
-        const { data } = await supabase
-          .from("watchlist")
-          .select("id")
-          .eq("user_id", user.id)
-          .eq("item_id", itemId)
-          .eq("item_type", itemType)
-          .maybeSingle();
-
-        if (data) setIsInList(true);
-      }
-      setLoading(false);
-    }
     checkStatus();
   }, [itemId, itemType]);
 
-  // 2. Função de Adicionar/Remover
+  async function checkStatus() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      setLoading(false);
+      return;
+    }
+    const { data } = await supabase
+      .from("watchlists")
+      .select("id")
+      .eq("user_id", session.user.id)
+      .eq("item_type", itemType)
+      .eq("item_id", itemId)
+      .maybeSingle();
+    
+    setIsInList(!!data);
+    setLoading(false);
+  }
+
   async function toggleList() {
-    if (!user) {
-      alert("Precisas de ter conta para usar a Minha Lista!");
+    setLoading(true);
+    const { data: { session } } = await supabase.auth.getSession();
+
+    // 👇 3. AQUI ESTÁ A MUDANÇA!
+    // Em vez de alert(...), usamos openModal()
+    if (!session) {
+      setLoading(false);
+      openModal(); 
       return;
     }
 
-    setLoading(true);
+    const userId = session.user.id;
 
     if (isInList) {
       // Remover
-      const { error } = await supabase
-        .from("watchlist")
+      await supabase
+        .from("watchlists")
         .delete()
-        .eq("user_id", user.id)
-        .eq("item_id", itemId)
-        .eq("item_type", itemType);
-      
-      if (!error) setIsInList(false);
+        .eq("user_id", userId)
+        .eq("item_type", itemType)
+        .eq("item_id", itemId);
+      setIsInList(false);
     } else {
       // Adicionar
-      const { error } = await supabase
-        .from("watchlist")
-        .insert({
-          user_id: user.id,
-          item_id: itemId,
-          item_type: itemType
-        });
-      
-      if (!error) setIsInList(true);
+      await supabase
+        .from("watchlists")
+        .insert({ user_id: userId, item_type: itemType, item_id: itemId });
+      setIsInList(true);
     }
     setLoading(false);
   }
 
-  if (loading) return <div className="w-10 h-10 bg-gray-800 rounded animate-pulse" />;
+  // Ícones SVG
+  const IconPlus = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>;
+  const IconCheck = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>;
 
   return (
     <button
       onClick={toggleList}
-      className={`flex items-center gap-2 px-4 py-2 rounded font-semibold transition-colors border ${
-        isInList
-          ? "bg-black border-green-500 text-green-500 hover:bg-green-900/20"
-          : "bg-gray-800 border-gray-700 text-white hover:bg-gray-700"
-      }`}
+      disabled={loading}
+      className={`
+        flex items-center gap-2 px-5 py-2.5 rounded font-bold transition transform hover:scale-105
+        ${isInList 
+          ? "bg-gray-800 text-green-400 border border-green-500/30 hover:bg-gray-700" 
+          : "bg-gray-800 text-white border border-gray-700 hover:bg-gray-700 hover:border-gray-500"}
+      `}
     >
-      {isInList ? (
+      {loading ? (
+        <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+      ) : isInList ? (
         <>
-          <span>✓</span>
+          <IconCheck />
           <span>Na Lista</span>
         </>
       ) : (
         <>
-          <span>+</span>
+          <IconPlus />
           <span>Minha Lista</span>
         </>
       )}
