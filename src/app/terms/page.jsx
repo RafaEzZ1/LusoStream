@@ -12,70 +12,85 @@ export default function TermsPage() {
           Termos e Condições
         </h1>
 
-        <div className="space-y-10 text-base leading-relaxed bg-gray-900/50 p-8 rounded-2xl border border-gray-800">
+        <div className="space-y-12 text-base leading-relaxed bg-gray-900/50 p-8 rounded-2xl border border-gray-800">
           
-          {/* SECÇÃO 1: A DEFESA (ESTILO MRPIRACY) */}
+          {/* SECÇÃO 1: A DEFESA */}
           <section>
-            <h2 className="text-xl font-bold text-white mb-4 uppercase tracking-wide">1. Aviso Legal</h2>
-            <div className="space-y-4 text-gray-400">
+            <h2 className="text-xl font-bold text-white mb-4 uppercase tracking-wide">1. Aviso Legal e Isenção de Responsabilidade</h2>
+            <div className="space-y-4 text-gray-400 text-justify">
               <p>
-                Ao utilizares o <strong>LusoStream</strong> concordas com os seguintes Termos e Condições:
+                Ao aceder e utilizar o <strong>LusoStream</strong>, o utilizador concorda com os seguintes termos. O LusoStream opera estritamente como um motor de busca de índices audiovisuais.
               </p>
               <ul className="list-disc list-inside space-y-2 ml-2">
-                <li>Somos apenas um site que fornece links, funcionando exclusivamente como um <strong>motor de busca</strong>.</li>
-                <li><strong>Não temos nenhum ficheiro</strong> com direitos de autor alojado no nosso website ou nos nossos servidores.</li>
-                <li>Todos os links para filmes e séries são armazenados em sites externos (como MixDrop, UpStream, etc.) e apenas indexados aqui.</li>
-                <li>Não nos responsabilizamos pelo conteúdo alojado por terceiros.</li>
-                <li>Este é um site de partilha de conteúdos e avaliação social, onde os utilizadores podem comentar e classificar obras.</li>
+                <li>O LusoStream <strong>não aloja, carrega ou armazena</strong> qualquer ficheiro de vídeo nos seus servidores.</li>
+                <li>Todo o conteúdo é fornecido por terceiros não afiliados (como MixDrop, UpStream, VidCloud, etc.).</li>
+                <li>O LusoStream não tem controlo sobre o conteúdo alojado nesses sites externos e não assume qualquer responsabilidade pelo mesmo.</li>
+                <li>Funcionamos de forma análoga ao Google, indexando hiperligações públicas já existentes na internet.</li>
               </ul>
-              <p className="font-bold text-white mt-4 border-l-2 border-yellow-500 pl-3">
-                Resumindo: Somos semelhantes ao Google, apenas indexamos o que já está na internet.
-              </p>
             </div>
           </section>
 
-          {/* SECÇÃO 2: PRIVACIDADE E DADOS */}
+          {/* SECÇÃO 2: PRIVACIDADE */}
           <section>
-            <h2 className="text-xl font-bold text-white mb-4 uppercase tracking-wide">2. Condições de Utilização & Privacidade</h2>
-            <div className="space-y-4 text-gray-400">
+            <h2 className="text-xl font-bold text-white mb-4 uppercase tracking-wide">2. Privacidade e Dados</h2>
+            <div className="space-y-4 text-gray-400 text-justify">
               <p>
-                O LusoStream zela pela privacidade do utilizador. Os dados dos utilizados <strong>não serão divulgados</strong> a terceiros.
+                O LusoStream respeita o anonimato dos seus utilizadores. Não partilhamos dados com terceiros.
+                O tráfego nos nossos servidores é gerido para garantir a privacidade. As credenciais de acesso (email/password) são encriptadas e usadas estritamente para autenticação.
               </p>
-              <p>
-                O tráfego enviado/recebido nos nossos servidores é gerido de forma a manter o anonimato.
-                Ao registar-se, tem a possibilidade de escolher o seu nome de utilizador, email e password.
-              </p>
-              <p>
-                <strong>Segurança da Conta:</strong> Ao registar esta conta, para sua proteção, concorda em nunca partilhar a sua palavra-passe com outra pessoa. Concorda também em nunca utilizar a conta de terceiros.
-              </p>
-              <p>
-                <strong>Moderação:</strong> Qualquer informação (comentários ou pedidos) que seja considerada inadequada, ofensiva ou spam, será removida pelos administradores sem aviso prévio.
+              <p className="text-sm border-l-2 border-gray-600 pl-3 italic">
+                Aviso: Nunca partilhe a sua palavra-passe. A administração reserva-se o direito de banir contas que demonstrem comportamento abusivo ou spam.
               </p>
             </div>
           </section>
 
           {/* SECÇÃO 3: COOKIES */}
           <section>
-            <h2 className="text-xl font-bold text-white mb-4 uppercase tracking-wide">3. Cookies</h2>
-            <p className="text-gray-400">
-              É importante referir que este software utiliza um <em>cookie</em> (pequeno ficheiro de texto) na cache do seu navegador. 
-              Este serve <strong>apenas para o manter autenticado (login)</strong> e guardar as suas preferências (como a "Minha Lista"). 
-              O site não recolhe nem envia qualquer outro tipo de informação do seu computador para fins publicitários ou de rastreio externo.
+            <h2 className="text-xl font-bold text-white mb-4 uppercase tracking-wide">3. Política de Cookies</h2>
+            <p className="text-gray-400 text-justify">
+              Utilizamos apenas cookies essenciais para manter a sessão do utilizador ativa ("Login"). Não utilizamos cookies de rastreio publicitário intrusivo nem recolhemos dados de navegação para fins comerciais.
             </p>
           </section>
 
-          {/* SECÇÃO 4: DMCA / CONTACTO (O TEU PROTONMAIL) */}
-          <section id="dmca" className="scroll-mt-32 pt-4 border-t border-gray-800">
-            <h2 className="text-xl font-bold text-red-500 mb-4 uppercase tracking-wide">4. Contacto e Remoção (DMCA)</h2>
-            <p className="mb-4 text-gray-400">
-              Se é detentor de direitos de autor e deseja que um link seja removido do nosso índice, envie um email com a identificação do conteúdo e o URL exato no nosso site.
-            </p>
+          {/* SECÇÃO 4: DMCA PRO (PROFISSIONAL) */}
+          <section id="dmca" className="scroll-mt-32 pt-6 border-t border-gray-800">
+            <h2 className="text-xl font-bold text-red-500 mb-4 uppercase tracking-wide flex items-center gap-2">
+              4. DMCA & Copyright Compliance
+            </h2>
             
-            <div className="bg-black p-5 rounded-lg border border-gray-700 inline-block">
-              <p className="text-gray-500 text-xs uppercase font-bold mb-1">Email Oficial para Contacto:</p>
-              <a href="mailto:Streamyme1@proton.me" className="text-xl md:text-2xl font-bold text-white hover:text-red-500 transition select-all">
-                Streamyme1@proton.me
-              </a>
+            <div className="text-gray-400 space-y-4 text-justify text-sm md:text-base">
+              <p>
+                O LusoStream respeita a propriedade intelectual de terceiros e cumpre com o <strong>Digital Millennium Copyright Act (DMCA)</strong>, Título 17 U.S.C. § 512(c).
+                É nossa política responder a avisos claros de alegada violação de direitos de autor que estejam em conformidade com a lei.
+              </p>
+
+              <div className="bg-black/40 p-6 rounded-lg border border-gray-700">
+                <p className="font-bold text-white mb-3 text-lg">Elementos Obrigatórios da Notificação</p>
+                <p className="mb-4">Para que a sua reclamação seja válida e processada, deve incluir as seguintes informações:</p>
+                
+                <ol className="list-decimal list-inside space-y-2 ml-2 mb-6 text-gray-300">
+                  <li>Identificação do trabalho protegido por direitos de autor que alega ter sido infringido.</li>
+                  <li>Identificação do material que alega estar a infringir (o <strong>URL exato</strong> da página no LusoStream).</li>
+                  <li>Informações de contacto (Nome, Morada, Telefone e Email).</li>
+                  <li>Uma declaração de que tem uma <em>crença de boa fé</em> de que o uso do material não é autorizado pelo proprietário dos direitos de autor, pelo seu agente ou pela lei.</li>
+                  <li>Uma declaração de que as informações na notificação são precisas e, <strong>sob pena de perjúrio</strong>, de que está autorizado a agir em nome do proprietário.</li>
+                  <li>Assinatura física ou eletrónica do detentor dos direitos.</li>
+                </ol>
+
+                <div className="bg-red-900/20 border border-red-900/50 p-4 rounded mb-6 text-xs text-red-200">
+                  ⚠️ <strong>Aviso Importante:</strong> Nos termos da lei, qualquer pessoa que, intencionalmente, deturpe materialmente que o material ou atividade está a infringir direitos de autor pode ser responsabilizada por danos (incluindo custos e honorários de advogados).
+                </div>
+
+                <div className="flex flex-col md:flex-row items-center gap-4 bg-gray-900 p-4 rounded border border-gray-600">
+                  <span className="text-gray-400 text-sm font-bold uppercase">Agente Designado:</span>
+                  <a href="mailto:Streamyme1@proton.me" className="text-xl font-bold text-white hover:text-red-500 transition font-mono select-all">
+                    Streamyme1@proton.me
+                  </a>
+                </div>
+                <p className="text-center text-xs text-gray-500 mt-2">
+                  Respondemos a todos os pedidos válidos num prazo razoável.
+                </p>
+              </div>
             </div>
           </section>
 
