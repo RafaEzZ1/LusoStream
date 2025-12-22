@@ -7,18 +7,55 @@ import { useRouter } from "next/navigation";
 import { supabase, hardLogout } from "@/lib/supabaseClient";
 import { useAuthRole } from "@/hooks/useAuthRole";
 import NotificationBell from "@/components/NotificationBell";
-// 👇 IMPORTAR O LOGO NOVO
 import Logo from "@/components/Logo";
 
 const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
-const NAV_HEIGHT = 56; 
+
+// Mapeamento dos Avatares (Igual ao da página de Conta)
+const AVATARS_MAP = {
+  ghost: { icon: "👻", color: "bg-purple-600" },
+  alien: { icon: "👽", color: "bg-green-600" },
+  robot: { icon: "🤖", color: "bg-blue-600" },
+  demon: { icon: "😈", color: "bg-red-600" },
+  ninja: { icon: "🥷", color: "bg-gray-700" },
+  cat:   { icon: "😼", color: "bg-yellow-600" },
+  cool:  { icon: "😎", color: "bg-orange-600" },
+  king:  { icon: "👑", color: "bg-amber-500" },
+};
 
 export default function Navbar() {
   const { user, role, loading: authLoading } = useAuthRole();
   const isAdmin = role === "admin" || role === "mod";
+  
   const [pendingCount, setPendingCount] = useState(0);
+  const [avatarId, setAvatarId] = useState(null); // Guarda o ID do avatar (ex: "ghost")
 
-  // Notificações Admin
+  const [searchTerm, setSearchTerm] = useState("");
+  const [results, setResults] = useState([]);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const router = useRouter();
+  const dropdownRef = useRef(null);
+
+  // 1. Carregar o Perfil para saber o Avatar
+  useEffect(() => {
+    async function loadProfile() {
+      if (!user) return;
+      // Busca o avatar_url à tabela profiles
+      const { data } = await supabase
+        .from("profiles")
+        .select("avatar_url")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      
+      if (data?.avatar_url) {
+        setAvatarId(data.avatar_url);
+      }
+    }
+    loadProfile();
+  }, [user]);
+
+  // 2. Notificações de Admin (Reports + Sugestões)
   useEffect(() => {
     async function checkPending() {
       if (!isAdmin) return;
@@ -33,14 +70,7 @@ export default function Navbar() {
     }
   }, [user, isAdmin]);
 
-  const [searchTerm, setSearchTerm] = useState("");
-  const [results, setResults] = useState([]);
-  const [showDropdown, setShowDropdown] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const router = useRouter();
-  const dropdownRef = useRef(null);
-
-  // Pesquisa
+  // 3. Lógica de Pesquisa
   useEffect(() => {
     const t = setTimeout(() => { if (searchTerm.trim()) fetchResults(searchTerm); else setResults([]); }, 350);
     return () => clearTimeout(t);
@@ -76,7 +106,9 @@ export default function Navbar() {
 
   async function handleLogout() { await hardLogout(); setMobileOpen(false); }
   const goMobile = (href) => { setMobileOpen(false); router.push(href); };
-  const displayName = user?.user_metadata?.username || user?.email || "";
+  
+  // Nome fallback caso não haja avatar
+  const displayName = user?.user_metadata?.username || user?.email || "?";
 
   return (
     <>
@@ -84,14 +116,15 @@ export default function Navbar() {
         
         {/* ESQUERDA: LOGO + LINKS */}
         <div className="flex items-center gap-6 md:gap-8">
-          {/* 👇 LOGO AQUI */}
           <Logo />
           
           <div className="hidden md:flex items-center gap-5 text-sm font-medium text-gray-300">
             <Link href="/movies" className="hover:text-white transition">Filmes</Link>
             <Link href="/series" className="hover:text-white transition">Séries</Link>
             <Link href="/animes" className="hover:text-white transition">Animes</Link>
+            <Link href="/my-list" className="hover:text-white transition">Minha Lista</Link>
             <Link href="/suggestions" className="hover:text-white transition">Pedidos</Link>
+            
             {isAdmin && (
               <Link href="/admin" className="relative px-3 py-1 rounded-full text-xs font-bold text-yellow-100 bg-yellow-900/30 border border-yellow-600/30 hover:bg-yellow-900/50 flex items-center gap-2 transition">
                 ADMIN
@@ -107,7 +140,7 @@ export default function Navbar() {
           <div className="relative" ref={dropdownRef}>
             <form onSubmit={handleSearchSubmit} className="relative group">
               <input 
-                className="w-40 sm:w-64 py-2 pl-4 pr-10 rounded-full bg-gray-900 border border-gray-700 placeholder-gray-500 outline-none text-sm text-white focus:ring-2 focus:ring-red-600 focus:border-transparent transition-all group-hover:bg-gray-800" 
+                className="w-32 sm:w-48 lg:w-64 py-2 pl-4 pr-10 rounded-full bg-gray-900 border border-gray-700 placeholder-gray-500 outline-none text-sm text-white focus:ring-2 focus:ring-red-600 focus:border-transparent transition-all group-hover:bg-gray-800" 
                 placeholder="Pesquisar..." 
                 value={searchTerm} 
                 onChange={(e) => setSearchTerm(e.target.value)} 
@@ -118,6 +151,7 @@ export default function Navbar() {
               </button>
             </form>
             
+            {/* Dropdown de Resultados */}
             {showDropdown && results.length > 0 && (
               <div className="absolute right-0 mt-3 w-80 max-h-96 overflow-auto bg-gray-900 rounded-xl shadow-2xl z-50 border border-gray-700 ring-1 ring-black/50">
                 {results.slice(0, 8).map((item) => (
@@ -142,12 +176,23 @@ export default function Navbar() {
             ) : user ? (
               <>
                 <NotificationBell user={user} />
-                <Link href="/account" className="flex items-center gap-2 group">
-                   <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-red-600 to-orange-600 flex items-center justify-center text-xs font-bold text-white shadow ring-2 ring-transparent group-hover:ring-red-500 transition">
-                      {displayName.charAt(0).toUpperCase()}
-                   </div>
+                
+                {/* AVATAR DO UTILIZADOR */}
+                <Link href="/account" className="flex items-center gap-2 group relative">
+                   {avatarId && AVATARS_MAP[avatarId] ? (
+                      <div className={`w-9 h-9 rounded-full ${AVATARS_MAP[avatarId].color} flex items-center justify-center text-lg shadow-lg ring-2 ring-transparent group-hover:ring-white transition transform group-hover:scale-105`}>
+                         {AVATARS_MAP[avatarId].icon}
+                      </div>
+                   ) : (
+                      <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-red-600 to-orange-600 flex items-center justify-center text-sm font-bold text-white shadow ring-2 ring-transparent group-hover:ring-red-500 transition">
+                         {displayName.charAt(0).toUpperCase()}
+                      </div>
+                   )}
                 </Link>
-                <button onClick={handleLogout} className="text-xs text-gray-400 hover:text-white transition font-medium">SAIR</button>
+
+                <button onClick={handleLogout} className="text-xs text-gray-400 hover:text-white transition font-medium uppercase tracking-wide">
+                  Sair
+                </button>
               </>
             ) : (
               <Link href="/auth" className="bg-white text-black px-5 py-2 rounded-full text-sm font-bold hover:bg-gray-200 transition shadow-lg shadow-white/10">
@@ -169,7 +214,7 @@ export default function Navbar() {
 
       {/* MENU MOBILE */}
       {mobileOpen && (
-        <div className="md:hidden fixed inset-0 z-40 bg-black/95 backdrop-blur-xl pt-20 px-6 animate-in fade-in slide-in-from-top-5">
+        <div className="md:hidden fixed inset-0 z-40 bg-black/95 backdrop-blur-xl pt-20 px-6 animate-in fade-in slide-in-from-top-5 overflow-y-auto">
           <form onSubmit={handleSearchSubmit} className="mb-8">
             <input className="w-full p-4 rounded-xl bg-gray-800 border border-gray-700 text-white outline-none focus:border-red-600 transition" placeholder="Pesquisar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
           </form>
@@ -178,14 +223,20 @@ export default function Navbar() {
             <button onClick={() => goMobile("/movies")} className="block w-full text-left py-2 border-b border-gray-800">Filmes</button>
             <button onClick={() => goMobile("/series")} className="block w-full text-left py-2 border-b border-gray-800">Séries</button>
             <button onClick={() => goMobile("/animes")} className="block w-full text-left py-2 border-b border-gray-800">Animes</button>
+            <button onClick={() => goMobile("/my-list")} className="block w-full text-left py-2 border-b border-gray-800 text-red-400">Minha Lista</button>
             <button onClick={() => goMobile("/suggestions")} className="block w-full text-left py-2 border-b border-gray-800">Pedidos</button>
             {isAdmin && <button onClick={() => goMobile("/admin")} className="block w-full text-left py-2 border-b border-gray-800 text-yellow-400">Painel Admin</button>}
           </div>
 
-          <div className="mt-8 pt-8 border-t border-gray-800">
+          <div className="mt-8 pt-8 border-t border-gray-800 pb-10">
             {user ? (
               <div className="flex flex-col gap-3">
-                 <button onClick={() => goMobile("/account")} className="bg-gray-800 py-3 rounded-xl font-bold">Minha Conta</button>
+                 <button onClick={() => goMobile("/account")} className="bg-gray-800 py-3 rounded-xl font-bold flex items-center justify-center gap-2">
+                    {avatarId && AVATARS_MAP[avatarId] ? (
+                       <span className="text-xl">{AVATARS_MAP[avatarId].icon}</span>
+                    ) : null}
+                    Minha Conta
+                 </button>
                  <button onClick={handleLogout} className="bg-red-600 py-3 rounded-xl font-bold text-white shadow-lg shadow-red-900/20">Terminar Sessão</button>
               </div>
             ) : (

@@ -2,249 +2,134 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase, hardLogout } from "@/lib/supabaseClient";
-import { useAuth } from "@/lib/useAuth";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
+
+// Lista de Avatares Pré-definidos (Emojis com fundo colorido)
+const AVATARS = [
+  { id: "ghost", icon: "👻", color: "bg-purple-600" },
+  { id: "alien", icon: "👽", color: "bg-green-600" },
+  { id: "robot", icon: "🤖", color: "bg-blue-600" },
+  { id: "demon", icon: "😈", color: "bg-red-600" },
+  { id: "ninja", icon: "🥷", color: "bg-gray-700" },
+  { id: "cat", icon: "😼", color: "bg-yellow-600" },
+  { id: "cool", icon: "😎", color: "bg-orange-600" },
+  { id: "king", icon: "👑", color: "bg-amber-500" },
+];
 
 export default function AccountClient() {
-  const { user, authLoading } = useAuth();
-  const [loadingProfile, setLoadingProfile] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null);
+  const [username, setUsername] = useState("");
+  
+  // O Avatar agora guarda apenas o ID do avatar escolhido (ex: "ghost")
+  const [selectedAvatar, setSelectedAvatar] = useState("ghost");
   const [msg, setMsg] = useState(null);
 
-  const [username, setUsername] = useState("");
-  const [avatarUrl, setAvatarUrl] = useState("");
-
-  // password
-  const [newPassword, setNewPassword] = useState("");
-  const [newPassword2, setNewPassword2] = useState("");
-
   useEffect(() => {
-    if (!user) {
-      setLoadingProfile(false);
-      return;
-    }
+    async function loadData() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push("/auth");
+        return;
+      }
+      setUser(user);
 
-    let cancelled = false;
-
-    async function loadProfile() {
-      setLoadingProfile(true);
-      const { data, error } = await supabase
+      // Carregar perfil
+      const { data: profile } = await supabase
         .from("profiles")
-        .select("username, avatar_url")
+        .select("*")
         .eq("user_id", user.id)
         .maybeSingle();
 
-      if (!cancelled) {
-        if (!error && data) {
-          setUsername(data.username || "");
-          setAvatarUrl(data.avatar_url || "");
+      if (profile) {
+        setUsername(profile.username || "");
+        // Se o avatar guardado estiver na nossa lista, seleciona-o. Senão, usa o default.
+        if (profile.avatar_url && AVATARS.find(a => a.id === profile.avatar_url)) {
+          setSelectedAvatar(profile.avatar_url);
         }
-        setLoadingProfile(false);
       }
+      setLoading(false);
     }
+    loadData();
+  }, [router]);
 
-    loadProfile();
-    return () => {
-      cancelled = true;
-    };
-  }, [user]);
-
-  async function handleSaveProfile(e) {
-    e?.preventDefault();
-    if (!user) return;
-
+  async function handleUpdate() {
     setMsg(null);
-    setSaving(true);
+    if (!username.trim()) return;
 
-    // 1) update profile
-    const { error: profErr } = await supabase
-      .from("profiles")
-      .upsert(
-        {
-          user_id: user.id,
-          username: username?.trim() || user.email,
-          avatar_url: avatarUrl?.trim() || null,
-        },
-        { onConflict: "user_id" }
-      );
+    const updates = {
+      user_id: user.id,
+      username,
+      avatar_url: selectedAvatar, // Guardamos o ID (ex: "robot")
+      updated_at: new Date().toISOString(),
+    };
 
-    if (profErr) {
-      setMsg({ type: "error", text: "Erro a guardar perfil: " + profErr.message });
-      setSaving(false);
-      return;
+    const { error } = await supabase.from("profiles").upsert(updates);
+    if (error) setMsg({ type: "error", text: "Erro ao atualizar." });
+    else {
+      setMsg({ type: "ok", text: "Perfil atualizado! 🎉" });
+      router.refresh(); // Atualiza a página para refletir mudanças
     }
-
-    // 2) update password (opcional)
-    if (newPassword || newPassword2) {
-      if (newPassword !== newPassword2) {
-        setMsg({ type: "error", text: "As passwords não coincidem." });
-        setSaving(false);
-        return;
-      }
-      if (newPassword.length < 6) {
-        setMsg({ type: "error", text: "Password tem de ter pelo menos 6 caracteres." });
-        setSaving(false);
-        return;
-      }
-
-      const { error: passErr } = await supabase.auth.updateUser({
-        password: newPassword,
-      });
-
-      if (passErr) {
-        setMsg({ type: "error", text: "Perfil guardado, mas não deu para mudar password." });
-        setSaving(false);
-        return;
-      }
-    }
-
-    setMsg({ type: "ok", text: "Dados atualizados ✅" });
-    setSaving(false);
   }
 
-  async function handleLogoutEverywhere() {
-    // isto termina sessões em todo o lado
-    await hardLogout();
-  }
-
-  if (authLoading) {
-    return <p className="text-gray-400">A verificar sessão…</p>;
-  }
-
-  if (!user) {
-    return (
-      <div className="bg-gray-900/40 border border-gray-800 rounded p-6">
-        <p className="mb-3">Tens de entrar para veres esta página.</p>
-        <a
-          href="/auth"
-          className="inline-block bg-red-600 hover:bg-red-700 px-4 py-2 rounded font-semibold"
-        >
-          Entrar
-        </a>
-      </div>
-    );
-  }
+  if (loading) return <div className="text-white p-10">A carregar...</div>;
 
   return (
-    <div className="space-y-8">
-      <h1 className="text-2xl font-bold">Definições da conta</h1>
+    <div className="max-w-2xl mx-auto bg-gray-900/50 border border-gray-800 rounded-2xl p-8 backdrop-blur-sm">
+      <h2 className="text-2xl font-bold mb-6 text-white border-l-4 border-red-600 pl-4">A Minha Conta</h2>
 
       {msg && (
-        <div
-          className={`rounded px-3 py-2 text-sm ${
-            msg.type === "ok"
-              ? "bg-green-800/30 border border-green-600 text-green-100"
-              : "bg-red-800/30 border border-red-600 text-red-100"
-          }`}
-        >
+        <div className={`mb-6 p-3 rounded ${msg.type === "error" ? "bg-red-900/50 text-red-200" : "bg-green-900/50 text-green-200"}`}>
           {msg.text}
         </div>
       )}
 
-      {/* Dados básicos */}
-      <form
-        onSubmit={handleSaveProfile}
-        className="bg-gray-900/40 border border-gray-800 rounded p-5 space-y-4"
+      {/* 1. Escolher Avatar */}
+      <div className="mb-8">
+        <label className="block text-gray-400 text-sm font-bold mb-3">Escolhe o teu Avatar</label>
+        <div className="grid grid-cols-4 sm:grid-cols-8 gap-3">
+          {AVATARS.map((av) => (
+            <button
+              key={av.id}
+              onClick={() => setSelectedAvatar(av.id)}
+              className={`
+                aspect-square rounded-full flex items-center justify-center text-2xl transition transform hover:scale-110
+                ${av.color}
+                ${selectedAvatar === av.id ? "ring-4 ring-white scale-110 shadow-lg shadow-white/20" : "opacity-70 hover:opacity-100"}
+              `}
+            >
+              {av.icon}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 2. Nome de Utilizador */}
+      <div className="mb-8">
+        <label className="block text-gray-400 text-sm font-bold mb-2">Nome de Utilizador</label>
+        <input
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          className="w-full bg-black border border-gray-700 rounded-xl p-3 text-white focus:border-red-600 outline-none transition"
+        />
+      </div>
+
+      {/* 3. Email (Apenas leitura) */}
+      <div className="mb-8 opacity-50">
+        <label className="block text-gray-500 text-sm font-bold mb-2">Email</label>
+        <div className="w-full bg-black/50 border border-gray-800 rounded-xl p-3 text-gray-400 cursor-not-allowed">
+          {user.email}
+        </div>
+      </div>
+
+      <button
+        onClick={handleUpdate}
+        className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl transition shadow-lg shadow-red-900/20"
       >
-        <h2 className="text-lg font-semibold">Perfil</h2>
-        <div>
-          <label className="block text-sm text-gray-300 mb-1">Email</label>
-          <input
-            value={user.email}
-            disabled
-            className="bg-gray-800 border border-gray-700 rounded px-3 py-2 w-full text-gray-400"
-          />
-          <p className="text-xs text-gray-500 mt-1">
-           Envie um pedido se necessitar de mudar o email.
-          </p>
-        </div>
-
-        <div>
-          <label className="block text-sm text-gray-300 mb-1">Username</label>
-          <input
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            className="bg-gray-800 border border-gray-700 rounded px-3 py-2 w-full"
-            placeholder="o teu nome no site"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm text-gray-300 mb-1">Avatar (URL)</label>
-          <input
-            value={avatarUrl}
-            onChange={(e) => setAvatarUrl(e.target.value)}
-            className="bg-gray-800 border border-gray-700 rounded px-3 py-2 w-full"
-            placeholder="https://…"
-          />
-          {avatarUrl ? (
-            <img
-              src={avatarUrl}
-              alt="avatar"
-              className="w-16 h-16 rounded-full mt-2 object-cover border border-gray-700"
-            />
-          ) : null}
-        </div>
-
-        <button
-          type="submit"
-          disabled={saving}
-          className="bg-red-600 hover:bg-red-700 disabled:bg-red-900 px-4 py-2 rounded font-semibold"
-        >
-          {saving ? "A guardar…" : "Guardar alterações"}
-        </button>
-      </form>
-
-      {/* Password */}
-      <div className="bg-gray-900/40 border border-gray-800 rounded p-5 space-y-4">
-        <h2 className="text-lg font-semibold">Segurança</h2>
-        <p className="text-sm text-gray-400">
-          Mudar password termina normalmente as outras sessões.
-        </p>
-
-        <div className="grid gap-3 md:grid-cols-2">
-          <div>
-            <label className="block text-sm text-gray-300 mb-1">Nova password</label>
-            <input
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              className="bg-gray-800 border border-gray-700 rounded px-3 py-2 w-full"
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-gray-300 mb-1">Confirmar nova password</label>
-            <input
-              type="password"
-              value={newPassword2}
-              onChange={(e) => setNewPassword2(e.target.value)}
-              className="bg-gray-800 border border-gray-700 rounded px-3 py-2 w-full"
-            />
-          </div>
-        </div>
-
-        <button
-          onClick={handleSaveProfile}
-          disabled={saving}
-          className="bg-red-600 hover:bg-red-700 disabled:bg-red-900 px-4 py-2 rounded font-semibold"
-        >
-          {saving ? "A atualizar…" : "Atualizar password"}
-        </button>
-      </div>
-
-      {/* Sessões */}
-      <div className="bg-gray-900/40 border border-gray-800 rounded p-5 space-y-3">
-        <h2 className="text-lg font-semibold">Sessões</h2>
-        <p className="text-sm text-gray-400">
-         Ocasionalmente, isto terminara sessão em todos os navegadores 
-        </p>
-        <button
-          onClick={handleLogoutEverywhere}
-          className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded text-sm"
-        >
-          Terminar sessão em todo o lado
-        </button>
-      </div>
+        Guardar Alterações
+      </button>
     </div>
   );
 }
