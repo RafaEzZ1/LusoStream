@@ -4,13 +4,11 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
-import { STREAMING_LINKS } from "@/lib/streamingLinks";
 import DynamicTitle from "@/components/DynamicTitle";
-import { isEpisodeCompleted } from "@/lib/progress";
-import { listSeasonEmbeds } from "@/lib/embeds";
-import { touchEpisodeProgress } from "@/lib/progress";
-// 👇 Importar o botão da lista
+import { supabase } from "@/lib/supabaseClient";
 import WatchlistButton from "@/components/WatchlistButton";
+// 👇 Importar as Recomendações
+import Recommendations from "@/components/Recommendations";
 
 export const dynamic = "force-dynamic";
 
@@ -20,250 +18,119 @@ export default function SeriesPage() {
   const { id } = useParams();
   const router = useRouter();
 
-  const [series, setSeries] = useState(null);
-  const [seasons, setSeasons] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [openSeason, setOpenSeason] = useState(null);
-  const [loadedSeasons, setLoadedSeasons] = useState({});
-  const [doneMap, setDoneMap] = useState({});
-  const [embedMapBySeason, setEmbedMapBySeason] = useState({});
+  const [seriesInfo, setSeriesInfo] = useState(null);
+  const [isFinished, setIsFinished] = useState(false);
 
-  // Info principal
   useEffect(() => {
-    async function fetchSeriesInfo() {
-      try {
-        const res = await fetch(
-          `https://api.themoviedb.org/3/tv/${id}?api_key=${API_KEY}&language=pt-BR`
-        );
-        const data = await res.json();
+    if (!id) return;
 
-        if (!data || !data.id) {
-          console.warn("Série não encontrada:", id);
-          setSeries(null);
-          setLoading(false);
-          return;
-        }
-
-        setSeries(data);
-        setSeasons(data.seasons || []);
-      } catch (err) {
-        console.error("Erro ao buscar série:", err);
-        setSeries(null);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchSeriesInfo();
-  }, [id]);
-
-  async function loadSeason(seasonNumber) {
-    if (loadedSeasons[seasonNumber]) return;
-
-    try {
+    (async () => {
+      // 1) Buscar Info ao TMDB (endpoint 'tv')
       const res = await fetch(
-        `https://api.themoviedb.org/3/tv/${id}/season/${seasonNumber}?api_key=${API_KEY}&language=pt-BR`
+        `https://api.themoviedb.org/3/tv/${id}?api_key=${API_KEY}&language=pt-BR`
       );
       const data = await res.json();
+      setSeriesInfo(data);
 
-      if (data && data.episodes) {
-        setLoadedSeasons((prev) => ({ ...prev, [seasonNumber]: data }));
-        const map = await listSeasonEmbeds(id, seasonNumber);
-        setEmbedMapBySeason((prev) => ({ ...prev, [seasonNumber]: map }));
+      // 2) Verificar status (visto)
+      const { data: sess } = await supabase.auth.getSession();
+      const userId = sess?.session?.user?.id;
+      if (userId) {
+        const { data: row } = await supabase
+          .from("user_progress")
+          .select("status")
+          .eq("user_id", userId)
+          .eq("item_type", "series") // nota: aqui é 'series' no teu sistema
+          .eq("item_id", id)
+          .maybeSingle();
+
+        if (row?.status === "finished") setIsFinished(true);
       }
-    } catch (err) {
-      console.error(`Erro ao carregar temporada ${seasonNumber}:`, err);
-    }
+    })();
+  }, [id]);
+
+  // Começar a ver (Season 1, Episódio 1)
+  function startWatching() {
+    router.push(`/watch/series/${id}/season/1/episode/1`);
   }
 
-  async function handleToggleSeason(seasonNumber) {
-    if (openSeason === seasonNumber) {
-      setOpenSeason(null);
-      return;
-    }
-
-    setOpenSeason(seasonNumber);
-    await loadSeason(seasonNumber);
-
-    const res = await fetch(
-      `https://api.themoviedb.org/3/tv/${id}/season/${seasonNumber}?api_key=${API_KEY}&language=pt-BR`
-    );
-    const seasonData = await res.json();
-
-    if (seasonData?.episodes) {
-      const entries = await Promise.all(
-        seasonData.episodes.map(async (ep) => {
-          const done = await isEpisodeCompleted(id, seasonNumber, ep.episode_number);
-          return [ep.episode_number, !!done];
-        })
-      );
-      setDoneMap((prev) => ({
-        ...prev,
-        [seasonNumber]: Object.fromEntries(entries),
-      }));
-    }
-  }
-
-  // refrescar quando volta ao foco
-  useEffect(() => {
-    async function refreshOpenSeasonDone() {
-      if (!openSeason) return;
-      const sd = loadedSeasons[openSeason];
-      if (!sd?.episodes) return;
-
-      const entries = await Promise.all(
-        sd.episodes.map(async (ep) => {
-          const done = await isEpisodeCompleted(id, openSeason, ep.episode_number);
-          return [ep.episode_number, !!done];
-        })
-      );
-      setDoneMap((prev) => ({
-        ...prev,
-        [openSeason]: Object.fromEntries(entries),
-      }));
-    }
-
-    function onFocus() {
-      refreshOpenSeasonDone();
-    }
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
-  }, [openSeason, loadedSeasons, id]);
-
-  // 👉 quando o user clica em "Ver Episódio"
-  async function handleWatchEpisode(seasonNumber, episodeNumber) {
-    // grava no Supabase
-    await touchEpisodeProgress(id, seasonNumber, episodeNumber, {
-      status: "in_progress",
-      estimated_duration_seconds: 1500,
-    });
-
-    // vai ver
-    router.push(
-      `/watch/series/${id}/season/${seasonNumber}/episode/${episodeNumber}`
+  if (!seriesInfo) {
+    return (
+      <div className="bg-black min-h-screen text-white">
+        <Navbar />
+        <p className="pt-24 px-6">A carregar série…</p>
+      </div>
     );
   }
-
-  if (loading) return <p className="text-white p-6">Carregando série...</p>;
-  if (!series) return <p className="text-white p-6">Série não encontrada.</p>;
 
   return (
     <div className="bg-black min-h-screen text-white">
       <Navbar />
-      <DynamicTitle seriesTitle={series.name} />
+      <DynamicTitle pageTitle={`${seriesInfo.name} - LusoStream`} />
 
-      <div className="px-6 py-6 max-w-6xl mx-auto pt-24">
-        {/* cabeçalho */}
-        <div className="flex flex-col md:flex-row gap-6 mb-8">
-          <img
-            src={
-              series.poster_path
-                ? `https://image.tmdb.org/t/p/w300${series.poster_path}`
-                : "/no-image.jpg"
-            }
-            alt={series.name}
-            className="rounded-md object-cover shadow-lg w-full max-w-[300px]"
-          />
+      <div className="pt-24 px-6 max-w-5xl mx-auto pb-12">
+        <div className="flex flex-col md:flex-row gap-6">
+          
+          {/* Poster */}
+          <div className="w-full md:w-1/3">
+            <img
+              src={
+                seriesInfo.poster_path
+                  ? `https://image.tmdb.org/t/p/w500${seriesInfo.poster_path}`
+                  : "/no-image.jpg"
+              }
+              alt={seriesInfo.name}
+              className="rounded-lg shadow-lg w-full object-cover"
+            />
+          </div>
+
+          {/* Info */}
           <div className="flex-1">
-            <h1 className="text-3xl font-bold mb-3">{series.name}</h1>
-            <p className="text-gray-300 mb-4">
-              {series.overview || "Sem sinopse disponível."}
-            </p>
-            
-            <div className="flex flex-wrap items-center gap-4 mb-6">
-              <span className="text-sm text-gray-400 border border-gray-700 px-3 py-1 rounded-full">
-                ⭐ {series.vote_average?.toFixed(1) || "N/A"}
-              </span>
-              
-              {/* Botão da Watchlist para Séries */}
-              <WatchlistButton itemId={id} itemType="series" />
+            <div className="flex items-start gap-3">
+              <h1 className="text-4xl font-bold mb-4">{seriesInfo.name}</h1>
+              {isFinished && (
+                <span className="mt-1 inline-flex items-center gap-1 text-sm bg-green-700/30 border border-green-600 text-green-300 px-2 py-1 rounded">
+                  ✓ Vista
+                </span>
+              )}
             </div>
 
+            <p className="mb-4 text-gray-300 leading-relaxed">
+              {seriesInfo.overview || "Sem sinopse disponível."}
+            </p>
+            <p className="mb-1 text-gray-400">
+              <strong className="text-white">Data de estreia:</strong>{" "}
+              {seriesInfo.first_air_date || "—"}
+            </p>
+            <p className="mb-1 text-gray-400">
+              <strong className="text-white">Temporadas:</strong>{" "}
+              {seriesInfo.number_of_seasons || "—"}
+            </p>
+            <p className="mb-6 text-gray-400">
+              <strong className="text-white">Episódios:</strong>{" "}
+              {seriesInfo.number_of_episodes || "—"}
+            </p>
+
+            <div className="flex flex-wrap gap-3">
+              {/* Botão Ver (Leva ao S1 E1) */}
+              <button
+                onClick={startWatching}
+                className="bg-red-600 hover:bg-red-700 text-white px-6 py-2.5 rounded font-bold shadow-lg shadow-red-900/20 transition hover:scale-105"
+              >
+                ▶ Começar a Ver
+              </button>
+
+              {/* Watchlist */}
+              <WatchlistButton itemId={id} itemType="series" />
+            </div>
           </div>
         </div>
 
-        {/* temporadas */}
-        <div>
-          <h2 className="text-2xl font-bold mb-4 border-l-4 border-red-600 pl-3">Temporadas</h2>
-          {seasons.map((season) => (
-            <div
-              key={season.id}
-              className="mb-4 border border-gray-800 rounded-lg overflow-hidden"
-            >
-              <button
-                onClick={() => handleToggleSeason(season.season_number)}
-                className="w-full flex justify-between items-center px-4 py-3 bg-gray-900 hover:bg-gray-800 transition"
-              >
-                <span className="font-semibold">{season.name}</span>
-                <span className="text-gray-400">
-                  {openSeason === season.season_number ? "▲" : "▼"}
-                </span>
-              </button>
-
-              {openSeason === season.season_number && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-950">
-                  {loadedSeasons[season.season_number]?.episodes ? (
-                    loadedSeasons[season.season_number].episodes.map((ep) => {
-                      const linkFromDb =
-                        embedMapBySeason[season.season_number]?.[
-                          ep.episode_number
-                        ] || null;
-                      const linkFromFallback =
-                        STREAMING_LINKS[id]?.[season.season_number]?.[
-                          ep.episode_number
-                        ] || null;
-                      const link = linkFromDb || linkFromFallback;
-                      const done =
-                        doneMap[season.season_number]?.[ep.episode_number] ||
-                        false;
-
-                      return (
-                        <div
-                          key={ep.id}
-                          className="bg-gray-900 p-3 rounded-lg hover:bg-gray-800 transition"
-                        >
-                          <p className="font-semibold mb-1 flex items-center gap-2">
-                            {ep.episode_number}. {ep.name}
-                            {done && (
-                              <span className="text-green-400 text-xs border border-green-600/60 rounded px-2 py-0.5">
-                                ✓ Visto
-                              </span>
-                            )}
-                          </p>
-                          <p className="text-gray-400 text-sm mb-2 line-clamp-3">
-                            {ep.overview || "Sem descrição."}
-                          </p>
-
-                          {link ? (
-                            <button
-                              onClick={() =>
-                                handleWatchEpisode(
-                                  season.season_number,
-                                  ep.episode_number
-                                )
-                              }
-                              className="inline-block bg-red-600 hover:bg-red-700 text-white text-sm px-3 py-1 rounded"
-                            >
-                              ▶ Ver Episódio
-                            </button>
-                          ) : (
-                            <span className="text-gray-500 italic text-sm">
-                              Ainda não disponível
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <p className="text-gray-500 italic">
-                      Carregando episódios...
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
+        {/* 👇 AQUI ESTÃO AS RECOMENDAÇÕES PARA SÉRIES */}
+        <div className="border-t border-gray-800 mt-12 pt-8">
+           <Recommendations type="tv" id={id} />
         </div>
+
       </div>
     </div>
   );

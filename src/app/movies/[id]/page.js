@@ -7,8 +7,9 @@ import Navbar from "@/components/Navbar";
 import DynamicTitle from "@/components/DynamicTitle";
 import { supabase } from "@/lib/supabaseClient";
 import { getMovieEmbed } from "@/lib/embeds";
-// Importar o novo botão
 import WatchlistButton from "@/components/WatchlistButton";
+// 👇 Importar o componente de recomendações
+import Recommendations from "@/components/Recommendations";
 
 export const dynamic = "force-dynamic";
 
@@ -72,61 +73,72 @@ export default function MoviePage() {
       <Navbar />
       <DynamicTitle pageTitle={`${movieInfo.title} - LusoStream`} />
 
-      <div className="pt-24 px-6 max-w-5xl mx-auto pb-12 flex flex-col md:flex-row gap-6">
-        <div className="w-full md:w-1/3">
-          <img
-            src={
-              movieInfo.poster_path
-                ? `https://image.tmdb.org/t/p/w500${movieInfo.poster_path}`
-                : "/no-image.jpg"
-            }
-            alt={movieInfo.title}
-            className="rounded-lg shadow-lg w-full object-cover"
-          />
-        </div>
-
-        <div className="flex-1">
-          <div className="flex items-start gap-3">
-            <h1 className="text-4xl font-bold mb-4">{movieInfo.title}</h1>
-            {isFinished && (
-              <span className="mt-1 inline-flex items-center gap-1 text-sm bg-green-700/30 border border-green-600 text-green-300 px-2 py-1 rounded">
-                ✓ Visto
-              </span>
-            )}
+      <div className="pt-24 px-6 max-w-5xl mx-auto pb-12">
+        {/* Bloco Superior: Informações do Filme */}
+        <div className="flex flex-col md:flex-row gap-6">
+          
+          {/* Poster */}
+          <div className="w-full md:w-1/3">
+            <img
+              src={
+                movieInfo.poster_path
+                  ? `https://image.tmdb.org/t/p/w500${movieInfo.poster_path}`
+                  : "/no-image.jpg"
+              }
+              alt={movieInfo.title}
+              className="rounded-lg shadow-lg w-full object-cover"
+            />
           </div>
 
-          <p className="mb-4">
-            {movieInfo.overview || "Sem sinopse disponível."}
-          </p>
-          <p className="mb-1">
-            <strong>Data de lançamento:</strong>{" "}
-            {movieInfo.release_date || "—"}
-          </p>
-          <p className="mb-6">
-            <strong>Duração:</strong>{" "}
-            {movieInfo.runtime ? `${movieInfo.runtime} min` : "—"}
-          </p>
+          {/* Detalhes */}
+          <div className="flex-1">
+            <div className="flex items-start gap-3">
+              <h1 className="text-4xl font-bold mb-4">{movieInfo.title}</h1>
+              {isFinished && (
+                <span className="mt-1 inline-flex items-center gap-1 text-sm bg-green-700/30 border border-green-600 text-green-300 px-2 py-1 rounded">
+                  ✓ Visto
+                </span>
+              )}
+            </div>
 
-          <div className="flex flex-wrap gap-3">
-            {/* Botão de Ver Filme */}
-            {hasEmbed ? (
-              <button
-                onClick={goWatch}
-                className="bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded font-semibold"
-              >
-                ▶ Ver filme
-              </button>
-            ) : (
-              <div className="bg-gray-800 px-5 py-2 rounded text-red-400 font-semibold border border-red-900/30">
-                Indisponível
-              </div>
-            )}
+            <p className="mb-4 text-gray-300 leading-relaxed">
+              {movieInfo.overview || "Sem sinopse disponível."}
+            </p>
+            <p className="mb-1 text-gray-400">
+              <strong className="text-white">Data de lançamento:</strong>{" "}
+              {movieInfo.release_date || "—"}
+            </p>
+            <p className="mb-6 text-gray-400">
+              <strong className="text-white">Duração:</strong>{" "}
+              {movieInfo.runtime ? `${movieInfo.runtime} min` : "—"}
+            </p>
 
-            {/* Novo Botão da Watchlist */}
-            <WatchlistButton itemId={id} itemType="movie" />
+            <div className="flex flex-wrap gap-3">
+              {/* Botão de Ver Filme */}
+              {hasEmbed ? (
+                <button
+                  onClick={goWatch}
+                  className="bg-red-600 hover:bg-red-700 text-white px-6 py-2.5 rounded font-bold shadow-lg shadow-red-900/20 transition hover:scale-105"
+                >
+                  ▶ Ver filme
+                </button>
+              ) : (
+                <div className="bg-gray-800 px-5 py-2 rounded text-red-400 font-semibold border border-red-900/30 cursor-not-allowed">
+                  Indisponível
+                </div>
+              )}
+
+              {/* Botão da Watchlist */}
+              <WatchlistButton itemId={id} itemType="movie" />
+            </div>
           </div>
-
         </div>
+
+        {/* 👇 NOVA SECÇÃO: RECOMENDAÇÕES */}
+        <div className="border-t border-gray-800 mt-12 pt-8">
+           <Recommendations type="movie" id={id} />
+        </div>
+        
       </div>
     </div>
   );
