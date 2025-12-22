@@ -15,18 +15,22 @@ export default function AdminReportsClient() {
   const [loading, setLoading] = useState(true);
   const [authorized, setAuthorized] = useState(false);
 
-  // 🔒 SEGURANÇA
+  // 🔒 SEGURANÇA: Bloqueia utilizadores normais
   useEffect(() => {
     let active = true;
     (async () => {
       const { user, role } = await getUserAndRole();
       if (!active) return;
+      
+      // Se não for Admin/Mod, manda para casa
       if (!user || !isModOrAdmin(role)) {
         router.replace("/");
         return;
       }
+      
+      // Se for Admin, deixa entrar e carrega os dados
       setAuthorized(true);
-      fetchReports(); // Só carrega reports se for admin
+      fetchReports();
     })();
     return () => { active = false; };
   }, [router]);
@@ -45,7 +49,6 @@ export default function AdminReportsClient() {
         let title = `ID: ${rep.item_id}`;
         let poster = null;
         try {
-          // Buscar imagem para mostrar no Admin também
           const url = rep.item_type === "movie" 
             ? `https://api.themoviedb.org/3/movie/${rep.item_id}?api_key=${API_KEY}&language=pt-BR`
             : `https://api.themoviedb.org/3/tv/${rep.item_id}?api_key=${API_KEY}&language=pt-BR`;
@@ -65,35 +68,47 @@ export default function AdminReportsClient() {
     const { error } = await supabase.from("reports").update({ status: newStatus, updated_at: new Date().toISOString() }).eq("id", id);
     if (!error) setReports((prev) => prev.map((r) => (r.id === id ? { ...r, status: newStatus } : r)));
   }
+
   async function deleteReport(id) {
     if (!confirm("Apagar?")) return;
     const { error } = await supabase.from("reports").delete().eq("id", id);
     if (!error) setReports((prev) => prev.filter((r) => r.id !== id));
   }
+
   function getLink(rep) { return rep.item_type === "movie" ? `/watch/movie/${rep.item_id}` : `/watch/series/${rep.item_id}/season/${rep.season}/episode/${rep.episode}`; }
 
-  if (!authorized) return null; // Não mostra nada a intrusos
+  // Se não estiver autorizado, não mostra NADA
+  if (!authorized) return <div className="min-h-screen bg-black text-white flex items-center justify-center">A verificar permissões...</div>;
 
   return (
     <div className="p-6 max-w-6xl mx-auto text-white">
       <div className="flex items-center gap-4 mb-8">
-        <Link href="/admin" className="bg-gray-800 p-2 rounded">← Voltar</Link>
-        <h1 className="text-3xl font-bold border-l-4 border-red-600 pl-4">Reports</h1>
+        <Link href="/admin" className="bg-gray-800 p-2 rounded hover:bg-gray-700">← Voltar</Link>
+        <h1 className="text-3xl font-bold border-l-4 border-red-600 pl-4">Reports de Erros</h1>
       </div>
-      {loading ? <p className="animate-pulse">A carregar...</p> : reports.length === 0 ? <p>Nenhum erro reportado.</p> : (
+
+      {loading ? <p className="animate-pulse">A carregar...</p> : reports.length === 0 ? <p className="text-gray-400">Nenhum erro reportado. 🎉</p> : (
         <div className="grid gap-4">
           {reports.map((rep) => (
             <div key={rep.id} className={`p-4 rounded border flex gap-4 ${rep.status === "fixed" ? "opacity-50 bg-green-900/10 border-green-900" : "bg-gray-900 border-gray-800"}`}>
-              {rep.poster && <img src={rep.poster} className="w-12 h-18 object-cover rounded" />}
+              {/* Poster no Admin também */}
+              {rep.poster && <img src={rep.poster} className="w-12 h-18 object-cover rounded bg-black" alt="poster" />}
+              
               <div className="flex-1">
-                 <h3 className="font-bold">{rep.contentTitle}</h3>
-                 <p className="text-gray-400 text-sm">{rep.description}</p>
+                 <h3 className="font-bold text-lg">{rep.contentTitle}</h3>
+                 <p className="text-sm text-gray-400 mb-2">{rep.item_type === 'movie' ? 'Filme' : `Série T${rep.season} E${rep.episode}`}</p>
+                 <div className="bg-black/30 p-2 rounded text-sm text-gray-300">"{rep.description}"</div>
                  <p className="text-xs text-gray-500 mt-2">{new Date(rep.created_at).toLocaleString()}</p>
               </div>
-              <div className="flex flex-col gap-2">
-                 <a href={getLink(rep)} target="_blank" className="bg-gray-800 px-3 py-1 rounded text-sm text-center">Testar</a>
-                 {rep.status === "pending" ? <button onClick={() => updateStatus(rep.id, "fixed")} className="bg-green-600 px-3 py-1 rounded text-sm">Resolvido</button> : <button onClick={() => updateStatus(rep.id, "pending")} className="bg-yellow-900/40 text-yellow-500 px-3 py-1 rounded text-sm">Reabrir</button>}
-                 <button onClick={() => deleteReport(rep.id)} className="text-red-500 text-xs hover:underline">Apagar</button>
+
+              <div className="flex flex-col gap-2 min-w-[100px]">
+                 <a href={getLink(rep)} target="_blank" className="bg-gray-800 px-3 py-1 rounded text-sm text-center hover:bg-gray-700">Testar</a>
+                 {rep.status === "pending" ? (
+                   <button onClick={() => updateStatus(rep.id, "fixed")} className="bg-green-600 px-3 py-1 rounded text-sm hover:bg-green-700">Resolvido</button>
+                 ) : (
+                   <button onClick={() => updateStatus(rep.id, "pending")} className="bg-yellow-900/40 text-yellow-500 px-3 py-1 rounded text-sm hover:bg-yellow-900/60">Reabrir</button>
+                 )}
+                 <button onClick={() => deleteReport(rep.id)} className="text-red-500 text-xs hover:underline mt-1">Apagar</button>
               </div>
             </div>
           ))}
