@@ -33,16 +33,17 @@ export default function AdminLayout({ children }) {
   if (loading) return <div className="bg-black h-screen flex items-center justify-center text-red-600">A carregar painel...</div>;
 
   const menuItems = [
-    { name: "Dashboard", href: "/admin", icon: "📊" },
-    { name: "Links & Embeds", href: "/admin/content", icon: "🔗" },
+    { name: "Dash", href: "/admin", icon: "📊" },
+    { name: "Conteúdo", href: "/admin/content", icon: "🔗" },
     { name: "Anúncios", href: "/admin/announcements", icon: "📢" },
-    { name: "Sugestões", href: "/admin/suggestions", icon: "💡" },
+    { name: "Pedidos", href: "/admin/suggestions", icon: "💡" },
     { name: "Reportes", href: "/admin/reports", icon: "⚠️" },
-    { name: "Sair", href: "/", icon: "🚪" },
   ];
 
   return (
-    <div className="flex min-h-screen bg-black text-gray-100 font-sans">
+    <div className="flex flex-col md:flex-row min-h-screen bg-black text-gray-100 font-sans">
+      
+      {/* SIDEBAR (Desktop) */}
       <aside className="w-64 bg-gray-900 border-r border-gray-800 hidden md:flex flex-col fixed h-full z-20">
         <div className="p-6 border-b border-gray-800">
           <h1 className="text-2xl font-bold text-red-600 tracking-tighter">LusoAdmin</h1>
@@ -62,12 +63,38 @@ export default function AdminLayout({ children }) {
               {item.name}
             </Link>
           ))}
+          <Link href="/" className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-400 hover:bg-gray-800 hover:text-white transition font-bold mt-auto">
+             <span>🚪</span> Sair
+          </Link>
         </nav>
       </aside>
 
-      <main className="flex-1 md:ml-64 p-6 md:p-10">
+      {/* HEADER MOBILE (Só aparece em mobile) */}
+      <div className="md:hidden bg-gray-900 p-4 border-b border-gray-800 flex justify-between items-center sticky top-0 z-30">
+         <h1 className="text-xl font-bold text-red-600">LusoAdmin</h1>
+         <Link href="/" className="text-xs bg-gray-800 px-3 py-1 rounded border border-gray-700">Sair</Link>
+      </div>
+
+      {/* MAIN CONTENT */}
+      <main className="flex-1 md:ml-64 p-4 md:p-10 mb-20 md:mb-0">
         {children}
       </main>
+
+      {/* BOTTOM NAV (Mobile Only) */}
+      <nav className="md:hidden fixed bottom-0 left-0 w-full bg-gray-900 border-t border-gray-800 flex justify-around p-2 z-50 pb-safe">
+         {menuItems.map((item) => (
+            <Link 
+              key={item.href} 
+              href={item.href}
+              className={`flex flex-col items-center p-2 rounded-lg text-xs ${
+                 pathname === item.href ? "text-red-500" : "text-gray-500"
+              }`}
+            >
+               <span className="text-lg mb-0.5">{item.icon}</span>
+               <span className="truncate max-w-[50px]">{item.name}</span>
+            </Link>
+         ))}
+      </nav>
     </div>
   );
 }

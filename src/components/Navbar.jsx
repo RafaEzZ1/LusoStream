@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation"; // 👈 Adicionado usePathname
+import { useRouter, usePathname } from "next/navigation";
 import { supabase, hardLogout } from "@/lib/supabaseClient";
 import NotificationBell from "@/components/NotificationBell";
 import Logo from "@/components/Logo";
@@ -23,8 +23,7 @@ const AVATARS_MAP = {
 };
 
 export default function Navbar() {
-  const pathname = usePathname(); // 👈 Pega a rota atual
-  
+  const pathname = usePathname();
   const [user, setUser] = useState(null);
   const [role, setRole] = useState("user");
   const [loading, setLoading] = useState(true);
@@ -64,7 +63,7 @@ export default function Navbar() {
     }
     getUserData();
 
-    // Listener para mudanças de Auth (Login/Logout)
+    // Listener para mudanças de Auth
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') {
         setUser(null);
@@ -134,7 +133,6 @@ export default function Navbar() {
   
   const displayName = user?.email || "?";
 
-  // 👇 A MÁGICA ESTÁ AQUI: Esconde a Navbar se for Admin ou Auth
   if (pathname && (pathname.startsWith('/admin') || pathname === '/auth')) {
     return null;
   }
@@ -161,7 +159,7 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* DIREITA */}
+        {/* DIREITA (DESKTOP) */}
         <div className="hidden md:flex items-center gap-5">
           {/* Pesquisa */}
           <div className="relative" ref={dropdownRef}>
@@ -178,7 +176,6 @@ export default function Navbar() {
               </button>
             </form>
             
-            {/* Resultados Dropdown */}
             {showDropdown && results.length > 0 && (
               <div className="absolute right-0 mt-3 w-80 max-h-96 overflow-auto bg-gray-900 rounded-xl shadow-2xl z-50 border border-gray-700 ring-1 ring-black/50">
                 {results.slice(0, 8).map((item) => (
@@ -223,10 +220,15 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* MOBILE BTN */}
-        <button type="button" className="md:hidden p-2 text-gray-300" onClick={() => setMobileOpen((s) => !s)}>
-           <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" /></svg>
-        </button>
+        {/* MOBILE CONTROLS (SININHO + HAMBURGER) */}
+        <div className="md:hidden flex items-center gap-4">
+          {/* 👇 SININHO AGORA VISÍVEL NO MOBILE */}
+          {user && <NotificationBell user={user} />}
+          
+          <button type="button" className="p-2 text-gray-300" onClick={() => setMobileOpen((s) => !s)}>
+             <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" /></svg>
+          </button>
+        </div>
       </nav>
 
       {/* MOBILE MENU */}

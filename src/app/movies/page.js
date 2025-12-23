@@ -4,7 +4,6 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
 
 const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
 
@@ -42,7 +41,6 @@ export default function MoviesPage() {
     try {
       let url = `https://api.themoviedb.org/3/discover/movie?api_key=${API_KEY}&language=pt-BR&sort_by=popularity.desc&page=${pageNum}`;
       
-      // Se houver género selecionado, adiciona ao URL
       if (genreId) {
         url += `&with_genres=${genreId}`;
       }
@@ -53,7 +51,6 @@ export default function MoviesPage() {
       if (pageNum === 1) {
         setMovies(data.results);
       } else {
-        // Junta os novos filmes aos antigos
         setMovies((prev) => [...prev, ...data.results]);
       }
     } catch (error) {
@@ -62,7 +59,6 @@ export default function MoviesPage() {
     setLoading(false);
   }
 
-  // Função do botão "Carregar Mais"
   function handleLoadMore() {
     const nextPage = page + 1;
     setPage(nextPage);
@@ -79,7 +75,6 @@ export default function MoviesPage() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-4 border-l-4 border-red-600 pl-4">Filmes</h1>
           
-          {/* Barra de Filtros (Scroll Lateral no Mobile) */}
           <div className="flex gap-3 overflow-x-auto pb-4 no-scrollbar">
             {GENRES.map((genre) => (
               <button
@@ -115,8 +110,6 @@ export default function MoviesPage() {
                     className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition"
                     loading="lazy"
                   />
-                  
-                  {/* Nota */}
                   <div className="absolute top-2 right-2 bg-black/80 text-yellow-400 text-xs font-bold px-2 py-1 rounded backdrop-blur-sm">
                      ★ {movie.vote_average?.toFixed(1)}
                   </div>
@@ -137,7 +130,6 @@ export default function MoviesPage() {
           </div>
         )}
 
-        {/* BOTÃO CARREGAR MAIS */}
         {movies.length > 0 && (
           <div className="mt-12 text-center">
             <button 
@@ -151,7 +143,7 @@ export default function MoviesPage() {
         )}
 
       </main>
-      <Footer />
+      {/* Footer removido daqui, pois já está no layout.js */}
     </div>
   );
 }

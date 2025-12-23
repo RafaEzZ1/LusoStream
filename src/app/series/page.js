@@ -4,15 +4,13 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
 import { useDraggableScroll } from "@/hooks/useDraggableScroll";
 
 const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
 
-// Adicionei "ANIMES" como uma categoria especial no topo
 const GENRES = [
   { id: null, name: "Todas" },
-  { id: "anime", name: "🇯🇵 Animes" }, // ID Especial (string)
+  { id: "anime", name: "🇯🇵 Animes" },
   { id: 10759, name: "Ação & Aventura" },
   { id: 16, name: "Animação (Geral)" },
   { id: 35, name: "Comédia" },
@@ -31,7 +29,6 @@ export default function SeriesPage() {
   const [loading, setLoading] = useState(false);
   const [selectedGenre, setSelectedGenre] = useState(null);
   
-  // O Teu Hook de Arrastar
   const scrollRef = useRef(null); 
   const { events } = useDraggableScroll();
 
@@ -46,12 +43,9 @@ export default function SeriesPage() {
     try {
       let url = `https://api.themoviedb.org/3/discover/tv?api_key=${API_KEY}&language=pt-BR&sort_by=popularity.desc&page=${pageNum}`;
       
-      // LÓGICA ESPECIAL PARA ANIME
       if (genreId === "anime") {
-        // Pede Animação (16) E que seja Japonês (ja)
         url += `&with_genres=16&with_original_language=ja`;
       } 
-      // LÓGICA NORMAL PARA OUTROS GÉNEROS
       else if (genreId) {
         url += `&with_genres=${genreId}`;
       }
@@ -85,7 +79,6 @@ export default function SeriesPage() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-4 border-l-4 border-blue-600 pl-4">Séries & Animes</h1>
           
-          {/* BARRA DE FILTROS (Com o teu Hook) */}
           <div 
             ref={scrollRef}
             {...events(scrollRef)}
@@ -133,7 +126,6 @@ export default function SeriesPage() {
                 <div className="p-3">
                   <h2 className="font-bold text-sm truncate text-gray-200 group-hover:text-white">{show.name}</h2>
                   <p className="text-xs text-gray-500 mt-1 flex justify-between">
-                    {/* Se for anime, mostra ANIME, senão mostra o ano */}
                     <span>{show.original_language === 'ja' && show.genre_ids?.includes(16) ? "ANIME" : (show.first_air_date?.split("-")[0] || "N/A")}</span>
                   </p>
                 </div>
@@ -146,7 +138,6 @@ export default function SeriesPage() {
           </div>
         )}
 
-        {/* BOTÃO CARREGAR MAIS */}
         {series.length > 0 && (
           <div className="mt-12 text-center">
             <button 
@@ -160,7 +151,7 @@ export default function SeriesPage() {
         )}
 
       </main>
-      <Footer />
+      {/* Footer removido daqui também */}
     </div>
   );
 }
