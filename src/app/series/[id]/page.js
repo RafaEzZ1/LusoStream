@@ -1,219 +1,211 @@
 // src/app/series/[id]/page.js
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient"; 
 import Navbar from "@/components/Navbar";
-import DynamicTitle from "@/components/DynamicTitle";
-import { supabase } from "@/lib/supabaseClient";
-import WatchlistButton from "@/components/WatchlistButton";
-import Recommendations from "@/components/Recommendations";
-// 👇 Importar o Skeleton
-import SkeletonLoader from "@/components/SkeletonLoader";
-
-export const dynamic = "force-dynamic";
+// SEM FOOTER AQUI (já vem do layout)
+import { useDraggableScroll } from "@/hooks/useDraggableScroll"; 
 
 const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
 
-export default function SeriesPage() {
+export default function SeriesDetailsPage() {
   const { id } = useParams();
   const router = useRouter();
-
-  const [seriesInfo, setSeriesInfo] = useState(null);
+  
+  // Estados
+  const [series, setSeries] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [isFinished, setIsFinished] = useState(false);
+  const [showTrailer, setShowTrailer] = useState(false);
+  const [trailerKey, setTrailerKey] = useState(null);
+  
+  // Minha Lista
+  const [user, setUser] = useState(null);
+  const [isInList, setIsInList] = useState(false);
+  const [listLoading, setListLoading] = useState(false);
 
-  // Estados para seleção de episódios
-  const [selectedSeason, setSelectedSeason] = useState(1);
-  const [episodes, setEpisodes] = useState([]);
-  const [loadingEpisodes, setLoadingEpisodes] = useState(false);
+  // Hook de Arrastar
+  const castRef = useRef(null);
+  const { events: castEvents } = useDraggableScroll();
 
-  // 1. Carregar Info da Série
   useEffect(() => {
-    if (!id) return;
+    async function loadData() {
+      const { data: { session } } = await supabase.auth.getSession();
+      const currentUser = session?.user || null;
+      setUser(currentUser);
 
-    (async () => {
-      setLoading(true);
-      try {
-        const res = await fetch(
-          `https://api.themoviedb.org/3/tv/${id}?api_key=${API_KEY}&language=pt-BR`
-        );
-        const data = await res.json();
-        setSeriesInfo(data);
-
-        // Verificar se já viu
-        const { data: sess } = await supabase.auth.getSession();
-        const userId = sess?.session?.user?.id;
-        if (userId) {
-          const { data: row } = await supabase
-            .from("user_progress")
-            .select("status")
-            .eq("user_id", userId)
-            .eq("item_type", "series")
-            .eq("item_id", id)
-            .maybeSingle();
-          if (row?.status === "finished") setIsFinished(true);
-        }
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
+      if (id) {
+        await fetchSeriesDetails(id);
+        if (currentUser) checkMyList(currentUser.id, id);
       }
-    })();
+    }
+    loadData();
   }, [id]);
 
-  // 2. Carregar Episódios quando muda a Temporada
-  useEffect(() => {
-    if (!id || !seriesInfo) return;
+  async function fetchSeriesDetails(seriesId) {
+    try {
+      const res = await fetch(
+        `https://api.themoviedb.org/3/tv/${seriesId}?api_key=${API_KEY}&language=pt-BR&append_to_response=credits,videos,similar`
+      );
+      const data = await res.json();
+      setSeries(data);
 
-    (async () => {
-      setLoadingEpisodes(true);
-      try {
-        const res = await fetch(
-          `https://api.themoviedb.org/3/tv/${id}/season/${selectedSeason}?api_key=${API_KEY}&language=pt-BR`
-        );
-        const data = await res.json();
-        setEpisodes(data.episodes || []);
-      } catch (e) {
-        console.error("Erro episódios", e);
-      } finally {
-        setLoadingEpisodes(false);
-      }
-    })();
-  }, [id, selectedSeason, seriesInfo]);
+      // Lógica do Trailer (Geralmente a API retorna o Trailer da Season 1 ou Geral aqui)
+      const videos = data.videos?.results || [];
+      const officialTrailer = videos.find(v => v.site === "YouTube" && v.type === "Trailer");
+      const teaser = videos.find(v => v.site === "YouTube" && v.type === "Teaser");
+      
+      if (officialTrailer) setTrailerKey(officialTrailer.key);
+      else if (teaser) setTrailerKey(teaser.key);
 
-  function startWatching() {
-    router.push(`/watch/series/${id}/season/1/episode/1`);
+    } catch (error) {
+      console.error("Erro:", error);
+    }
+    setLoading(false);
   }
 
-  // 👇 Se estiver a carregar, mostra o SKELETON
-  if (loading || !seriesInfo) {
-    return (
-      <div className="bg-black min-h-screen text-white">
-        <Navbar />
-        <SkeletonLoader />
-      </div>
-    );
+  async function checkMyList(userId, seriesId) {
+    const { data } = await supabase
+      .from("watchlists")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("item_id", seriesId)
+      .eq("item_type", "tv") // Importante: TV para séries
+      .maybeSingle();
+
+    if (data) setIsInList(true);
   }
 
-  const seasons = seriesInfo.seasons || [];
+  async function toggleMyList() {
+    if (!user) return router.push("/auth");
+    
+    setListLoading(true);
+    if (isInList) {
+      await supabase.from("watchlists").delete().eq("user_id", user.id).eq("item_id", series.id).eq("item_type", "tv");
+      setIsInList(false);
+    } else {
+      await supabase.from("watchlists").insert({ user_id: user.id, item_id: series.id, item_type: "tv" });
+      setIsInList(true);
+    }
+    setListLoading(false);
+  }
+
+  if (loading) return <div className="bg-black min-h-screen flex items-center justify-center"><div className="w-10 h-10 border-4 border-blue-600 rounded-full animate-spin border-t-transparent"></div></div>;
+  if (!series) return <div className="text-white text-center pt-40">Série não encontrada.</div>;
 
   return (
-    <div className="bg-black min-h-screen text-white">
+    <div className="bg-black min-h-screen text-gray-200 font-sans pb-20">
       <Navbar />
-      <DynamicTitle pageTitle={`${seriesInfo.name} - LusoStream`} />
 
-      <div className="pt-24 px-6 max-w-6xl mx-auto pb-12">
+      {/* HERO SECTION */}
+      <div className="relative w-full min-h-[85vh] flex items-center">
+        <div className="absolute inset-0 bg-cover bg-center fixed-bg" style={{ backgroundImage: `url(https://image.tmdb.org/t/p/original${series.backdrop_path})` }}>
+          <div className="absolute inset-0 bg-gradient-to-r from-black via-black/80 to-transparent"></div>
+          <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent"></div>
+        </div>
         
-        {/* HEADER DA SÉRIE */}
-        <div className="flex flex-col md:flex-row gap-8 mb-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
-          <div className="w-full md:w-1/3 max-w-[300px] mx-auto md:mx-0">
-            <img
-              src={seriesInfo.poster_path ? `https://image.tmdb.org/t/p/w500${seriesInfo.poster_path}` : "/no-image.jpg"}
-              alt={seriesInfo.name}
-              className="rounded-xl shadow-2xl w-full object-cover border border-gray-800"
-            />
+        <div className="relative z-10 max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-12 items-center pt-20">
+          <div className="hidden md:block col-span-1">
+            <img src={`https://image.tmdb.org/t/p/w500${series.poster_path}`} alt={series.name} className="w-full rounded-xl shadow-2xl border border-gray-800" />
           </div>
-
-          <div className="flex-1">
-            <div className="flex items-center gap-3 mb-2">
-               <h1 className="text-4xl md:text-5xl font-bold">{seriesInfo.name}</h1>
-               {isFinished && <span className="bg-green-600/20 text-green-400 text-xs px-2 py-1 rounded border border-green-600/50">VISTA</span>}
+          
+          <div className="col-span-1 md:col-span-2 space-y-6">
+            <h1 className="text-4xl md:text-6xl font-bold text-white drop-shadow-lg">{series.name}</h1>
+            
+            <div className="flex flex-wrap items-center gap-4 text-sm md:text-base text-gray-300">
+              <span className="text-green-400 font-bold border border-green-400/30 bg-green-400/10 px-2 py-0.5 rounded">{Math.round(series.vote_average * 10)}% Relevância</span>
+              <span>{series.first_air_date?.split("-")[0]}</span>
+              {/* Duração Média do Episódio */}
+              <span>{series.episode_run_time?.[0] || "?"} min</span>
+              <span className="border border-gray-600 px-2 py-0.5 rounded text-xs bg-gray-800">{series.number_of_seasons} Temporadas</span>
             </div>
+            
+            <p className="text-gray-300 text-lg leading-relaxed max-w-2xl line-clamp-4 md:line-clamp-none">{series.overview}</p>
 
-            <div className="flex flex-wrap gap-4 text-sm text-gray-400 mb-6">
-               <span>{seriesInfo.first_air_date?.split("-")[0]}</span>
-               <span>•</span>
-               <span>{seriesInfo.number_of_seasons} Temporadas</span>
-               <span>•</span>
-               <span className="bg-gray-800 px-2 rounded text-white border border-gray-700">TMDB {seriesInfo.vote_average?.toFixed(1)}</span>
-            </div>
+            {/* BOTÕES DE AÇÃO */}
+            <div className="flex flex-wrap items-center gap-4 pt-4">
+              
+              {/* 1. ASSISTIR (Azul para diferenciar de filmes, ou mantemos vermelho?) -> Vou usar Azul para séries ficarem fixes */}
+              <Link href={`/watch/tv/${series.id}`} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full transition hover:scale-105 flex items-center gap-2 shadow-lg shadow-blue-900/40">
+                <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                Assistir
+              </Link>
 
-            <p className="text-gray-300 leading-relaxed mb-8 text-lg">
-              {seriesInfo.overview || "Sem sinopse disponível."}
-            </p>
-
-            <div className="flex flex-wrap gap-4">
-              <button
-                onClick={startWatching}
-                className="bg-red-600 hover:bg-red-700 text-white px-8 py-3 rounded-lg font-bold shadow-lg shadow-red-900/30 transition transform hover:scale-105 flex items-center gap-2"
-              >
-                ▶ Começar a Ver
+              {/* 2. MINHA LISTA */}
+              <button onClick={toggleMyList} disabled={listLoading} className={`font-bold py-3 px-6 rounded-full transition border flex items-center gap-2 ${isInList ? "bg-green-600 border-green-600 text-white" : "bg-gray-800/60 border-gray-500 text-white hover:bg-gray-700"}`}>
+                {listLoading ? <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"/> : isInList ? (
+                  <><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg> Na Lista</>
+                ) : (
+                  <><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg> Minha Lista</>
+                )}
               </button>
-              <WatchlistButton itemId={id} itemType="series" />
+
+              {/* 3. TRAILER */}
+              {trailerKey && (
+                <button onClick={() => setShowTrailer(true)} className="bg-white/10 hover:bg-white/20 text-white font-bold py-3 px-6 rounded-full transition border border-white/30 flex items-center gap-2 backdrop-blur-md">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8zm2 3h6v-1H7v1z" /></svg>
+                  Trailer
+                </button>
+              )}
             </div>
           </div>
         </div>
+      </div>
 
-        {/* SELETOR DE TEMPORADAS */}
-        <div className="mt-12">
-          <h2 className="text-2xl font-bold mb-6 border-l-4 border-red-600 pl-4">Episódios</h2>
-          
-          <div className="flex overflow-x-auto gap-3 pb-4 mb-6 scrollbar-thin scrollbar-thumb-gray-800">
-            {seasons.map((season) => (
-              season.season_number > 0 && (
-                <button
-                  key={season.id}
-                  onClick={() => setSelectedSeason(season.season_number)}
-                  className={`px-5 py-2 rounded-full whitespace-nowrap font-medium transition ${
-                    selectedSeason === season.season_number
-                      ? "bg-white text-black scale-105 shadow-lg shadow-white/20"
-                      : "bg-gray-900 text-gray-400 hover:bg-gray-800 hover:text-white"
-                  }`}
-                >
-                  Temporada {season.season_number}
-                </button>
-              )
-            ))}
+      <main className="max-w-7xl mx-auto px-6 py-12 space-y-16">
+        
+        {/* ELENCO */}
+        {series.credits?.cast?.length > 0 && (
+          <div>
+            <h2 className="text-2xl font-bold text-white mb-6 border-l-4 border-blue-600 pl-4">Elenco</h2>
+            <div ref={castRef} {...castEvents(castRef)} className="flex gap-5 overflow-x-auto pb-4 no-scrollbar cursor-grab active:cursor-grabbing">
+              {series.credits.cast.slice(0, 15).map((actor) => (
+                <div key={actor.id} className="flex-none w-32 group select-none">
+                  <div className="w-28 h-28 mx-auto mb-3 rounded-full overflow-hidden border-2 border-gray-800 group-hover:border-blue-600 transition">
+                    <img src={actor.profile_path ? `https://image.tmdb.org/t/p/w200${actor.profile_path}` : "/no-avatar.png"} alt={actor.name} onDragStart={(e) => e.preventDefault()} className="w-full h-full object-cover pointer-events-none" />
+                  </div>
+                  <p className="text-sm font-bold text-center truncate">{actor.name}</p>
+                  <p className="text-xs text-gray-500 text-center truncate">{actor.character}</p>
+                </div>
+              ))}
+            </div>
           </div>
+        )}
 
-          {/* LISTA DE EPISÓDIOS */}
-          {loadingEpisodes ? (
-             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 animate-pulse">
-                {[1,2,3,4].map(i => <div key={i} className="aspect-video bg-gray-800 rounded-lg"></div>)}
-             </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {episodes.map((ep) => (
-                <Link
-                  key={ep.id}
-                  href={`/watch/series/${id}/season/${selectedSeason}/episode/${ep.episode_number}`}
-                  className="group bg-gray-900 hover:bg-gray-800 rounded-lg overflow-hidden border border-gray-800 hover:border-gray-600 transition flex flex-col"
-                >
-                  <div className="relative aspect-video bg-black">
-                     <img 
-                        src={ep.still_path ? `https://image.tmdb.org/t/p/w500${ep.still_path}` : "/no-image.jpg"} 
-                        alt={ep.name}
-                        className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition duration-300"
-                     />
-                     <div className="absolute top-2 left-2 bg-black/60 px-2 py-0.5 rounded text-xs font-bold backdrop-blur-sm">
-                        Ep {ep.episode_number}
-                     </div>
-                     <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition bg-black/30">
-                        <div className="bg-red-600 rounded-full p-2 shadow-lg">
-                           <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                        </div>
-                     </div>
+        {/* RELACIONADOS */}
+        {series.similar?.results?.length > 0 && (
+          <div>
+            <h2 className="text-2xl font-bold text-white mb-6 border-l-4 border-blue-600 pl-4">Recomendados</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+              {series.similar.results.slice(0, 10).map((sim) => (
+                <Link key={sim.id} href={`/series/${sim.id}`} className="group block relative">
+                  <div className="aspect-[2/3] rounded-xl overflow-hidden mb-3 bg-gray-800 shadow-lg group-hover:scale-105 transition duration-300">
+                    <img src={sim.poster_path ? `https://image.tmdb.org/t/p/w500${sim.poster_path}` : "/no-image.jpg"} alt={sim.name} className="w-full h-full object-cover opacity-80 group-hover:opacity-100" />
                   </div>
-                  <div className="p-4 flex-1 flex flex-col justify-between">
-                     <div>
-                        <h4 className="font-bold text-gray-200 group-hover:text-white mb-1 line-clamp-1">{ep.name}</h4>
-                        <p className="text-xs text-gray-500 line-clamp-2 mb-3">{ep.overview || "Sem descrição."}</p>
-                     </div>
-                     <span className="text-xs text-gray-600 font-mono">{ep.air_date}</span>
-                  </div>
+                  <h3 className="text-sm font-bold text-gray-300 group-hover:text-white truncate">{sim.name}</h3>
                 </Link>
               ))}
             </div>
-          )}
-        </div>
+          </div>
+        )}
+      </main>
 
-        {/* Recomendações */}
-        <div className="border-t border-gray-800 mt-16 pt-8">
-           <Recommendations type="tv" id={id} />
+      {/* MODAL TRAILER */}
+      {showTrailer && trailerKey && (
+        <div className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="relative w-full max-w-5xl bg-black rounded-2xl overflow-hidden border border-gray-800">
+            <div className="flex justify-between items-center p-4 border-b border-gray-800 bg-gray-900">
+               <span className="font-bold text-white">Trailer Oficial</span>
+               <button onClick={() => setShowTrailer(false)} className="bg-gray-800 hover:bg-red-600 text-white rounded-full p-2 transition">✕</button>
+            </div>
+            <div className="aspect-video">
+              <iframe width="100%" height="100%" src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1`} frameBorder="0" allow="autoplay; encrypted-media" allowFullScreen></iframe>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
