@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
+import Link from "next/link"; // Para o botão de Assistir
 import { useParams } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -13,7 +13,7 @@ export default function MovieDetailsPage() {
   const { id } = useParams();
   const [movie, setMovie] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [showTrailer, setShowTrailer] = useState(false); // Estado do Modal do Trailer
+  const [showTrailer, setShowTrailer] = useState(false); 
 
   useEffect(() => {
     if (id) fetchMovieDetails();
@@ -21,7 +21,7 @@ export default function MovieDetailsPage() {
 
   async function fetchMovieDetails() {
     try {
-      // O "append_to_response" faz a magia: busca Créditos, Vídeos e Similares num só pedido!
+      // Busca detalhes, elenco, vídeos e similares num só pedido
       const res = await fetch(
         `https://api.themoviedb.org/3/movie/${id}?api_key=${API_KEY}&language=pt-BR&append_to_response=credits,videos,similar`
       );
@@ -33,7 +33,7 @@ export default function MovieDetailsPage() {
     setLoading(false);
   }
 
-  // Encontrar o Trailer do YouTube nos resultados
+  // Tenta encontrar um Trailer Oficial no YouTube
   const trailer = movie?.videos?.results?.find(
     (vid) => vid.site === "YouTube" && (vid.type === "Trailer" || vid.type === "Teaser")
   );
@@ -52,105 +52,128 @@ export default function MovieDetailsPage() {
     <div className="bg-black min-h-screen text-gray-200 font-sans">
       <Navbar />
 
-      {/* 1. HERO SECTION (Imagem de Fundo) */}
-      <div 
-        className="relative w-full h-[50vh] md:h-[70vh] bg-cover bg-center"
-        style={{ backgroundImage: `url(https://image.tmdb.org/t/p/original${movie.backdrop_path})` }}
-      >
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent"></div>
+      {/* HERO SECTION GIGANTE */}
+      <div className="relative w-full min-h-[85vh] flex items-center">
         
-        <div className="absolute bottom-0 left-0 w-full p-6 md:p-12 max-w-7xl mx-auto flex flex-col md:flex-row gap-8 items-end">
-          {/* Poster */}
-          <img 
-            src={`https://image.tmdb.org/t/p/w500${movie.poster_path}`} 
-            alt={movie.title} 
-            className="hidden md:block w-48 rounded-lg shadow-2xl shadow-black/50 border border-gray-800"
-          />
+        {/* Imagem de Fundo (Backdrop) */}
+        <div 
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat fixed-bg"
+          style={{ backgroundImage: `url(https://image.tmdb.org/t/p/original${movie.backdrop_path})` }}
+        >
+          {/* Degradê para escurecer */}
+          <div className="absolute inset-0 bg-gradient-to-r from-black via-black/80 to-transparent"></div>
+          <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent"></div>
+        </div>
+        
+        {/* Conteúdo Principal */}
+        <div className="relative z-10 max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-12 items-center pt-20">
           
-          {/* Texto Principal */}
-          <div className="mb-4 w-full">
-            <h1 className="text-4xl md:text-5xl font-bold text-white mb-2 drop-shadow-md">
+          {/* Coluna 1: Poster (Escondido em Mobile para dar espaço) */}
+          <div className="hidden md:block col-span-1">
+            <img 
+              src={`https://image.tmdb.org/t/p/w500${movie.poster_path}`} 
+              alt={movie.title} 
+              className="w-full rounded-xl shadow-2xl shadow-red-900/20 border border-gray-800 transform rotate-1 hover:rotate-0 transition duration-500"
+            />
+          </div>
+          
+          {/* Coluna 2: Informações e Botões */}
+          <div className="col-span-1 md:col-span-2 space-y-6">
+            <h1 className="text-4xl md:text-6xl font-bold text-white leading-tight drop-shadow-lg">
               {movie.title}
             </h1>
-            <div className="flex flex-wrap items-center gap-4 text-sm text-gray-300 mb-6">
-              <span className="text-green-400 font-bold">{Math.round(movie.vote_average * 10)}% Relevância</span>
+
+            {/* Metadados */}
+            <div className="flex flex-wrap items-center gap-4 text-sm md:text-base text-gray-300">
+              <span className="text-green-400 font-bold border border-green-400/30 bg-green-400/10 px-2 py-0.5 rounded">
+                {Math.round(movie.vote_average * 10)}% Relevância
+              </span>
               <span>{movie.release_date?.split("-")[0]}</span>
-              <span className="border border-gray-600 px-2 py-0.5 rounded text-xs">
+              <span className="border border-gray-600 px-2 py-0.5 rounded text-xs bg-gray-800">
                 {movie.adult ? "+18" : "Livre"}
               </span>
               <span>{movie.runtime} min</span>
+              {/* Géneros */}
+              <div className="flex gap-2">
+                 {movie.genres?.slice(0, 3).map(g => (
+                   <span key={g.id} className="text-gray-400 italic">#{g.name}</span>
+                 ))}
+              </div>
+            </div>
+            
+            <p className="text-gray-300 text-lg leading-relaxed max-w-2xl">
+              {movie.overview || "Sem sinopse disponível em português."}
+            </p>
+
+            {/* BOTÕES DE AÇÃO (O Importante!) */}
+            <div className="flex flex-wrap gap-4 pt-4">
+              
+              {/* 1. BOTÃO ASSISTIR -> Vai para /watch/ID */}
+              <Link 
+                href={`/watch/${movie.id}`} 
+                className="bg-red-600 hover:bg-red-700 text-white font-bold py-4 px-8 rounded-full transition transform hover:scale-105 flex items-center gap-3 shadow-lg shadow-red-900/40 text-lg"
+              >
+                <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                Assistir Filme
+              </Link>
+
+              {/* 2. BOTÃO TRAILER (Só aparece se existir trailer) */}
               {trailer && (
                 <button 
                   onClick={() => setShowTrailer(true)}
-                  className="flex items-center gap-2 text-white hover:text-red-500 transition font-bold uppercase tracking-wider text-xs border border-white/20 hover:border-red-500 px-3 py-1 rounded-full bg-black/30 backdrop-blur-sm"
+                  className="bg-gray-800/80 hover:bg-gray-700 text-white font-bold py-4 px-8 rounded-full transition border border-gray-600 flex items-center gap-3 backdrop-blur-md"
                 >
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
-                  Ver Trailer
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8zm2 3h6v-1H7v1z" /></svg>
+                  Trailer
                 </button>
               )}
             </div>
-            
-            <p className="max-w-3xl text-gray-300 text-sm md:text-base leading-relaxed line-clamp-3 md:line-clamp-none">
-              {movie.overview}
-            </p>
           </div>
         </div>
       </div>
 
-      <main className="max-w-7xl mx-auto px-6 py-12">
+      <main className="max-w-7xl mx-auto px-6 py-12 space-y-16">
         
-        {/* 2. ÁREA DO PLAYER (Importante!) */}
-        <div className="mb-16">
-           <h2 className="text-xl font-bold text-white mb-4 border-l-4 border-red-600 pl-3">Assistir Agora</h2>
-           <div className="w-full aspect-video bg-gray-900 rounded-xl overflow-hidden border border-gray-800 shadow-2xl relative group">
-              {/* AQUI ENTRA O TEU IFRAME / PLAYER REAL */}
-              {/* Exemplo de placeholder (Remove isto e mete o teu iframe): */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-500">
-                 <p className="mb-4">Player Principal (UpStream / MixDrop)</p>
-                 <button className="bg-red-600 text-white px-8 py-3 rounded-full font-bold hover:bg-red-700 transition shadow-lg shadow-red-900/50">
-                    ▶ Play Filme
-                 </button>
-              </div>
-           </div>
-        </div>
-
-        {/* 3. ELENCO (CAST) */}
+        {/* ELENCO (CAST) */}
         {movie.credits?.cast?.length > 0 && (
-          <div className="mb-12">
-            <h2 className="text-xl font-bold text-white mb-6">Elenco Principal</h2>
-            <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar">
+          <div className="animate-in fade-in slide-in-from-bottom-8 duration-700">
+            <h2 className="text-2xl font-bold text-white mb-6 border-l-4 border-red-600 pl-4">Elenco Principal</h2>
+            <div className="flex gap-6 overflow-x-auto pb-6 no-scrollbar">
               {movie.credits.cast.slice(0, 10).map((actor) => (
-                <div key={actor.id} className="flex-none w-32 text-center">
-                  <div className="w-24 h-24 mx-auto mb-3 rounded-full overflow-hidden border-2 border-gray-800">
+                <div key={actor.id} className="flex-none w-36 group">
+                  <div className="w-32 h-32 mx-auto mb-3 rounded-full overflow-hidden border-2 border-gray-800 group-hover:border-red-600 transition shadow-lg">
                     <img 
                       src={actor.profile_path ? `https://image.tmdb.org/t/p/w200${actor.profile_path}` : "/no-avatar.png"} 
                       alt={actor.name} 
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover transform group-hover:scale-110 transition duration-500"
                     />
                   </div>
-                  <p className="text-sm font-bold text-white truncate">{actor.name}</p>
-                  <p className="text-xs text-gray-500 truncate">{actor.character}</p>
+                  <p className="text-sm font-bold text-white truncate text-center group-hover:text-red-500 transition">{actor.name}</p>
+                  <p className="text-xs text-gray-500 truncate text-center">{actor.character}</p>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* 4. FILMES RELACIONADOS (SIMILAR) */}
+        {/* FILMES RELACIONADOS */}
         {movie.similar?.results?.length > 0 && (
           <div>
-            <h2 className="text-xl font-bold text-white mb-6">Podes Gostar Também</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            <h2 className="text-2xl font-bold text-white mb-6 border-l-4 border-red-600 pl-4">Quem viu este, também gostou</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
               {movie.similar.results.slice(0, 10).map((sim) => (
-                <Link key={sim.id} href={`/movies/${sim.id}`} className="group block">
-                  <div className="relative aspect-[2/3] rounded-lg overflow-hidden mb-2 bg-gray-800">
+                <Link key={sim.id} href={`/movies/${sim.id}`} className="group block relative">
+                  <div className="relative aspect-[2/3] rounded-xl overflow-hidden mb-3 bg-gray-800 shadow-lg border border-gray-800 group-hover:border-gray-500 transition">
                     <img 
-                      src={sim.poster_path ? `https://image.tmdb.org/t/p/w300${sim.poster_path}` : "/no-image.jpg"} 
+                      src={sim.poster_path ? `https://image.tmdb.org/t/p/w500${sim.poster_path}` : "/no-image.jpg"} 
                       alt={sim.title}
-                      className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition duration-300"
+                      className="w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-105 transition duration-500"
                     />
+                    <div className="absolute top-2 right-2 bg-black/80 text-yellow-400 text-xs font-bold px-2 py-1 rounded">
+                      ★ {sim.vote_average?.toFixed(1)}
+                    </div>
                   </div>
-                  <h3 className="text-sm font-medium text-gray-400 group-hover:text-white truncate transition">
+                  <h3 className="text-sm font-bold text-gray-300 group-hover:text-white truncate transition px-1">
                     {sim.title}
                   </h3>
                 </Link>
@@ -160,16 +183,19 @@ export default function MovieDetailsPage() {
         )}
       </main>
 
-      {/* 5. MODAL DO TRAILER */}
+      {/* MODAL DO TRAILER (POPUP) */}
       {showTrailer && trailer && (
-        <div className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="relative w-full max-w-4xl bg-black rounded-xl overflow-hidden shadow-2xl border border-gray-800">
-            <button 
-              onClick={() => setShowTrailer(false)}
-              className="absolute top-4 right-4 text-white hover:text-red-500 z-10 bg-black/50 rounded-full p-2"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
+        <div className="fixed inset-0 z-[60] bg-black/95 flex items-center justify-center p-4 animate-in fade-in duration-200 backdrop-blur-sm">
+          <div className="relative w-full max-w-5xl bg-black rounded-2xl overflow-hidden shadow-2xl border border-gray-800 ring-1 ring-white/10">
+            <div className="flex justify-between items-center p-4 border-b border-gray-800 bg-gray-900">
+               <span className="font-bold text-white">Trailer Oficial: {movie.title}</span>
+               <button 
+                onClick={() => setShowTrailer(false)}
+                className="text-gray-400 hover:text-white bg-gray-800 hover:bg-red-600 rounded-full p-1 transition"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
             <div className="aspect-video">
               <iframe 
                 width="100%" 
