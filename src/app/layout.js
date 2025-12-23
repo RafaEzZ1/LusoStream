@@ -37,4 +37,17 @@ export default function RootLayout({ children }) {
       </body>
     </html>
   );
+};
+
+import { Analytics } from "@vercel/analytics/react"; // 1. Adiciona o import
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="pt">
+      <body>
+        {children}
+        <Analytics /> {/* 2. Adiciona o componente antes do fecho do body */}
+      </body>
+    </html>
+  );
 }
