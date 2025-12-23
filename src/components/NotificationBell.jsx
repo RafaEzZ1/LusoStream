@@ -10,62 +10,78 @@ export default function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
   const menuRef = useRef(null);
 
+  // Carregar notificações apenas UMA vez quando o componente monta
   useEffect(() => {
-    // Carregar notificações assim que o componente monta
-    fetchDebugNotifications();
+    let mounted = true;
 
-    // Fechar ao clicar fora
-    const handleClickOutside = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) setIsOpen(false);
+    const fetchNotifications = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Buscar perfil para saber a data de criação
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('created_at')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!profile) return;
+
+      // Buscar notificações
+      const { data, error } = await supabase
+        .from('notifications')
+        .select(`
+          *,
+          notification_actions!left (is_dismissed)
+        `)
+        .or(`user_id.eq.${user.id},user_id.is.null`)
+        .gt('created_at', profile.created_at) // Filtra as anteriores ao registo
+        .order('created_at', { ascending: false });
+
+      if (!error && mounted && data) {
+        // Filtrar as que o user já limpou
+        const active = data.filter(n => 
+          !n.notification_actions || 
+          n.notification_actions.length === 0 || 
+          !n.notification_actions[0].is_dismissed
+        );
+        setNotifications(active);
+        setUnreadCount(active.length);
+      }
+    };
+
+    fetchNotifications();
+
+    // Fechar menu ao clicar fora
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+
+    return () => {
+      mounted = false;
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
   }, []);
-
-  const fetchDebugNotifications = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    console.log("🔍 A procurar notificações para o User ID:", user.id);
-
-    // QUERY SIMPLIFICADA (Sem filtros de data complexos)
-    const { data, error } = await supabase
-      .from('notifications')
-      .select(`
-        *,
-        notification_actions!left (is_dismissed)
-      `)
-      .or(`user_id.eq.${user.id},user_id.is.null`) // Traz as minhas OU as globais
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error("❌ ERRO SUPABASE:", error);
-      return;
-    }
-
-    console.log("✅ DADOS RECEBIDOS DO SUPABASE:", data);
-
-    // Filtra apenas as que não foram limpas
-    const active = data.filter(n => 
-      !n.notification_actions || 
-      n.notification_actions.length === 0 || 
-      !n.notification_actions[0].is_dismissed
-    );
-
-    setNotifications(active);
-    setUnreadCount(active.length);
-  };
 
   const handleDismiss = async (notificationId) => {
     const { data: { user } } = await supabase.auth.getUser();
-    const { error } = await supabase
-      .from('notification_actions')
-      .upsert({ user_id: user.id, notification_id: notificationId, is_dismissed: true }, { onConflict: 'user_id, notification_id' });
+    if (!user) return;
 
-    if (!error) {
-      setNotifications(prev => prev.filter(n => n.id !== notificationId));
-      setUnreadCount(prev => Math.max(0, prev - 1));
-    }
+    // Atualiza lista localmente para ser instantâneo
+    setNotifications(prev => prev.filter(n => n.id !== notificationId));
+    setUnreadCount(prev => Math.max(0, prev - 1));
+
+    // Envia para o servidor em segundo plano
+    await supabase
+      .from('notification_actions')
+      .upsert({ 
+        user_id: user.id, 
+        notification_id: notificationId, 
+        is_dismissed: true 
+      }, { onConflict: 'user_id, notification_id' });
   };
 
   const getIcon = (type) => {
@@ -79,7 +95,10 @@ export default function NotificationBell() {
 
   return (
     <div className="relative" ref={menuRef}>
-      <button onClick={() => setIsOpen(!isOpen)} className="relative p-2 text-gray-400 hover:text-white transition-all">
+      <button 
+        onClick={() => setIsOpen(!isOpen)} 
+        className="relative p-2 text-gray-400 hover:text-white transition-all"
+      >
         <Bell size={22} />
         {unreadCount > 0 && (
           <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white shadow-sm">
@@ -95,7 +114,7 @@ export default function NotificationBell() {
             <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded text-gray-400 uppercase">{notifications.length}</span>
           </div>
           
-          <div className="max-h-[380px] overflow-y-auto">
+          <div className="max-h-[380px] overflow-y-auto custom-scrollbar">
             {notifications.length > 0 ? (
               notifications.map((n) => (
                 <div key={n.id} className="p-4 border-b border-white/5 hover:bg-white/5 transition-colors group flex gap-3">
@@ -109,7 +128,7 @@ export default function NotificationBell() {
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-start">
                       <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-tight">{n.title || 'Aviso'}</h4>
-                      <button onClick={() => handleDismiss(n.id)} className="text-gray-600 hover:text-white transition-opacity group-hover:opacity-100">
+                      <button onClick={() => handleDismiss(n.id)} className="text-gray-600 hover:text-white transition-opacity sm:opacity-0 group-hover:opacity-100">
                         <X size={14} />
                       </button>
                     </div>
@@ -120,8 +139,7 @@ export default function NotificationBell() {
               ))
             ) : (
               <div className="p-10 text-center text-gray-500 text-xs italic">
-                Nenhuma notificação encontrada.
-                <br/>Verifica a consola do browser (F12).
+                Sem novas notificações.
               </div>
             )}
           </div>
