@@ -1,27 +1,28 @@
 // src/app/series/page.js
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import { useDraggableScroll } from "@/hooks/useDraggableScroll";
 
 const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
 
-// Lista de Géneros Oficiais do TMDB para TV (Séries)
-// NOTA: Estes IDs são diferentes dos filmes!
+// Adicionei "ANIMES" como uma categoria especial no topo
 const GENRES = [
   { id: null, name: "Todas" },
+  { id: "anime", name: "🇯🇵 Animes" }, // ID Especial (string)
   { id: 10759, name: "Ação & Aventura" },
-  { id: 16, name: "Animação" },
+  { id: 16, name: "Animação (Geral)" },
   { id: 35, name: "Comédia" },
   { id: 80, name: "Crime" },
   { id: 18, name: "Drama" },
   { id: 10751, name: "Família" },
   { id: 9648, name: "Mistério" },
   { id: 10765, name: "Sci-Fi & Fantasia" },
-  { id: 10768, name: "Guerra & Política" },
   { id: 37, name: "Western" },
+  { id: 10768, name: "Guerra & Política" },
 ];
 
 export default function SeriesPage() {
@@ -29,8 +30,11 @@ export default function SeriesPage() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [selectedGenre, setSelectedGenre] = useState(null);
+  
+  // O Teu Hook de Arrastar
+  const scrollRef = useRef(null); 
+  const { events } = useDraggableScroll();
 
-  // Resetar quando muda o género
   useEffect(() => {
     setSeries([]);
     setPage(1);
@@ -42,7 +46,13 @@ export default function SeriesPage() {
     try {
       let url = `https://api.themoviedb.org/3/discover/tv?api_key=${API_KEY}&language=pt-BR&sort_by=popularity.desc&page=${pageNum}`;
       
-      if (genreId) {
+      // LÓGICA ESPECIAL PARA ANIME
+      if (genreId === "anime") {
+        // Pede Animação (16) E que seja Japonês (ja)
+        url += `&with_genres=16&with_original_language=ja`;
+      } 
+      // LÓGICA NORMAL PARA OUTROS GÉNEROS
+      else if (genreId) {
         url += `&with_genres=${genreId}`;
       }
 
@@ -72,17 +82,21 @@ export default function SeriesPage() {
       
       <main className="pt-24 px-6 max-w-7xl mx-auto pb-20">
         
-        {/* CABEÇALHO + FILTROS */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-4 border-l-4 border-red-600 pl-4">Séries</h1>
+          <h1 className="text-3xl font-bold mb-4 border-l-4 border-blue-600 pl-4">Séries & Animes</h1>
           
-          <div className="flex gap-3 overflow-x-auto pb-4 no-scrollbar">
+          {/* BARRA DE FILTROS (Com o teu Hook) */}
+          <div 
+            ref={scrollRef}
+            {...events(scrollRef)}
+            className="flex gap-3 overflow-x-auto pb-4 no-scrollbar cursor-grab active:cursor-grabbing"
+          >
             {GENRES.map((genre) => (
               <button
                 key={genre.name}
                 onClick={() => setSelectedGenre(genre.id)}
                 className={`
-                  whitespace-nowrap px-4 py-2 rounded-full text-sm font-bold transition duration-300 border
+                  flex-none whitespace-nowrap px-4 py-2 rounded-full text-sm font-bold transition duration-300 border select-none
                   ${selectedGenre === genre.id 
                     ? "bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-900/50" 
                     : "bg-gray-900 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white"
@@ -95,7 +109,7 @@ export default function SeriesPage() {
           </div>
         </div>
 
-        {/* GRELHA DE SÉRIES */}
+        {/* GRELHA */}
         {series.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 animate-in fade-in duration-700">
             {series.map((show) => (
@@ -108,7 +122,7 @@ export default function SeriesPage() {
                   <img 
                     src={show.poster_path ? `https://image.tmdb.org/t/p/w500${show.poster_path}` : "/no-image.jpg"} 
                     alt={show.name} 
-                    className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition"
+                    className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition pointer-events-none"
                     loading="lazy"
                   />
                   <div className="absolute top-2 right-2 bg-black/80 text-yellow-400 text-xs font-bold px-2 py-1 rounded backdrop-blur-sm">
@@ -119,7 +133,8 @@ export default function SeriesPage() {
                 <div className="p-3">
                   <h2 className="font-bold text-sm truncate text-gray-200 group-hover:text-white">{show.name}</h2>
                   <p className="text-xs text-gray-500 mt-1 flex justify-between">
-                    <span>{show.first_air_date?.split("-")[0] || "N/A"}</span>
+                    {/* Se for anime, mostra ANIME, senão mostra o ano */}
+                    <span>{show.original_language === 'ja' && show.genre_ids?.includes(16) ? "ANIME" : (show.first_air_date?.split("-")[0] || "N/A")}</span>
                   </p>
                 </div>
               </Link>
@@ -127,7 +142,7 @@ export default function SeriesPage() {
           </div>
         ) : (
           <div className="text-center py-20 text-gray-500">
-             {loading ? "A procurar..." : "Nenhuma série encontrada nesta categoria."}
+             {loading ? "A procurar..." : "Nada encontrado nesta categoria."}
           </div>
         )}
 
@@ -139,7 +154,7 @@ export default function SeriesPage() {
               disabled={loading}
               className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full transition transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-900/20"
             >
-              {loading ? "A carregar..." : "Carregar Mais Séries"}
+              {loading ? "A carregar..." : "Carregar Mais"}
             </button>
           </div>
         )}
