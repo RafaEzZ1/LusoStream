@@ -1,140 +1,145 @@
-// src/components/NotificationBell.jsx
 "use client";
-import { useState, useEffect, useRef } from "react";
-import { supabase } from "@/lib/supabaseClient";
-import { useRouter } from "next/navigation";
 
-const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
+import { useState, useEffect, useRef } from 'react';
+import { supabase } from '@/lib/supabaseClient';
+import { Bell, X, Check } from 'lucide-react';
 
-export default function NotificationBell({ user }) {
+export default function NotificationBell() {
   const [notifications, setNotifications] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef(null);
-  const router = useRouter();
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [userProfile, setUserProfile] = useState(null);
+  const menuRef = useRef(null);
 
   useEffect(() => {
-    if (!user) return;
+    const loadUserAndNotifications = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-    async function fetchNotifs() {
-      try {
-        // 1. ANÚNCIOS GLOBAIS
-        // Nota: Selecionamos explicitamente 'image_url' para garantir que vem
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-        
-        const { data: announcements } = await supabase
-          .from("announcements")
-          .select("id, title, link, created_at, image_url") 
-          .gte("created_at", sevenDaysAgo.toISOString());
+      // Buscar a data de criação do perfil do utilizador
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('user_id, created_at')
+        .eq('user_id', user.id)
+        .single();
+      
+      setUserProfile(profile);
+      if (profile) {
+        fetchNotifications(profile);
+      }
+    };
 
-        // Ver quais já li
-        const { data: reads } = await supabase
-          .from("announcement_reads")
-          .select("announcement_id")
-          .eq("user_id", user.id);
-        
-        const readIds = new Set((reads || []).map(r => r.announcement_id));
-        const unreadAnnouncements = (announcements || []).filter(a => !readIds.has(a.id));
+    loadUserAndNotifications();
 
-        // 2. REPORTS RESOLVIDOS
-        const { data: reports } = await supabase
-          .from("reports")
-          .select("*")
-          .eq("user_id", user.id)
-          .eq("status", "fixed")
-          .eq("user_viewed", false);
-
-        // Formatar ANÚNCIOS
-        const formattedAnnouncements = unreadAnnouncements.map(a => ({
-          type: "announcement",
-          id: a.id,
-          date: new Date(a.created_at),
-          text: a.title,
-          image: a.image_url, // AQUI: Usa a imagem da base de dados
-          link: a.link || "/"
-        }));
-
-        // Formatar REPORTS (buscar imagem ao TMDB)
-        const formattedReports = await Promise.all((reports || []).map(async (r) => {
-           let poster = null;
-           try {
-             const url = r.item_type === 'movie' 
-               ? `https://api.themoviedb.org/3/movie/${r.item_id}?api_key=${API_KEY}&language=pt-BR` 
-               : `https://api.themoviedb.org/3/tv/${r.item_id}?api_key=${API_KEY}&language=pt-BR`;
-             const res = await fetch(url);
-             const d = await res.json();
-             if(d.poster_path) poster = `https://image.tmdb.org/t/p/w92${d.poster_path}`;
-           } catch(e){}
-
-           return {
-             type: "report", 
-             id: r.id, 
-             date: new Date(r.updated_at),
-             text: "Erro resolvido! ✅",
-             image: poster,
-             link: r.item_type === 'movie' ? `/watch/movie/${r.item_id}` : `/watch/series/${r.item_id}/season/${r.season}/episode/${r.episode}`
-           };
-        }));
-
-        // Juntar tudo
-        const all = [...formattedAnnouncements, ...formattedReports].sort((a, b) => b.date - a.date);
-        setNotifications(all);
-
-      } catch (e) { console.error("Erro NotificationBell:", e); }
-    }
-
-    fetchNotifs();
-    const interval = setInterval(fetchNotifs, 30000);
-    return () => clearInterval(interval);
-  }, [user]);
-
-  useEffect(() => {
-    function out(e) { if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setIsOpen(false); }
-    document.addEventListener("mousedown", out); return () => document.removeEventListener("mousedown", out);
+    // Fechar menu ao clicar fora
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  async function handleClick(notif) {
-    if (notif.type === "report") await supabase.from("reports").update({ user_viewed: true }).eq("id", notif.id);
-    else if (notif.type === "announcement") await supabase.from("announcement_reads").insert({ user_id: user.id, announcement_id: notif.id });
-    
-    setNotifications(p => p.filter(n => n.id !== notif.id));
-    setIsOpen(false);
-    if (notif.link) router.push(notif.link);
-  }
+  const fetchNotifications = async (profile) => {
+    if (!profile) return;
 
-  if (!user) return null;
+    // Busca notificações:
+    // 1. Criadas após o utilizador se registar
+    // 2. Que não foram marcadas como 'dismissed' (através de um LEFT JOIN)
+    const { data, error } = await supabase
+      .from('notifications')
+      .select(`
+        *,
+        notification_actions!left (
+          is_dismissed
+        )
+      `)
+      .gt('created_at', profile.created_at)
+      .order('created_at', { ascending: false });
+
+    if (!error) {
+      // Filtrar no lado do cliente apenas as que não têm is_dismissed = true
+      const filtered = data.filter(n => 
+        !n.notification_actions || n.notification_actions.length === 0 || !n.notification_actions[0].is_dismissed
+      );
+      setNotifications(filtered);
+      setUnreadCount(filtered.filter(n => !n.is_read).length);
+    }
+  };
+
+  const handleDismiss = async (notificationId) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    // Inserir ou atualizar na tabela de ações para esconder a notificação
+    const { error } = await supabase
+      .from('notification_actions')
+      .upsert({
+        user_id: user.id,
+        notification_id: notificationId,
+        is_dismissed: true
+      }, { onConflict: 'user_id, notification_id' });
+
+    if (!error) {
+      // Remover da lista local imediatamente
+      setNotifications(prev => prev.filter(n => n.id !== notificationId));
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    }
+  };
+
+  const markAllAsRead = async () => {
+    // Aqui podes manter a tua lógica de mark as read ou usar a nova tabela de ações
+    setUnreadCount(0);
+  };
 
   return (
-    <div className="relative" ref={dropdownRef}>
-      <button onClick={() => setIsOpen(!isOpen)} className="relative p-2 text-gray-300 hover:text-white transition">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
-        </svg>
-        {notifications.length > 0 && <span className="absolute top-1 right-1 bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-black animate-pulse">{notifications.length}</span>}
+    <div className="relative" ref={menuRef}>
+      <button 
+        onClick={() => { setIsOpen(!isOpen); markAllAsRead(); }}
+        className="relative p-2 text-gray-300 hover:text-white transition-colors"
+      >
+        <Bell size={24} />
+        {unreadCount > 0 && (
+          <span className="absolute top-0 right-0 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white shadow-lg">
+            {unreadCount}
+          </span>
+        )}
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in duration-200">
-          <div className="p-3 border-b border-zinc-800 font-semibold text-sm text-white flex justify-between">
-            <span>Notificações</span> {notifications.length > 0 && <span className="text-xs text-gray-400">{notifications.length} novas</span>}
+        <div className="absolute right-0 mt-3 w-80 rounded-xl bg-[#141414] border border-white/10 shadow-2xl z-50 overflow-hidden">
+          <div className="p-4 border-b border-white/10 flex justify-between items-center">
+            <h3 className="font-bold text-white">Notificações</h3>
+            <span className="text-xs text-gray-500">{notifications.length} mensagens</span>
           </div>
-          <div className="max-h-80 overflow-y-auto">
-            {notifications.length === 0 ? <p className="p-6 text-center text-sm text-gray-500">Sem notificações. 💤</p> : notifications.map((notif) => (
-              <button key={notif.type + notif.id} onClick={() => handleClick(notif)} className="w-full text-left p-3 hover:bg-zinc-800 border-b border-zinc-800 last:border-0 transition flex gap-3 items-start group">
-                {/* LÓGICA DE IMAGEM */}
-                <div className="w-10 h-14 shrink-0 rounded overflow-hidden bg-gray-800 border border-gray-700">
-                  {notif.image ? (
-                    <img src={notif.image} className="w-full h-full object-cover" alt="poster" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-xs">📢</div>
-                  )}
+          
+          <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
+            {notifications.length > 0 ? (
+              notifications.map((n) => (
+                <div key={n.id} className="p-4 border-b border-white/5 hover:bg-white/5 transition-colors group relative">
+                  <div className="flex justify-between items-start mb-1">
+                    <span className="text-[10px] text-red-500 font-bold uppercase tracking-wider">
+                      {n.type || 'Aviso'}
+                    </span>
+                    <button 
+                      onClick={() => handleDismiss(n.id)}
+                      className="text-gray-500 hover:text-white transition-colors opacity-0 group-hover:opacity-100"
+                      title="Remover"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                  <p className="text-sm text-gray-200 leading-snug pr-4">{n.message}</p>
+                  <span className="text-[10px] text-gray-500 mt-2 block">
+                    {new Date(n.created_at).toLocaleDateString()}
+                  </span>
                 </div>
-                <div>
-                   <p className="text-sm text-gray-200 font-medium group-hover:text-white line-clamp-2">{notif.text}</p>
-                   <p className="text-xs text-gray-500 mt-1">{notif.date.toLocaleDateString()}</p>
-                </div>
-              </button>
-            ))}
+              ))
+            ) : (
+              <div className="p-8 text-center text-gray-500">
+                <p className="text-sm">Não tens novas notificações.</p>
+              </div>
+            )}
           </div>
         </div>
       )}
