@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation"; // 👈 Adicionado usePathname
 import { supabase, hardLogout } from "@/lib/supabaseClient";
 import NotificationBell from "@/components/NotificationBell";
 import Logo from "@/components/Logo";
@@ -23,6 +23,8 @@ const AVATARS_MAP = {
 };
 
 export default function Navbar() {
+  const pathname = usePathname(); // 👈 Pega a rota atual
+  
   const [user, setUser] = useState(null);
   const [role, setRole] = useState("user");
   const [loading, setLoading] = useState(true);
@@ -69,7 +71,7 @@ export default function Navbar() {
         setRole("user");
         setAvatarId(null);
       } else if (session?.user) {
-        getUserData(); // Recarrega dados se fizer login
+        getUserData(); 
       }
     });
 
@@ -88,7 +90,7 @@ export default function Navbar() {
     }
     if (user && isAdmin) {
       checkPending();
-      const interval = setInterval(checkPending, 60000); // Verifica a cada minuto
+      const interval = setInterval(checkPending, 60000); 
       return () => clearInterval(interval);
     }
   }, [user, isAdmin]);
@@ -132,6 +134,11 @@ export default function Navbar() {
   
   const displayName = user?.email || "?";
 
+  // 👇 A MÁGICA ESTÁ AQUI: Esconde a Navbar se for Admin ou Auth
+  if (pathname && (pathname.startsWith('/admin') || pathname === '/auth')) {
+    return null;
+  }
+
   return (
     <>
       <nav className="fixed top-0 left-0 w-full bg-black/90 backdrop-blur-md z-50 px-4 sm:px-6 h-16 flex items-center justify-between border-b border-gray-800 shadow-lg shadow-black/50">
@@ -143,7 +150,6 @@ export default function Navbar() {
           <div className="hidden md:flex items-center gap-5 text-sm font-medium text-gray-300">
             <Link href="/movies" className="hover:text-white transition">Filmes</Link>
             <Link href="/series" className="hover:text-white transition">Séries</Link>
-            {/* LINK ANIME REMOVIDO DAQUI */}
             <Link href="/suggestions" className="hover:text-white transition">Pedidos</Link>
             
             {isAdmin && (
@@ -233,7 +239,6 @@ export default function Navbar() {
           <div className="space-y-4 text-lg font-medium text-gray-300">
             <button onClick={() => goMobile("/movies")} className="block w-full text-left py-2 border-b border-gray-800">Filmes</button>
             <button onClick={() => goMobile("/series")} className="block w-full text-left py-2 border-b border-gray-800">Séries</button>
-            {/* LINK ANIME REMOVIDO DAQUI TAMBÉM */}
             <button onClick={() => goMobile("/suggestions")} className="block w-full text-left py-2 border-b border-gray-800">Pedidos</button>
             {isAdmin && <button onClick={() => goMobile("/admin")} className="block w-full text-left py-2 border-b border-gray-800 text-yellow-400">Painel Admin</button>}
           </div>
