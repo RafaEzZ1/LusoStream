@@ -10,24 +10,15 @@ export default function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
   const menuRef = useRef(null);
 
-  // Carregar notificações apenas UMA vez quando o componente monta
   useEffect(() => {
-    let mounted = true;
+    let isMounted = true;
 
     const fetchNotifications = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Buscar perfil para saber a data de criação
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('created_at')
-        .eq('user_id', user.id)
-        .single();
-
-      if (!profile) return;
-
-      // Buscar notificações
+      // BUSCA DESBLOQUEADA: Traz tudo o que for teu ou global
+      // Removemos o filtro de data para garantir que vês as mensagens de teste
       const { data, error } = await supabase
         .from('notifications')
         .select(`
@@ -35,16 +26,17 @@ export default function NotificationBell() {
           notification_actions!left (is_dismissed)
         `)
         .or(`user_id.eq.${user.id},user_id.is.null`)
-        .gt('created_at', profile.created_at) // Filtra as anteriores ao registo
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(20);
 
-      if (!error && mounted && data) {
-        // Filtrar as que o user já limpou
+      if (!error && data && isMounted) {
+        // Filtra no JavaScript apenas as que tu já "limpaste"
         const active = data.filter(n => 
           !n.notification_actions || 
           n.notification_actions.length === 0 || 
           !n.notification_actions[0].is_dismissed
         );
+        
         setNotifications(active);
         setUnreadCount(active.length);
       }
@@ -52,7 +44,7 @@ export default function NotificationBell() {
 
     fetchNotifications();
 
-    // Fechar menu ao clicar fora
+    // Fechar ao clicar fora
     const handleClickOutside = (event) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
         setIsOpen(false);
@@ -61,7 +53,7 @@ export default function NotificationBell() {
     document.addEventListener('mousedown', handleClickOutside);
 
     return () => {
-      mounted = false;
+      isMounted = false;
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
@@ -70,33 +62,33 @@ export default function NotificationBell() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Atualiza lista localmente para ser instantâneo
+    // 1. Atualiza visualmente na hora (sem esperar pelo banco)
     setNotifications(prev => prev.filter(n => n.id !== notificationId));
     setUnreadCount(prev => Math.max(0, prev - 1));
 
-    // Envia para o servidor em segundo plano
+    // 2. Guarda a ação no banco de dados
     await supabase
       .from('notification_actions')
-      .upsert({ 
-        user_id: user.id, 
-        notification_id: notificationId, 
-        is_dismissed: true 
+      .upsert({
+        user_id: user.id,
+        notification_id: notificationId,
+        is_dismissed: true
       }, { onConflict: 'user_id, notification_id' });
   };
 
   const getIcon = (type) => {
     switch(type) {
-      case 'report': return <CheckCircle size={14} className="text-green-500" />;
-      case 'suggestion': return <MessageSquare size={14} className="text-blue-500" />;
-      case 'announcement': return <AlertCircle size={14} className="text-red-500" />;
-      default: return <AlertCircle size={14} className="text-gray-400" />;
+      case 'report': return <CheckCircle size={16} className="text-green-500" />;
+      case 'suggestion': return <MessageSquare size={16} className="text-blue-500" />;
+      case 'announcement': return <AlertCircle size={16} className="text-red-500" />;
+      default: return <AlertCircle size={16} className="text-gray-400" />;
     }
   };
 
   return (
     <div className="relative" ref={menuRef}>
       <button 
-        onClick={() => setIsOpen(!isOpen)} 
+        onClick={() => setIsOpen(!isOpen)}
         className="relative p-2 text-gray-400 hover:text-white transition-all"
       >
         <Bell size={22} />
@@ -111,35 +103,53 @@ export default function NotificationBell() {
         <div className="absolute right-0 mt-3 w-80 rounded-xl bg-[#121212] border border-white/10 shadow-2xl z-50 overflow-hidden">
           <div className="p-4 border-b border-white/10 bg-white/5 flex justify-between items-center">
             <span className="text-sm font-semibold text-white">Notificações</span>
-            <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded text-gray-400 uppercase">{notifications.length}</span>
+            <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded text-gray-400 uppercase">
+              {notifications.length} Novas
+            </span>
           </div>
           
           <div className="max-h-[380px] overflow-y-auto custom-scrollbar">
             {notifications.length > 0 ? (
               notifications.map((n) => (
                 <div key={n.id} className="p-4 border-b border-white/5 hover:bg-white/5 transition-colors group flex gap-3">
-                   {n.image_url ? (
-                    <img src={n.image_url} alt="thumb" className="w-10 h-14 object-cover rounded bg-white/10" />
+                  {/* Imagem ou Ícone */}
+                  {n.image_url ? (
+                    <img 
+                      src={n.image_url} 
+                      alt="Capa" 
+                      className="w-10 h-14 object-cover rounded shadow-sm bg-gray-800"
+                    />
                   ) : (
-                    <div className="w-10 h-10 rounded bg-white/5 flex items-center justify-center shrink-0">
+                    <div className="w-10 h-10 rounded bg-white/5 flex items-center justify-center flex-shrink-0">
                       {getIcon(n.type)}
                     </div>
                   )}
+
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-start">
-                      <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-tight">{n.title || 'Aviso'}</h4>
-                      <button onClick={() => handleDismiss(n.id)} className="text-gray-600 hover:text-white transition-opacity sm:opacity-0 group-hover:opacity-100">
+                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-tight">
+                        {n.title || 'Sistema'}
+                      </span>
+                      <button 
+                        onClick={() => handleDismiss(n.id)}
+                        className="text-gray-600 hover:text-white transition-opacity sm:opacity-0 group-hover:opacity-100 p-1"
+                        title="Limpar"
+                      >
                         <X size={14} />
                       </button>
                     </div>
-                    <p className="text-xs text-gray-200 mt-1 line-clamp-3 leading-relaxed">{n.message}</p>
-                    <span className="text-[9px] text-gray-600 mt-2 block">{new Date(n.created_at).toLocaleDateString()}</span>
+                    <p className="text-xs text-gray-200 mt-1 leading-relaxed line-clamp-3">
+                      {n.message}
+                    </p>
+                    <span className="text-[9px] text-gray-600 mt-2 block italic">
+                      {new Date(n.created_at).toLocaleDateString('pt-PT')}
+                    </span>
                   </div>
                 </div>
               ))
             ) : (
               <div className="p-10 text-center text-gray-500 text-xs italic">
-                Sem novas notificações.
+                Sem notificações pendentes.
               </div>
             )}
           </div>
