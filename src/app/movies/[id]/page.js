@@ -1,42 +1,67 @@
 // src/app/movies/[id]/page.js
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient"; // Para a Minha Lista
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import { useDraggableScroll } from "@/hooks/useDraggableScroll"; // Hook de Arrastar
 
 const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
 
 export default function MovieDetailsPage() {
   const { id } = useParams();
+  const router = useRouter();
+  
+  // Estados de Dados
   const [movie, setMovie] = useState(null);
   const [loading, setLoading] = useState(true);
+  
+  // Estados de Interface
   const [showTrailer, setShowTrailer] = useState(false);
   const [trailerKey, setTrailerKey] = useState(null);
+  
+  // Estados da Minha Lista
+  const [user, setUser] = useState(null);
+  const [isInList, setIsInList] = useState(false);
+  const [listLoading, setListLoading] = useState(false);
 
+  // Hook para Arrastar o Elenco
+  const castRef = useRef(null);
+  const { events: castEvents } = useDraggableScroll();
+
+  // 1. Carregar Filme e Dados do Utilizador
   useEffect(() => {
-    if (id) fetchMovieDetails();
+    async function loadData() {
+      // Pega o User Atual
+      const { data: { session } } = await supabase.auth.getSession();
+      const currentUser = session?.user || null;
+      setUser(currentUser);
+
+      if (id) {
+        await fetchMovieDetails(id);
+        if (currentUser) checkMyList(currentUser.id, id);
+      }
+    }
+    loadData();
   }, [id]);
 
-  async function fetchMovieDetails() {
+  // 2. Buscar Detalhes do TMDB
+  async function fetchMovieDetails(movieId) {
     try {
-      // 1. Pedir Detalhes + Vídeos + Elenco + Similares
-      // NOTA: Se o filme não tiver trailer em PT, o array 'videos' pode vir vazio.
       const res = await fetch(
-        `https://api.themoviedb.org/3/movie/${id}?api_key=${API_KEY}&language=pt-BR&append_to_response=credits,videos,similar`
+        `https://api.themoviedb.org/3/movie/${movieId}?api_key=${API_KEY}&language=pt-BR&append_to_response=credits,videos,similar`
       );
       const data = await res.json();
       setMovie(data);
 
-      // 2. Lógica Inteligente para encontrar o Trailer
-      // Primeiro procura "Trailer", se não houver, procura "Teaser"
+      // Encontrar Trailer
       const videos = data.videos?.results || [];
       const officialTrailer = videos.find(v => v.site === "YouTube" && v.type === "Trailer");
       const teaser = videos.find(v => v.site === "YouTube" && v.type === "Teaser");
       
-      // Define a key do vídeo (Trailer ganha ao Teaser)
       if (officialTrailer) setTrailerKey(officialTrailer.key);
       else if (teaser) setTrailerKey(teaser.key);
 
@@ -44,6 +69,52 @@ export default function MovieDetailsPage() {
       console.error("Erro ao carregar filme:", error);
     }
     setLoading(false);
+  }
+
+  // 3. Verificar se está na Minha Lista
+  async function checkMyList(userId, movieId) {
+    const { data } = await supabase
+      .from("watchlists")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("item_id", movieId)
+      .eq("item_type", "movie")
+      .maybeSingle();
+
+    if (data) setIsInList(true);
+  }
+
+  // 4. Adicionar / Remover da Lista
+  async function toggleMyList() {
+    if (!user) {
+      alert("Precisas de fazer login para adicionar à lista!");
+      router.push("/auth");
+      return;
+    }
+    
+    setListLoading(true);
+
+    if (isInList) {
+      // Remover
+      await supabase
+        .from("watchlists")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("item_id", movie.id)
+        .eq("item_type", "movie");
+      setIsInList(false);
+    } else {
+      // Adicionar
+      await supabase
+        .from("watchlists")
+        .insert({
+          user_id: user.id,
+          item_id: movie.id,
+          item_type: "movie"
+        });
+      setIsInList(true);
+    }
+    setListLoading(false);
   }
 
   if (loading) {
@@ -63,7 +134,7 @@ export default function MovieDetailsPage() {
       {/* HERO SECTION */}
       <div className="relative w-full min-h-[85vh] flex items-center">
         
-        {/* Imagem de Fundo */}
+        {/* Background Image */}
         <div 
           className="absolute inset-0 bg-cover bg-center bg-no-repeat fixed-bg"
           style={{ backgroundImage: `url(https://image.tmdb.org/t/p/original${movie.backdrop_path})` }}
@@ -74,7 +145,7 @@ export default function MovieDetailsPage() {
         
         <div className="relative z-10 max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-12 items-center pt-20">
           
-          {/* Poster (Mobile Hidden) */}
+          {/* Poster (PC) */}
           <div className="hidden md:block col-span-1">
             <img 
               src={`https://image.tmdb.org/t/p/w500${movie.poster_path}`} 
@@ -110,25 +181,52 @@ export default function MovieDetailsPage() {
               {movie.overview || "Sem sinopse disponível."}
             </p>
 
-            {/* --- BOTÕES CORRIGIDOS --- */}
+            {/* --- BOTÕES DE AÇÃO --- */}
             <div className="flex flex-wrap gap-4 pt-4">
               
-              {/* 1. ASSISTIR: Link Atualizado (/watch/movie/ID) */}
+              {/* 1. ASSISTIR */}
               <Link 
                 href={`/watch/movie/${movie.id}`} 
-                className="bg-red-600 hover:bg-red-700 text-white font-bold py-4 px-8 rounded-full transition transform hover:scale-105 flex items-center gap-3 shadow-lg shadow-red-900/40 text-lg"
+                className="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-8 rounded-full transition transform hover:scale-105 flex items-center gap-3 shadow-lg shadow-red-900/40 text-lg"
               >
                 <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                Assistir Filme
+                Assistir
               </Link>
 
-              {/* 2. TRAILER: Só aparece se houver 'trailerKey' */}
+              {/* 2. MINHA LISTA (NOVO) */}
+              <button 
+                onClick={toggleMyList}
+                disabled={listLoading}
+                className={`
+                  font-bold py-3 px-6 rounded-full transition border flex items-center gap-2
+                  ${isInList 
+                    ? "bg-green-600 border-green-600 text-white hover:bg-green-700" 
+                    : "bg-gray-800/80 border-gray-600 text-white hover:bg-gray-700 hover:border-white"
+                  }
+                `}
+              >
+                {listLoading ? (
+                  <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                ) : isInList ? (
+                  <>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                    Na Lista
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                    Minha Lista
+                  </>
+                )}
+              </button>
+
+              {/* 3. TRAILER */}
               {trailerKey && (
                 <button 
                   onClick={() => setShowTrailer(true)}
-                  className="bg-gray-800/80 hover:bg-gray-700 text-white font-bold py-4 px-8 rounded-full transition border border-gray-600 flex items-center gap-3 backdrop-blur-md"
+                  className="bg-gray-800/80 hover:bg-gray-700 text-white font-bold py-3 px-6 rounded-full transition border border-gray-600 flex items-center gap-2 backdrop-blur-md"
                 >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8zm2 3h6v-1H7v1z" /></svg>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8zm2 3h6v-1H7v1z" /></svg>
                   Trailer
                 </button>
               )}
@@ -139,18 +237,26 @@ export default function MovieDetailsPage() {
 
       <main className="max-w-7xl mx-auto px-6 py-12 space-y-16">
         
-        {/* ELENCO */}
+        {/* ELENCO COM ARRASTAR (DRAG) */}
         {movie.credits?.cast?.length > 0 && (
           <div className="animate-in fade-in slide-in-from-bottom-8 duration-700">
             <h2 className="text-2xl font-bold text-white mb-6 border-l-4 border-red-600 pl-4">Elenco Principal</h2>
-            <div className="flex gap-6 overflow-x-auto pb-6 no-scrollbar">
-              {movie.credits.cast.slice(0, 10).map((actor) => (
-                <div key={actor.id} className="flex-none w-36 group">
+            
+            {/* Apliquei o Hook AQUI */}
+            <div 
+              ref={castRef}
+              {...castEvents(castRef)}
+              className="flex gap-6 overflow-x-auto pb-6 no-scrollbar cursor-grab active:cursor-grabbing"
+            >
+              {movie.credits.cast.slice(0, 15).map((actor) => (
+                <div key={actor.id} className="flex-none w-36 group select-none">
                   <div className="w-32 h-32 mx-auto mb-3 rounded-full overflow-hidden border-2 border-gray-800 group-hover:border-red-600 transition shadow-lg">
                     <img 
                       src={actor.profile_path ? `https://image.tmdb.org/t/p/w200${actor.profile_path}` : "/no-avatar.png"} 
                       alt={actor.name} 
-                      className="w-full h-full object-cover transform group-hover:scale-110 transition duration-500"
+                      // PREVINE QUE A IMAGEM SEJA ARRASTADA
+                      onDragStart={(e) => e.preventDefault()}
+                      className="w-full h-full object-cover transform group-hover:scale-110 transition duration-500 pointer-events-none"
                     />
                   </div>
                   <p className="text-sm font-bold text-white truncate text-center group-hover:text-red-500 transition">{actor.name}</p>
@@ -188,12 +294,10 @@ export default function MovieDetailsPage() {
         )}
       </main>
 
-      {/* --- MODAL DO TRAILER --- */}
-      {/* Z-Index 100 para garantir que fica por cima do Navbar */}
+      {/* MODAL DO TRAILER */}
       {showTrailer && trailerKey && (
         <div className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4 animate-in fade-in duration-200 backdrop-blur-md">
           <div className="relative w-full max-w-5xl bg-black rounded-2xl overflow-hidden shadow-2xl border border-gray-800 ring-1 ring-white/10">
-            {/* Cabeçalho do Modal */}
             <div className="flex justify-between items-center p-4 border-b border-gray-800 bg-gray-900">
                <span className="font-bold text-white flex items-center gap-2">
                  📺 Trailer Oficial
@@ -205,8 +309,6 @@ export default function MovieDetailsPage() {
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
-            
-            {/* O Vídeo */}
             <div className="aspect-video bg-black">
               <iframe 
                 width="100%" 
