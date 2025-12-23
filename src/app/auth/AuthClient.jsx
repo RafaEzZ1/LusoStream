@@ -41,13 +41,15 @@ export default function AuthClient() {
   const [submitting, setSubmitting] = useState(false);
   const [msg, setMsg] = useState(null);
 
+  // Escuta o evento de LOGIN AUTOMÁTICO
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_IN") {
+        setMsg({ type: "ok", text: "Sessão iniciada! A redirecionar..." });
         setTimeout(async () => {
           await supabase.auth.getUser();
           router.replace("/");
-        }, 50);
+        }, 500); // Pequeno delay para ler a mensagem
       }
     });
     return () => sub?.subscription?.unsubscribe?.();
@@ -96,7 +98,8 @@ export default function AuthClient() {
         if (!uname) throw new Error("Nome de utilizador inválido.");
         if (password !== confirm) throw new Error("As passwords não coincidem.");
         
-        const { error } = await supabase.auth.signUp({
+        // CORREÇÃO AQUI: Registo com verificação de auto-login
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -105,8 +108,18 @@ export default function AuthClient() {
             emailRedirectTo: typeof window !== "undefined" ? window.location.origin + "/auth" : undefined,
           },
         });
+        
         if (error) throw error;
-        setMsg({ type: "ok", text: "Conta criada! Verifica o teu email." });
+
+        // SE O EMAIL CONFIRM ESTIVER DESLIGADO, O UTILIZADOR ENTRA DIRETO:
+        if (data?.session) {
+          await ensureProfile(data.user); // Garante que o perfil é criado com o username certo
+          setMsg({ type: "ok", text: "Conta criada! A entrar..." });
+          // O useEffect lá em cima vai tratar do redirect
+        } else {
+          // Caso contrário (se o Supabase ainda pedir confirmação por algum motivo)
+          setMsg({ type: "ok", text: "Conta criada! Verifica o teu email." });
+        }
       }
       resetCaptcha();
     } catch (err) {
@@ -307,4 +320,4 @@ export default function AuthClient() {
       </div>
     </div>
   );
-} 
+}
