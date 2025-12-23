@@ -2,8 +2,8 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-// 👇 IMPORTA ISTO
 import { AuthModalProvider } from "@/context/AuthModalContext";
+import { Analytics } from "@vercel/analytics/react";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -14,39 +14,35 @@ export const metadata = {
     template: "%s | LusoStream"
   },
   description: "O melhor site de streaming em Portugal. Filmes e séries HD grátis.",
-  // ... resto dos teus metadados ...
+  openGraph: {
+    title: "LusoStream | Filmes e Séries Grátis",
+    description: "O melhor site de streaming em Portugal. Filmes e séries HD grátis.",
+    url: 'https://streamy11.vercel.app',
+    siteName: 'LusoStream',
+    locale: 'pt_PT',
+    type: 'website',
+  },
 };
 
 export default function RootLayout({ children }) {
   return (
     <html lang="pt">
       <body className={`${inter.className} bg-black text-white antialiased`}>
-        {/* 👇 ENVOLVE TUDO COM O PROVIDER AQUI */}
+        {/* Provedor para gerir o Modal de Login em todo o site */}
         <AuthModalProvider>
           
           <Navbar />
           
-          <div className="min-h-screen">
+          <main className="min-h-screen">
             {children}
-          </div>
+          </main>
 
           <Footer />
 
         </AuthModalProvider>
-        {/* 👆 FIM DO PROVIDER */}
-      </body>
-    </html>
-  );
-};
 
-import { Analytics } from "@vercel/analytics/react"; // 1. Adiciona o import
-
-export default function RootLayout({ children }) {
-  return (
-    <html lang="pt">
-      <body>
-        {children}
-        <Analytics /> {/* 2. Adiciona o componente antes do fecho do body */}
+        {/* Vercel Analytics para monitorizar visitas */}
+        <Analytics />
       </body>
     </html>
   );
