@@ -43,29 +43,35 @@ export default function AuthClient() {
 
     // Validações básicas
     if (!email || !password) return setMsg({ type: "error", text: "Preenche o email e a password." });
+    
+    // Validação específica de Registo
     if (!isLogin && !username) return setMsg({ type: "error", text: "Escolhe um nome de utilizador." });
     
-    // Valida Captcha (Obrigatório apenas no Registo)
-    if (!isLogin && !captchaToken) return setMsg({ type: "error", text: "Tens de resolver o Captcha." });
+    // Valida Captcha (AGORA OBRIGATÓRIO PARA AMBOS)
+    if (!captchaToken) return setMsg({ type: "error", text: "Tens de resolver o Captcha." });
 
     setLoading(true);
 
     try {
       if (isLogin) {
-        // --- LOGIN ---
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        // --- LOGIN COM CAPTCHA ---
+        const { error } = await supabase.auth.signInWithPassword({ 
+          email, 
+          password,
+          options: { captchaToken } // Envia o token também no login
+        });
         if (error) throw error;
         router.push("/"); 
         router.refresh();
       } else {
-        // --- REGISTO ---
+        // --- REGISTO COM CAPTCHA ---
         const { error } = await supabase.auth.signUp({ 
           email, 
           password, 
           options: { 
-            captchaToken, // Envia o token para o Supabase validar com a tua Chave Secreta
+            captchaToken, 
             data: { 
-              username: username, // Salva o Username
+              username: username,
               full_name: username 
             }
           } 
@@ -85,11 +91,13 @@ export default function AuthClient() {
       if (err.message.includes("User already registered")) errorMsg = "Este email já está registado.";
       if (err.message.includes("captcha")) errorMsg = "Erro ao validar o Captcha. Tenta recarregar.";
       if (err.message.includes("rate limit")) errorMsg = "Muitas tentativas. Aguarda um pouco.";
+      if (err.message.includes("security purposes")) errorMsg = "Bloqueado por segurança. Espera uns minutos.";
       
       setMsg({ type: "error", text: errorMsg });
       
-      // Reinicia o Captcha se der erro no registo
-      if(!isLogin && captchaRef.current) captchaRef.current.resetCaptcha();
+      // Reinicia o Captcha se der erro
+      if(captchaRef.current) captchaRef.current.resetCaptcha();
+      setCaptchaToken(null);
     } finally {
       setLoading(false);
     }
@@ -159,21 +167,20 @@ export default function AuthClient() {
             <FloatingLabelInput type="email" label="Email" value={email} onChange={e => setEmail(e.target.value)} />
             <FloatingLabelInput type="password" label="Password" value={password} onChange={e => setPassword(e.target.value)} />
 
-            {!isLogin && (
-              <div className="flex justify-center py-2 scale-90 origin-center min-h-[78px]">
-                <HCaptcha 
-                  sitekey={HCAPTCHA_SITE_KEY}
-                  onVerify={(token) => setCaptchaToken(token)}
-                  onExpire={() => setCaptchaToken(null)}
-                  onError={(err) => {
-                    console.error("hCaptcha Error:", err);
-                    setCaptchaToken(null);
-                  }}
-                  ref={captchaRef} 
-                  theme="dark" 
-                />
-              </div>
-            )}
+            {/* Captcha - AGORA APARECE SEMPRE */}
+            <div className="flex justify-center py-2 scale-90 origin-center min-h-[78px]">
+              <HCaptcha 
+                sitekey={HCAPTCHA_SITE_KEY}
+                onVerify={(token) => setCaptchaToken(token)}
+                onExpire={() => setCaptchaToken(null)}
+                onError={(err) => {
+                  console.error("hCaptcha Error:", err);
+                  setCaptchaToken(null);
+                }}
+                ref={captchaRef} 
+                theme="dark" 
+              />
+            </div>
 
             <button 
               type="submit" 
@@ -194,7 +201,6 @@ export default function AuthClient() {
   );
 }
 
-// Input Moderno com Label Flutuante
 function FloatingLabelInput({ type, label, value, onChange }) {
   const [focused, setFocused] = useState(false);
   return (
