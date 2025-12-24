@@ -1,9 +1,11 @@
 "use client";
+
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { createClient } from "@/lib/supabase/client"; // <--- NOVO IMPORT
 
 /** 1. Hook Base: Deteta sessão e login/logout */
 export function useAuthUser() {
+  const supabase = createClient(); // <--- Instância
   const [state, setState] = useState({
     loading: true,
     user: null,
@@ -44,6 +46,7 @@ export function useAuthUser() {
 
 /** 2. Hook Role: Busca permissão de um user ID */
 export function useUserRole(userId) {
+  const supabase = createClient(); // <--- Instância
   const [state, setState] = useState({ loading: !!userId, role: null });
 
   useEffect(() => {
@@ -78,10 +81,9 @@ export function useUserRole(userId) {
   return state;
 }
 
-/** * 3. Hook Principal (ESTE FALTAVA): 
- * Combina User + Role para o Navbar usar
- */
+/** 3. Hook Principal: Combina User + Role */
 export function useAuthRole() {
+  const supabase = createClient(); // <--- Instância
   const { user, loading: userLoading } = useAuthUser();
   const [role, setRole] = useState(null);
   const [roleLoading, setRoleLoading] = useState(true);

@@ -1,9 +1,8 @@
 // src/components/AuthBootstrap.jsx
 "use client";
 import { useEffect } from "react";
-import { initAuthListeners } from "@/lib/supabaseClient";
-
+// O listener agora é automático no AuthProvider.jsx
+// Este ficheiro pode ficar vazio ou ser removido.
 export default function AuthBootstrap() {
-  useEffect(() => { initAuthListeners(); }, []);
   return null;
 }

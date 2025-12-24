@@ -1,7 +1,8 @@
+// src/components/NotificationBell.jsx
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { createClient } from '@/lib/supabase/client'; // <--- ATUALIZADO
 import { Bell, X, CheckCircle, MessageSquare, AlertCircle, BellOff } from 'lucide-react';
 
 export default function NotificationBell() {
@@ -10,21 +11,20 @@ export default function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
   const menuRef = useRef(null);
   const [userId, setUserId] = useState(null);
+  
+  const supabase = createClient(); // <--- INSTÂNCIA
 
   useEffect(() => {
     let mounted = true;
 
     const setupNotifications = async () => {
-      // 1. Obter User ID
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       
       if (mounted) setUserId(user.id);
 
-      // 2. Carregar Notificações Iniciais
       await fetchNotifications(user.id);
 
-      // 3. Ativar REALTIME
       const channel = supabase
         .channel('realtime-notifications')
         .on(
@@ -32,7 +32,6 @@ export default function NotificationBell() {
           { event: 'INSERT', schema: 'public', table: 'notifications' },
           (payload) => {
             const newNotif = payload.new;
-            // Só adiciona se for Global (user_id null) OU para este utilizador
             if (newNotif.user_id === null || newNotif.user_id === user.id) {
               setNotifications(prev => [newNotif, ...prev]);
               setUnreadCount(prev => prev + 1);
@@ -79,7 +78,6 @@ export default function NotificationBell() {
   };
 
   const handleDismiss = async (notificationId) => {
-    // Atualiza visualmente logo
     setNotifications(prev => prev.filter(n => n.id !== notificationId));
     setUnreadCount(prev => Math.max(0, prev - 1));
 
@@ -90,16 +88,13 @@ export default function NotificationBell() {
     }
   };
 
-  // NOVA FUNÇÃO: Limpar Tudo
   const handleClearAll = async () => {
-    // 1. Limpa visualmente instantaneamente
-    const notificationsToClear = [...notifications]; // Cópia para usar no loop
+    const notificationsToClear = [...notifications];
     setNotifications([]);
     setUnreadCount(0);
 
     if (!userId) return;
 
-    // 2. Envia tudo para o Supabase
     const updates = notificationsToClear.map(n => ({
       user_id: userId,
       notification_id: n.id,
@@ -126,8 +121,6 @@ export default function NotificationBell() {
     <div className="relative" ref={menuRef}>
       <button onClick={() => setIsOpen(!isOpen)} className="relative p-2 text-gray-400 hover:text-white transition-all">
         <Bell size={22} />
-        
-        {/* MELHORIA 1: Animação Ping quando há notificações */}
         {unreadCount > 0 && (
           <span className="absolute top-1 right-1 flex h-4 w-4">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
@@ -140,16 +133,10 @@ export default function NotificationBell() {
 
       {isOpen && (
         <div className="absolute right-0 mt-3 w-80 rounded-xl bg-[#121212] border border-white/10 shadow-2xl z-50 overflow-hidden ring-1 ring-black ring-opacity-5">
-          {/* Cabeçalho */}
           <div className="p-4 border-b border-white/10 bg-white/5 flex justify-between items-center">
             <span className="text-sm font-semibold text-white">Notificações</span>
-            
-            {/* MELHORIA 2: Botão Limpar Tudo */}
             {notifications.length > 0 ? (
-              <button 
-                onClick={handleClearAll}
-                className="text-[10px] text-gray-400 hover:text-red-400 hover:underline transition-colors font-medium"
-              >
+              <button onClick={handleClearAll} className="text-[10px] text-gray-400 hover:text-red-400 hover:underline transition-colors font-medium">
                 Limpar Tudo
               </button>
             ) : (
@@ -175,17 +162,12 @@ export default function NotificationBell() {
                     <p className="text-xs text-gray-200 mt-1 line-clamp-3 leading-relaxed">{n.message}</p>
                     <span className="text-[9px] text-gray-600 mt-2 block italic">{new Date(n.created_at).toLocaleDateString()}</span>
                   </div>
-                  {/* Botão X para limpar individualmente */}
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); handleDismiss(n.id); }} 
-                    className="absolute top-3 right-3 text-gray-600 hover:text-white transition-opacity sm:opacity-0 group-hover:opacity-100 p-1"
-                  >
+                  <button onClick={(e) => { e.stopPropagation(); handleDismiss(n.id); }} className="absolute top-3 right-3 text-gray-600 hover:text-white transition-opacity sm:opacity-0 group-hover:opacity-100 p-1">
                     <X size={14} />
                   </button>
                 </div>
               ))
             ) : (
-              // MELHORIA 3: Estado Vazio Bonito
               <div className="flex flex-col items-center justify-center h-64 text-center px-6">
                 <div className="bg-white/5 p-4 rounded-full mb-3 ring-1 ring-white/10">
                   <BellOff size={24} className="text-gray-500" />

@@ -1,10 +1,12 @@
+// src/components/AvatarUploader.jsx
 "use client";
 import { useRef, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { createClient } from "@/lib/supabase/client"; // <--- ATUALIZADO
 
 export default function AvatarUploader({ user, value, onChange }) {
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef(null);
+  const supabase = createClient(); // <--- INSTÂNCIA
 
   async function handleFile(e) {
     const file = e.target.files?.[0];
@@ -21,13 +23,9 @@ export default function AvatarUploader({ user, value, onChange }) {
 
       if (upErr) throw upErr;
 
-      // se bucket for público:
       const { data: pub } = supabase.storage.from("avatars").getPublicUrl(path);
       onChange?.(pub.publicUrl);
 
-      // se bucket for privado, em vez de publicUrl, podes gerar signedUrl
-      // const { data: signed } = await supabase.storage.from('avatars').createSignedUrl(path, 60*60);
-      // onChange?.(signed.signedUrl);
     } catch (e) {
       console.error(e);
       alert("Falha ao enviar avatar.");

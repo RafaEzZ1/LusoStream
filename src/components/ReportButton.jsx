@@ -2,8 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
-// 👇 1. Importar o Modal
+import { createClient } from "@/lib/supabase/client"; // <--- ATUALIZADO
 import { useAuthModal } from "@/context/AuthModalContext";
 
 export default function ReportButton({ itemId, itemType, season, episode }) {
@@ -11,13 +10,12 @@ export default function ReportButton({ itemId, itemType, season, episode }) {
   const [desc, setDesc] = useState("");
   const [sending, setSending] = useState(false);
   
-  // 👇 2. Usar o Hook
   const { openModal } = useAuthModal();
+  const supabase = createClient(); // <--- INSTÂNCIA
 
   async function handleOpen() {
     const { data: { session } } = await supabase.auth.getSession();
     
-    // 👇 3. Se não tiver sessão, abre o Pop-up bonito
     if (!session) {
       openModal();
       return;

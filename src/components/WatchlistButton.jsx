@@ -2,16 +2,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
-// 👇 1. Importar o Hook do Modal
+import { createClient } from "@/lib/supabase/client"; // <--- ATUALIZADO
 import { useAuthModal } from "@/context/AuthModalContext";
 
 export default function WatchlistButton({ itemId, itemType }) {
   const [isInList, setIsInList] = useState(false);
   const [loading, setLoading] = useState(true);
   
-  // 👇 2. Usar o Hook
   const { openModal } = useAuthModal();
+  const supabase = createClient(); // <--- INSTÂNCIA
 
   useEffect(() => {
     checkStatus();
@@ -39,8 +38,6 @@ export default function WatchlistButton({ itemId, itemType }) {
     setLoading(true);
     const { data: { session } } = await supabase.auth.getSession();
 
-    // 👇 3. AQUI ESTÁ A MUDANÇA!
-    // Em vez de alert(...), usamos openModal()
     if (!session) {
       setLoading(false);
       openModal(); 
@@ -50,7 +47,6 @@ export default function WatchlistButton({ itemId, itemType }) {
     const userId = session.user.id;
 
     if (isInList) {
-      // Remover
       await supabase
         .from("watchlists")
         .delete()
@@ -59,7 +55,6 @@ export default function WatchlistButton({ itemId, itemType }) {
         .eq("item_id", itemId);
       setIsInList(false);
     } else {
-      // Adicionar
       await supabase
         .from("watchlists")
         .insert({ user_id: userId, item_type: itemType, item_id: itemId });
@@ -68,7 +63,6 @@ export default function WatchlistButton({ itemId, itemType }) {
     setLoading(false);
   }
 
-  // Ícones SVG
   const IconPlus = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>;
   const IconCheck = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>;
 

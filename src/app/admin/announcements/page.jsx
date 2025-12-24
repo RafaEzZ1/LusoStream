@@ -2,31 +2,28 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { createClient } from "@/lib/supabase/client"; // <--- ATUALIZADO
 
 const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
 
 export default function Announcements() {
+  const supabase = createClient(); // <--- INSTÂNCIA
   const [list, setList] = useState([]);
   
-  // Inputs
   const [title, setTitle] = useState("");
-  const [link, setLink] = useState(""); // A tua tabela pede 'link', não 'message'
+  const [link, setLink] = useState(""); 
   const [selectedMedia, setSelectedMedia] = useState(null);
 
-  // Pesquisa
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState([]);
 
   useEffect(() => { fetchAnnouncements(); }, []);
 
   async function fetchAnnouncements() {
-    // TABELA: announcements (id, title, link, image_url, created_at)
     const { data } = await supabase.from("announcements").select("*").order("created_at", { ascending: false });
     if(data) setList(data);
   }
 
-  // Pesquisar Imagem
   async function handleSearch(e) {
     e.preventDefault();
     if(!searchTerm) return;
@@ -39,14 +36,12 @@ export default function Announcements() {
   async function create() {
     if (!title) return alert("O título é obrigatório!");
 
-    // Constrói o URL da imagem se houver seleção
     const imageUrl = selectedMedia ? `https://image.tmdb.org/t/p/original${selectedMedia.backdrop_path || selectedMedia.poster_path}` : null;
 
-    // INSERT na tabela announcements
     const { error } = await supabase.from("announcements").insert([{ 
         title: title,
-        link: link || null,          // Campo opcional na tua tabela
-        image_url: imageUrl || null  // Campo opcional na tua tabela
+        link: link || null,
+        image_url: imageUrl || null
     }]);
     
     if(!error) {
@@ -70,7 +65,6 @@ export default function Announcements() {
 
       <div className="bg-gray-900 p-6 rounded-2xl border border-gray-800 mb-10 grid grid-cols-1 md:grid-cols-2 gap-8">
         
-        {/* Lado Esquerdo: Dados */}
         <div className="space-y-4">
             <h3 className="font-bold">1. Dados do Aviso</h3>
             <input className="w-full bg-black border border-gray-700 rounded p-3" placeholder="Título (ex: Estreia Hoje!)" value={title} onChange={e=>setTitle(e.target.value)} />
@@ -79,7 +73,6 @@ export default function Announcements() {
             <button onClick={create} className="w-full bg-yellow-600 hover:bg-yellow-700 p-3 rounded font-bold">Publicar Anúncio</button>
         </div>
 
-        {/* Lado Direito: Escolher Imagem (Pesquisa) */}
         <div className="bg-black/30 p-4 rounded-xl border border-gray-800">
              <h3 className="font-bold mb-2">2. Imagem de Fundo (Opcional)</h3>
              

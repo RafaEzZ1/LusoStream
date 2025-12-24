@@ -3,12 +3,11 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
+import { createClient } from "@/lib/supabase/client"; // <--- ATUALIZADO
 import { getMovieEmbed } from "@/lib/embeds";
 import { markAsWatching, markAsFinished } from "@/lib/progress";
 import Link from "next/link";
 import ReportButton from "@/components/ReportButton";
-// 👇 Importar Modal
 import { useAuthModal } from "@/context/AuthModalContext";
 
 export const dynamic = "force-dynamic";
@@ -16,12 +15,13 @@ export const dynamic = "force-dynamic";
 export default function WatchMoviePage() {
   const { id } = useParams();
   const router = useRouter();
+  const supabase = createClient(); // <--- INSTÂNCIA
+
   const [url, setUrl] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isFinished, setIsFinished] = useState(false);
   const [user, setUser] = useState(null);
   
-  // 👇 Usar Hook
   const { openModal } = useAuthModal();
 
   useEffect(() => {
@@ -42,7 +42,6 @@ export default function WatchMoviePage() {
   }, [id]);
 
   async function toggleFinished() {
-    // 👇 SE NÃO TIVER USER, ABRE MODAL
     if (!user) {
       openModal();
       return;
