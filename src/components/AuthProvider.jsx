@@ -12,34 +12,30 @@ export function AuthProvider({ children }) {
 
   async function hydrate() {
     try {
-      // 1. Verificar Sessão
-      const { data: sess } = await supabase.auth.getSession();
-      const u = sess?.session?.user || null;
-      setUser(u);
+      // 1. Obter sessão dos Cookies (agora funciona graças ao novo supabaseClient)
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      const currentUser = session?.user || null;
+      setUser(currentUser);
 
-      // 2. Se tiver user, buscar Role (com segurança)
-      if (u) {
-        const { data, error } = await supabase
+      if (currentUser) {
+        // 2. Buscar Role
+        const { data } = await supabase
           .from("profiles")
           .select("role")
-          .eq("user_id", u.id)
+          .eq("user_id", currentUser.id)
           .maybeSingle();
         
-        if (!error && data) {
-          setRole(data.role);
-        } else {
-          setRole("user"); // Fallback seguro
-        }
+        setRole(data?.role || "user");
       } else {
         setRole(null);
       }
-    } catch (err) {
-      console.error("Erro Auth:", err);
-      // Em caso de erro grave, assumimos user deslogado para o site abrir
+    } catch (error) {
+      console.error("Erro na Auth:", error);
       setUser(null);
       setRole(null);
     } finally {
-      // 3. OBRIGATÓRIO: Desligar o loading aconteça o que acontecer
+      // 3. OBRIGATÓRIO: Desliga o loading aconteça o que acontecer
       setLoading(false);
     }
   }
@@ -48,16 +44,15 @@ export function AuthProvider({ children }) {
     hydrate();
 
     // Escutar mudanças em tempo real
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_evt, session) => {
-      const u = session?.user || null;
-      setUser(u);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const currentUser = session?.user || null;
+      setUser(currentUser);
       
-      if (u) {
-        // Fetch role rápido
+      if (currentUser) {
         const { data } = await supabase
           .from("profiles")
           .select("role")
-          .eq("user_id", u.id)
+          .eq("user_id", currentUser.id)
           .maybeSingle();
         setRole(data?.role || "user");
       } else {
@@ -66,15 +61,15 @@ export function AuthProvider({ children }) {
       setLoading(false); 
     });
 
-    return () => sub?.subscription?.unsubscribe?.();
+    return () => subscription?.unsubscribe();
   }, []);
 
-  async function signOut() {
-    try { await supabase.auth.signOut(); } catch {}
+  const signOut = async () => {
+    await supabase.auth.signOut();
     setUser(null);
     setRole(null);
-    window.location.assign("/auth"); // Refresh completo para limpar memória
-  }
+    window.location.href = "/auth";
+  };
 
   return (
     <AuthCtx.Provider value={{ user, role, loading, signOut }}>

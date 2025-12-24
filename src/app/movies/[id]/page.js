@@ -7,7 +7,7 @@ import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient"; 
 import Navbar from "@/components/Navbar";
 import { useDraggableScroll } from "@/hooks/useDraggableScroll"; 
-// IMPORTANTE:
+// IMPORTANTE: Importar o Contexto
 import { useAuth } from "@/components/AuthProvider";
 
 const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
@@ -16,14 +16,13 @@ export default function MovieDetailsPage() {
   const { id } = useParams();
   const router = useRouter();
   
-  // USA O USER GLOBAL (Estável)
+  // USA O USER GLOBAL (Nunca falha, porque vem do AuthProvider)
   const { user } = useAuth();
   
   const [movie, setMovie] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showTrailer, setShowTrailer] = useState(false);
   const [trailerKey, setTrailerKey] = useState(null);
-  
   const [isInList, setIsInList] = useState(false);
   const [listLoading, setListLoading] = useState(false);
 
@@ -35,41 +34,27 @@ export default function MovieDetailsPage() {
     if (!id) return;
     async function fetchMovie() {
       try {
-        const res = await fetch(
-          `https://api.themoviedb.org/3/movie/${id}?api_key=${API_KEY}&language=pt-BR&append_to_response=credits,videos,similar`
-        );
+        const res = await fetch(`https://api.themoviedb.org/3/movie/${id}?api_key=${API_KEY}&language=pt-BR&append_to_response=credits,videos,similar`);
         const data = await res.json();
         setMovie(data);
-
-        const videos = data.videos?.results || [];
-        const trailer = videos.find(v => v.site === "YouTube" && (v.type === "Trailer" || v.type === "Teaser"));
+        const trailer = data.videos?.results?.find(v => v.site === "YouTube" && (v.type === "Trailer" || v.type === "Teaser"));
         if (trailer) setTrailerKey(trailer.key);
-      } catch (e) { console.error(e); } 
+      } catch (e) { } 
       finally { setLoading(false); }
     }
     fetchMovie();
   }, [id]);
 
-  // 2. VERIFICAR LISTA (Usa o user global, não faz fetch de sessão)
+  // 2. VERIFICAR LISTA (Usa o user global e o NOVO cliente Supabase)
   useEffect(() => {
     if (user && id) {
-      async function checkList() {
-        const { data } = await supabase
-          .from("watchlists")
-          .select("id")
-          .eq("user_id", user.id)
-          .eq("item_id", id)
-          .eq("item_type", "movie")
-          .maybeSingle();
-        if (data) setIsInList(true);
-      }
-      checkList();
+      supabase.from("watchlists").select("id").eq("user_id", user.id).eq("item_id", id).eq("item_type", "movie").maybeSingle()
+        .then(({ data }) => { if (data) setIsInList(true); });
     }
   }, [user, id]);
 
   async function toggleMyList() {
     if (!user) return router.push("/auth");
-    
     setListLoading(true);
     if (isInList) {
       await supabase.from("watchlists").delete().eq("user_id", user.id).eq("item_id", movie.id).eq("item_type", "movie");
@@ -87,10 +72,9 @@ export default function MovieDetailsPage() {
   return (
     <div className="bg-black min-h-screen text-gray-200 font-sans pb-20">
       <Navbar />
-
       <div className="relative w-full min-h-[85vh] flex items-center">
         <div className="absolute inset-0 bg-cover bg-center fixed-bg" style={{ backgroundImage: `url(https://image.tmdb.org/t/p/original${movie.backdrop_path})` }}>
-          <div className="absolute inset-0 bg-gradient-to-r from-black via-black/80 to-transparent"></div>
+          <div className="absolute inset-0 bg-black/80"></div>
           <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent"></div>
         </div>
         
@@ -98,42 +82,29 @@ export default function MovieDetailsPage() {
           <div className="hidden md:block col-span-1 animate-in fade-in duration-700">
             <img src={`https://image.tmdb.org/t/p/w500${movie.poster_path}`} alt={movie.title} className="w-full rounded-xl shadow-2xl border border-gray-800" />
           </div>
-          
           <div className="col-span-1 md:col-span-2 space-y-6 animate-in slide-in-from-right-10 duration-700">
             <h1 className="text-4xl md:text-6xl font-bold text-white drop-shadow-lg">{movie.title}</h1>
-            
             <div className="flex flex-wrap items-center gap-4 text-sm md:text-base text-gray-300">
               <span className="text-green-400 font-bold border border-green-400/30 bg-green-400/10 px-2 py-0.5 rounded">{Math.round(movie.vote_average * 10)}% Relevância</span>
               <span>{movie.release_date?.split("-")[0]}</span>
               <span>{movie.runtime} min</span>
             </div>
-            
             <p className="text-gray-300 text-lg leading-relaxed max-w-2xl line-clamp-4 md:line-clamp-none">{movie.overview}</p>
-
             <div className="flex flex-wrap items-center gap-4 pt-4">
               <Link href={`/watch/movie/${movie.id}`} className="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-8 rounded-full transition hover:scale-105 flex items-center gap-2 shadow-lg shadow-red-900/40">
-                <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                Assistir
+                <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg> Assistir
               </Link>
-
               <button onClick={toggleMyList} disabled={listLoading} className={`font-bold py-3 px-6 rounded-full transition border flex items-center gap-2 ${isInList ? "bg-green-600 border-green-600 text-white" : "bg-gray-800/60 border-gray-500 text-white hover:bg-gray-700"}`}>
-                {listLoading ? <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"/> : isInList ? (
-                  <><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg> Na Lista</>
-                ) : (
-                  <><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg> Minha Lista</>
-                )}
+                {listLoading ? <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"/> : isInList ? "Na Lista" : "Minha Lista"}
               </button>
-
               {trailerKey && (
-                <button onClick={() => setShowTrailer(true)} className="bg-white/10 hover:bg-white/20 text-white font-bold py-3 px-6 rounded-full transition border border-white/30 flex items-center gap-2 backdrop-blur-md">
-                  Trailer
-                </button>
+                <button onClick={() => setShowTrailer(true)} className="bg-white/10 hover:bg-white/20 text-white font-bold py-3 px-6 rounded-full transition border border-white/30 flex items-center gap-2 backdrop-blur-md">Trailer</button>
               )}
             </div>
           </div>
         </div>
       </div>
-
+      
       <main className="max-w-7xl mx-auto px-6 py-12 space-y-16">
         {movie.credits?.cast?.length > 0 && (
           <div>
@@ -150,7 +121,7 @@ export default function MovieDetailsPage() {
             </div>
           </div>
         )}
-
+        
         {movie.similar?.results?.length > 0 && (
           <div>
             <h2 className="text-2xl font-bold text-white mb-6 border-l-4 border-red-600 pl-4">Recomendados</h2>

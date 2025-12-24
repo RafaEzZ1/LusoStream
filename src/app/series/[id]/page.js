@@ -7,6 +7,7 @@ import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient"; 
 import Navbar from "@/components/Navbar";
 import { useDraggableScroll } from "@/hooks/useDraggableScroll"; 
+// IMPORTANTE: Importar o Contexto Global
 import { useAuth } from "@/components/AuthProvider";
 
 const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
@@ -15,7 +16,7 @@ export default function SeriesDetailsPage() {
   const { id } = useParams();
   const router = useRouter();
   
-  // USA O USER GLOBAL
+  // 1. USA O USER GLOBAL (Estável e Rápido)
   const { user } = useAuth();
   
   const [series, setSeries] = useState(null);
@@ -33,7 +34,7 @@ export default function SeriesDetailsPage() {
   const castRef = useRef(null);
   const { events: castEvents } = useDraggableScroll();
 
-  // 1. CARREGAR SÉRIE
+  // 2. CARREGAR SÉRIE (Independente do Login)
   useEffect(() => {
     if (!id) return;
     async function fetchSeries() {
@@ -53,24 +54,21 @@ export default function SeriesDetailsPage() {
     fetchSeries();
   }, [id]);
 
-  // 2. VERIFICAR LISTA (Rápido e Estável)
+  // 3. VERIFICAR LISTA (Usa o user global e o NOVO cliente Supabase)
   useEffect(() => {
     if (user && id) {
-      async function checkList() {
-        const { data } = await supabase
-          .from("watchlists")
-          .select("id")
-          .eq("user_id", user.id)
-          .eq("item_id", id)
-          .eq("item_type", "tv")
-          .maybeSingle();
-        if (data) setIsInList(true);
-      }
-      checkList();
+      supabase
+        .from("watchlists")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("item_id", id)
+        .eq("item_type", "tv")
+        .maybeSingle()
+        .then(({ data }) => { if (data) setIsInList(true); });
     }
   }, [user, id]);
 
-  // 3. CARREGAR EPISÓDIOS
+  // 4. CARREGAR EPISÓDIOS
   useEffect(() => {
     if (id && series) {
       async function fetchEpisodes() {
@@ -111,7 +109,7 @@ export default function SeriesDetailsPage() {
       {/* HERO SECTION */}
       <div className="relative w-full min-h-[85vh] flex items-center">
         <div className="absolute inset-0 bg-cover bg-center fixed-bg" style={{ backgroundImage: `url(https://image.tmdb.org/t/p/original${series.backdrop_path})` }}>
-          <div className="absolute inset-0 bg-gradient-to-r from-black via-black/80 to-transparent"></div>
+          <div className="absolute inset-0 bg-black/80"></div>
           <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent"></div>
         </div>
         
@@ -131,7 +129,6 @@ export default function SeriesDetailsPage() {
             
             <p className="text-gray-300 text-lg leading-relaxed max-w-2xl line-clamp-4 md:line-clamp-none">{series.overview}</p>
 
-            {/* BOTÕES */}
             <div className="flex flex-wrap items-center gap-4 pt-4">
               <Link href={`/watch/series/${series.id}/season/1/episode/1`} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full transition hover:scale-105 flex items-center gap-2 shadow-lg shadow-blue-900/40">
                 <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
@@ -206,7 +203,7 @@ export default function SeriesDetailsPage() {
           )}
         </div>
 
-        {/* ELENCO e RECOMENDADOS (Mantém o código anterior para estas secções) */}
+        {/* ELENCO */}
         {series.credits?.cast?.length > 0 && (
           <div>
             <h2 className="text-2xl font-bold text-white mb-6 border-l-4 border-blue-600 pl-4">Elenco</h2>
@@ -223,6 +220,7 @@ export default function SeriesDetailsPage() {
           </div>
         )}
 
+        {/* RECOMENDADOS */}
         {series.similar?.results?.length > 0 && (
           <div>
             <h2 className="text-2xl font-bold text-white mb-6 border-l-4 border-blue-600 pl-4">Recomendados</h2>
@@ -239,6 +237,21 @@ export default function SeriesDetailsPage() {
           </div>
         )}
       </main>
+
+      {/* MODAL TRAILER */}
+      {showTrailer && trailerKey && (
+        <div className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="relative w-full max-w-5xl bg-black rounded-2xl overflow-hidden border border-gray-800">
+            <div className="flex justify-between items-center p-4 border-b border-gray-800 bg-gray-900">
+               <span className="font-bold text-white">Trailer Oficial</span>
+               <button onClick={() => setShowTrailer(false)} className="bg-gray-800 hover:bg-red-600 text-white rounded-full p-2 transition">✕</button>
+            </div>
+            <div className="aspect-video">
+              <iframe width="100%" height="100%" src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1`} frameBorder="0" allow="autoplay; encrypted-media" allowFullScreen></iframe>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
