@@ -1,28 +1,26 @@
-// src/lib/roles.js
-"use client";
-import { supabase } from "@/lib/supabaseClient";
+import { createClient } from "@/lib/supabase/client";
+
+export const ROLES = {
+  ADMIN: "admin",
+  MOD: "mod",
+  USER: "user",
+};
 
 export async function getUserAndRole() {
-  // pede a sessão atual (já hidrata do localStorage)
-  const { data: sess } = await supabase.auth.getSession();
-  const user = sess?.session?.user || null;
-  if (!user) return { user: null, role: null, profile: null };
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
 
-  // lê a role do perfil
-  const { data, error } = await supabase
+  if (!user) return { user: null, role: null };
+
+  const { data } = await supabase
     .from("profiles")
-    .select("role, username, avatar_url, user_id")
+    .select("role")
     .eq("user_id", user.id)
     .maybeSingle();
 
-  if (error) {
-    console.warn("getUserAndRole:", error.message);
-    return { user, role: "user", profile: null };
-  }
-
-  return { user, role: data?.role || "user", profile: data || null };
+  return { user, role: data?.role || "user" };
 }
 
 export function isModOrAdmin(role) {
-  return role === "mod" || role === "admin";
+  return role === ROLES.ADMIN || role === ROLES.MOD;
 }
