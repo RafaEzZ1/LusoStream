@@ -14,18 +14,18 @@ export default function SeriesDetailsPage() {
   const { id } = useParams();
   const router = useRouter();
   
-  // Estados Principais
+  // ESTADO DA SÉRIE (Prioridade Máxima)
   const [series, setSeries] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showTrailer, setShowTrailer] = useState(false);
   const [trailerKey, setTrailerKey] = useState(null);
   
-  // Estado das Temporadas
+  // ESTADO DAS TEMPORADAS
   const [selectedSeason, setSelectedSeason] = useState(1);
   const [episodes, setEpisodes] = useState([]);
   const [loadingEpisodes, setLoadingEpisodes] = useState(false);
 
-  // Minha Lista
+  // ESTADO DO USER (Prioridade Baixa - Segundo Plano)
   const [user, setUser] = useState(null);
   const [isInList, setIsInList] = useState(false);
   const [listLoading, setListLoading] = useState(false);
@@ -34,68 +34,71 @@ export default function SeriesDetailsPage() {
   const castRef = useRef(null);
   const { events: castEvents } = useDraggableScroll();
 
-  // 1. Carregar Série e User
+  // 1. CARREGAR SÉRIE IMEDIATAMENTE (Não espera pelo login)
   useEffect(() => {
-    async function loadData() {
-      const { data: { session } } = await supabase.auth.getSession();
-      const currentUser = session?.user || null;
-      setUser(currentUser);
+    if (!id) return;
 
-      if (id) {
-        await fetchSeriesDetails(id);
-        if (currentUser) checkMyList(currentUser.id, id);
-      }
+    async function fetchSeries() {
+      try {
+        const res = await fetch(
+          `https://api.themoviedb.org/3/tv/${id}?api_key=${API_KEY}&language=pt-BR&append_to_response=credits,videos,similar`
+        );
+        const data = await res.json();
+        setSeries(data);
+
+        // Trailer
+        const videos = data.videos?.results || [];
+        const trailer = videos.find(v => v.site === "YouTube" && (v.type === "Trailer" || v.type === "Teaser"));
+        if (trailer) setTrailerKey(trailer.key);
+      } catch (error) { console.error("Erro série:", error); }
+      finally { setLoading(false); } // Liberta a página
     }
-    loadData();
+
+    fetchSeries();
   }, [id]);
 
-  // 2. Sempre que muda a Temporada Selecionada, carrega os episódios
+  // 2. VERIFICAR USER EM PARALELO
+  useEffect(() => {
+    async function checkUser() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        setUser(session.user);
+        // Verificar Lista
+        const { data } = await supabase
+          .from("watchlists")
+          .select("id")
+          .eq("user_id", session.user.id)
+          .eq("item_id", id)
+          .eq("item_type", "tv")
+          .maybeSingle();
+        
+        if (data) setIsInList(true);
+      }
+    }
+    checkUser();
+  }, [id]);
+
+  // 3. CARREGAR EPISÓDIOS (Sempre que muda a temporada)
   useEffect(() => {
     if (id && selectedSeason) {
-      fetchEpisodes(id, selectedSeason);
+      async function fetchEpisodes() {
+        setLoadingEpisodes(true);
+        try {
+          const res = await fetch(
+            `https://api.themoviedb.org/3/tv/${id}/season/${selectedSeason}?api_key=${API_KEY}&language=pt-BR`
+          );
+          const data = await res.json();
+          setEpisodes(data.episodes || []);
+        } catch (error) { console.error("Erro episódios:", error); }
+        setLoadingEpisodes(false);
+      }
+      fetchEpisodes();
     }
   }, [id, selectedSeason]);
 
-  // --- FETCHERS ---
-  async function fetchSeriesDetails(seriesId) {
-    try {
-      const res = await fetch(
-        `https://api.themoviedb.org/3/tv/${seriesId}?api_key=${API_KEY}&language=pt-BR&append_to_response=credits,videos,similar`
-      );
-      const data = await res.json();
-      setSeries(data);
-
-      // Trailer Logica
-      const videos = data.videos?.results || [];
-      const officialTrailer = videos.find(v => v.site === "YouTube" && v.type === "Trailer");
-      const teaser = videos.find(v => v.site === "YouTube" && v.type === "Teaser");
-      if (officialTrailer) setTrailerKey(officialTrailer.key);
-      else if (teaser) setTrailerKey(teaser.key);
-
-    } catch (error) { console.error("Erro:", error); }
-    setLoading(false);
-  }
-
-  async function fetchEpisodes(seriesId, seasonNumber) {
-    setLoadingEpisodes(true);
-    try {
-      const res = await fetch(
-        `https://api.themoviedb.org/3/tv/${seriesId}/season/${seasonNumber}?api_key=${API_KEY}&language=pt-BR`
-      );
-      const data = await res.json();
-      setEpisodes(data.episodes || []);
-    } catch (error) { console.error("Erro episódios:", error); }
-    setLoadingEpisodes(false);
-  }
-
-  // --- MINHA LISTA ---
-  async function checkMyList(userId, seriesId) {
-    const { data } = await supabase.from("watchlists").select("*").eq("user_id", userId).eq("item_id", seriesId).eq("item_type", "tv").maybeSingle();
-    if (data) setIsInList(true);
-  }
-
   async function toggleMyList() {
     if (!user) return router.push("/auth");
+    
     setListLoading(true);
     if (isInList) {
       await supabase.from("watchlists").delete().eq("user_id", user.id).eq("item_id", series.id).eq("item_type", "tv");
@@ -107,7 +110,8 @@ export default function SeriesDetailsPage() {
     setListLoading(false);
   }
 
-  if (loading) return <div className="bg-black min-h-screen flex items-center justify-center"><div className="w-10 h-10 border-4 border-blue-600 rounded-full animate-spin border-t-transparent"></div></div>;
+  // Loading APENAS para a série principal
+  if (loading) return <div className="bg-black min-h-screen flex items-center justify-center"><div className="w-12 h-12 border-4 border-blue-600 rounded-full animate-spin border-t-transparent"></div></div>;
   if (!series) return <div className="text-white text-center pt-40">Série não encontrada.</div>;
 
   return (
@@ -122,11 +126,11 @@ export default function SeriesDetailsPage() {
         </div>
         
         <div className="relative z-10 max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-12 items-center pt-20">
-          <div className="hidden md:block col-span-1">
+          <div className="hidden md:block col-span-1 animate-in fade-in duration-700">
             <img src={`https://image.tmdb.org/t/p/w500${series.poster_path}`} alt={series.name} className="w-full rounded-xl shadow-2xl border border-gray-800" />
           </div>
           
-          <div className="col-span-1 md:col-span-2 space-y-6">
+          <div className="col-span-1 md:col-span-2 space-y-6 animate-in slide-in-from-right-10 duration-700">
             <h1 className="text-4xl md:text-6xl font-bold text-white drop-shadow-lg">{series.name}</h1>
             
             <div className="flex flex-wrap items-center gap-4 text-sm md:text-base text-gray-300">
@@ -137,9 +141,8 @@ export default function SeriesDetailsPage() {
             
             <p className="text-gray-300 text-lg leading-relaxed max-w-2xl line-clamp-4 md:line-clamp-none">{series.overview}</p>
 
-            {/* BOTÕES DE AÇÃO */}
+            {/* BOTÕES */}
             <div className="flex flex-wrap items-center gap-4 pt-4">
-              {/* Botão Assistir S1E1 por defeito */}
               <Link href={`/watch/series/${series.id}/season/1/episode/1`} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full transition hover:scale-105 flex items-center gap-2 shadow-lg shadow-blue-900/40">
                 <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                 Assistir
@@ -155,7 +158,6 @@ export default function SeriesDetailsPage() {
 
               {trailerKey && (
                 <button onClick={() => setShowTrailer(true)} className="bg-white/10 hover:bg-white/20 text-white font-bold py-3 px-6 rounded-full transition border border-white/30 flex items-center gap-2 backdrop-blur-md">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8zm2 3h6v-1H7v1z" /></svg>
                   Trailer
                 </button>
               )}
@@ -166,12 +168,11 @@ export default function SeriesDetailsPage() {
 
       <main className="max-w-7xl mx-auto px-6 py-12 space-y-16">
         
-        {/* --- SELETOR DE TEMPORADAS E EPISÓDIOS (NOVO) --- */}
+        {/* EPISÓDIOS */}
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
           <div className="flex items-center justify-between mb-6 border-b border-gray-800 pb-4">
             <h2 className="text-2xl font-bold text-white border-l-4 border-blue-600 pl-4">Episódios</h2>
             
-            {/* Dropdown de Temporadas */}
             <select 
               className="bg-gray-900 border border-gray-700 text-white rounded-lg px-4 py-2 outline-none focus:border-blue-600 transition font-bold"
               value={selectedSeason}
@@ -190,24 +191,20 @@ export default function SeriesDetailsPage() {
               {episodes.map((ep) => (
                 <Link 
                   key={ep.id} 
-                  // ✅ LINK CORRIGIDO PARA O TEU FORMATO
                   href={`/watch/series/${series.id}/season/${selectedSeason}/episode/${ep.episode_number}`}
                   className="bg-gray-900 rounded-lg overflow-hidden flex gap-4 hover:bg-gray-800 transition border border-gray-800 hover:border-blue-600 group h-32"
                 >
-                  {/* Imagem do Episódio */}
                   <div className="w-40 h-full relative flex-shrink-0 bg-gray-800">
                     <img 
                       src={ep.still_path ? `https://image.tmdb.org/t/p/w300${ep.still_path}` : "/no-image.jpg"} 
                       alt={ep.name} 
                       className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition"
                     />
-                    {/* Número do Episódio */}
                     <div className="absolute bottom-1 left-1 bg-black/80 px-2 py-0.5 text-xs font-bold rounded text-white">
                        E{ep.episode_number}
                     </div>
                   </div>
 
-                  {/* Detalhes do Episódio */}
                   <div className="py-2 pr-3 flex flex-col justify-center overflow-hidden w-full">
                     <h4 className="font-bold text-gray-200 group-hover:text-blue-400 truncate text-sm">{ep.episode_number}. {ep.name}</h4>
                     <p className="text-xs text-gray-500 mt-1 line-clamp-2">{ep.overview || "Sem descrição disponível."}</p>
@@ -230,14 +227,13 @@ export default function SeriesDetailsPage() {
                     <img src={actor.profile_path ? `https://image.tmdb.org/t/p/w200${actor.profile_path}` : "/no-avatar.png"} alt={actor.name} onDragStart={(e) => e.preventDefault()} className="w-full h-full object-cover pointer-events-none" />
                   </div>
                   <p className="text-sm font-bold text-center truncate">{actor.name}</p>
-                  <p className="text-xs text-gray-500 text-center truncate">{actor.character}</p>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* RELACIONADOS */}
+        {/* RECOMENDADOS */}
         {series.similar?.results?.length > 0 && (
           <div>
             <h2 className="text-2xl font-bold text-white mb-6 border-l-4 border-blue-600 pl-4">Recomendados</h2>
@@ -255,7 +251,6 @@ export default function SeriesDetailsPage() {
         )}
       </main>
 
-      {/* MODAL TRAILER */}
       {showTrailer && trailerKey && (
         <div className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
           <div className="relative w-full max-w-5xl bg-black rounded-2xl overflow-hidden border border-gray-800">

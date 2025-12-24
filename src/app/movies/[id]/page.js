@@ -6,7 +6,6 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient"; 
 import Navbar from "@/components/Navbar";
-// REMOVI O IMPORT DO FOOTER PARA NÃO DUPLICAR
 import { useDraggableScroll } from "@/hooks/useDraggableScroll"; 
 
 const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
@@ -15,72 +14,62 @@ export default function MovieDetailsPage() {
   const { id } = useParams();
   const router = useRouter();
   
-  // Estados
+  // ESTADO DO FILME (Prioridade Máxima)
   const [movie, setMovie] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showTrailer, setShowTrailer] = useState(false);
   const [trailerKey, setTrailerKey] = useState(null);
   
-  // Minha Lista
+  // ESTADO DO USER (Prioridade Baixa - Não bloqueia a página)
   const [user, setUser] = useState(null);
   const [isInList, setIsInList] = useState(false);
   const [listLoading, setListLoading] = useState(false);
 
-  // Hook de Arrastar
   const castRef = useRef(null);
   const { events: castEvents } = useDraggableScroll();
 
+  // 1. CARREGAR FILME IMEDIATAMENTE
   useEffect(() => {
-    async function loadData() {
-      const { data: { session } } = await supabase.auth.getSession();
-      const currentUser = session?.user || null;
-      setUser(currentUser);
+    if (!id) return;
+    async function fetchMovie() {
+      try {
+        const res = await fetch(
+          `https://api.themoviedb.org/3/movie/${id}?api_key=${API_KEY}&language=pt-BR&append_to_response=credits,videos,similar`
+        );
+        const data = await res.json();
+        setMovie(data);
 
-      if (id) {
-        await fetchMovieDetails(id);
-        if (currentUser) checkMyList(currentUser.id, id);
-      }
+        const videos = data.videos?.results || [];
+        const trailer = videos.find(v => v.site === "YouTube" && (v.type === "Trailer" || v.type === "Teaser"));
+        if (trailer) setTrailerKey(trailer.key);
+      } catch (e) { console.error(e); } 
+      finally { setLoading(false); } // Liberta a página logo aqui
     }
-    loadData();
+    fetchMovie();
   }, [id]);
 
-  async function fetchMovieDetails(movieId) {
-    try {
-      const res = await fetch(
-        `https://api.themoviedb.org/3/movie/${movieId}?api_key=${API_KEY}&language=pt-BR&append_to_response=credits,videos,similar`
-      );
-      const data = await res.json();
-      setMovie(data);
-
-      // Lógica do Trailer
-      const videos = data.videos?.results || [];
-      const officialTrailer = videos.find(v => v.site === "YouTube" && v.type === "Trailer");
-      const teaser = videos.find(v => v.site === "YouTube" && v.type === "Teaser");
-      
-      if (officialTrailer) setTrailerKey(officialTrailer.key);
-      else if (teaser) setTrailerKey(teaser.key);
-
-    } catch (error) {
-      console.error("Erro:", error);
+  // 2. VERIFICAR LOGIN EM PARALELO
+  useEffect(() => {
+    if (!id) return;
+    async function checkUser() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        setUser(session.user);
+        const { data } = await supabase
+          .from("watchlists")
+          .select("id")
+          .eq("user_id", session.user.id)
+          .eq("item_id", id)
+          .eq("item_type", "movie")
+          .maybeSingle();
+        if (data) setIsInList(true);
+      }
     }
-    setLoading(false);
-  }
-
-  async function checkMyList(userId, movieId) {
-    const { data } = await supabase
-      .from("watchlists")
-      .select("*")
-      .eq("user_id", userId)
-      .eq("item_id", movieId)
-      .eq("item_type", "movie") // Importante: movie
-      .maybeSingle();
-
-    if (data) setIsInList(true);
-  }
+    checkUser();
+  }, [id]);
 
   async function toggleMyList() {
     if (!user) return router.push("/auth");
-    
     setListLoading(true);
     if (isInList) {
       await supabase.from("watchlists").delete().eq("user_id", user.id).eq("item_id", movie.id).eq("item_type", "movie");
@@ -92,7 +81,8 @@ export default function MovieDetailsPage() {
     setListLoading(false);
   }
 
-  if (loading) return <div className="bg-black min-h-screen flex items-center justify-center"><div className="w-10 h-10 border-4 border-red-600 rounded-full animate-spin border-t-transparent"></div></div>;
+  // Loading APENAS se o filme ainda não chegou. O login não interessa para aqui.
+  if (loading) return <div className="bg-black min-h-screen flex items-center justify-center"><div className="w-12 h-12 border-4 border-red-600 rounded-full animate-spin border-t-transparent"></div></div>;
   if (!movie) return <div className="text-white text-center pt-40">Filme não encontrado.</div>;
 
   return (
@@ -107,11 +97,11 @@ export default function MovieDetailsPage() {
         </div>
         
         <div className="relative z-10 max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-12 items-center pt-20">
-          <div className="hidden md:block col-span-1">
+          <div className="hidden md:block col-span-1 animate-in fade-in duration-700">
             <img src={`https://image.tmdb.org/t/p/w500${movie.poster_path}`} alt={movie.title} className="w-full rounded-xl shadow-2xl border border-gray-800" />
           </div>
           
-          <div className="col-span-1 md:col-span-2 space-y-6">
+          <div className="col-span-1 md:col-span-2 space-y-6 animate-in slide-in-from-right-10 duration-700">
             <h1 className="text-4xl md:text-6xl font-bold text-white drop-shadow-lg">{movie.title}</h1>
             
             <div className="flex flex-wrap items-center gap-4 text-sm md:text-base text-gray-300">
@@ -122,16 +112,12 @@ export default function MovieDetailsPage() {
             
             <p className="text-gray-300 text-lg leading-relaxed max-w-2xl line-clamp-4 md:line-clamp-none">{movie.overview}</p>
 
-            {/* --- OS 3 BOTÕES QUE PEDISTE --- */}
             <div className="flex flex-wrap items-center gap-4 pt-4">
-              
-              {/* 1. ASSISTIR */}
               <Link href={`/watch/movie/${movie.id}`} className="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-8 rounded-full transition hover:scale-105 flex items-center gap-2 shadow-lg shadow-red-900/40">
                 <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                 Assistir
               </Link>
 
-              {/* 2. MINHA LISTA */}
               <button onClick={toggleMyList} disabled={listLoading} className={`font-bold py-3 px-6 rounded-full transition border flex items-center gap-2 ${isInList ? "bg-green-600 border-green-600 text-white" : "bg-gray-800/60 border-gray-500 text-white hover:bg-gray-700"}`}>
                 {listLoading ? <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"/> : isInList ? (
                   <><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg> Na Lista</>
@@ -140,10 +126,8 @@ export default function MovieDetailsPage() {
                 )}
               </button>
 
-              {/* 3. TRAILER */}
               {trailerKey && (
                 <button onClick={() => setShowTrailer(true)} className="bg-white/10 hover:bg-white/20 text-white font-bold py-3 px-6 rounded-full transition border border-white/30 flex items-center gap-2 backdrop-blur-md">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8zm2 3h6v-1H7v1z" /></svg>
                   Trailer
                 </button>
               )}
@@ -153,8 +137,6 @@ export default function MovieDetailsPage() {
       </div>
 
       <main className="max-w-7xl mx-auto px-6 py-12 space-y-16">
-        
-        {/* ELENCO */}
         {movie.credits?.cast?.length > 0 && (
           <div>
             <h2 className="text-2xl font-bold text-white mb-6 border-l-4 border-red-600 pl-4">Elenco</h2>
@@ -165,14 +147,12 @@ export default function MovieDetailsPage() {
                     <img src={actor.profile_path ? `https://image.tmdb.org/t/p/w200${actor.profile_path}` : "/no-avatar.png"} alt={actor.name} onDragStart={(e) => e.preventDefault()} className="w-full h-full object-cover pointer-events-none" />
                   </div>
                   <p className="text-sm font-bold text-center truncate">{actor.name}</p>
-                  <p className="text-xs text-gray-500 text-center truncate">{actor.character}</p>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* RELACIONADOS */}
         {movie.similar?.results?.length > 0 && (
           <div>
             <h2 className="text-2xl font-bold text-white mb-6 border-l-4 border-red-600 pl-4">Recomendados</h2>
@@ -190,7 +170,6 @@ export default function MovieDetailsPage() {
         )}
       </main>
 
-      {/* MODAL TRAILER */}
       {showTrailer && trailerKey && (
         <div className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
           <div className="relative w-full max-w-5xl bg-black rounded-2xl overflow-hidden border border-gray-800">
@@ -204,8 +183,6 @@ export default function MovieDetailsPage() {
           </div>
         </div>
       )}
-      
-      {/* NÃO HÁ FOOTER AQUI - ELE VEM DO LAYOUT.JS */}
     </div>
   );
 }
