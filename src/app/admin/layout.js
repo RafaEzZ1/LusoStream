@@ -12,25 +12,44 @@ export default function AdminLayout({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let active = true;
+
     async function checkAdmin() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return router.push("/auth");
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error || !session) throw new Error("Sem sessão");
 
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("user_id", session.user.id)
-        .single();
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("user_id", session.user.id)
+          .single();
 
-      if (profile?.role !== "admin") {
-        router.push("/");
+        if (profileError || profile?.role !== "admin") {
+          throw new Error("Não autorizado");
+        }
+
+        if (active) setLoading(false);
+      } catch (err) {
+        console.error("Admin Check Error:", err);
+        // Se falhar a verificação, manda para o login
+        if (active) router.push("/auth"); 
       }
-      setLoading(false);
     }
+
     checkAdmin();
+    return () => { active = false; };
   }, [router]);
 
-  if (loading) return <div className="bg-black h-screen flex items-center justify-center text-red-600">A carregar painel...</div>;
+  if (loading) {
+    return (
+      <div className="bg-black h-screen flex flex-col items-center justify-center text-red-600 gap-4">
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-red-600"></div>
+        <p>A verificar permissões...</p>
+      </div>
+    );
+  }
 
   const menuItems = [
     { name: "Dash", href: "/admin", icon: "📊" },
@@ -69,7 +88,7 @@ export default function AdminLayout({ children }) {
         </nav>
       </aside>
 
-      {/* HEADER MOBILE (Só aparece em mobile) */}
+      {/* HEADER MOBILE */}
       <div className="md:hidden bg-gray-900 p-4 border-b border-gray-800 flex justify-between items-center sticky top-0 z-30">
          <h1 className="text-xl font-bold text-red-600">LusoAdmin</h1>
          <Link href="/" className="text-xs bg-gray-800 px-3 py-1 rounded border border-gray-700">Sair</Link>
