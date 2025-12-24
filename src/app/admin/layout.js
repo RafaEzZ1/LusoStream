@@ -1,53 +1,100 @@
-// src/app/layout.js
-import { Inter } from "next/font/google";
-import "./globals.css";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
-import { AuthModalProvider } from "@/context/AuthModalContext";
-// IMPORTANTE: Importar o AuthProvider
-import { AuthProvider } from "@/components/AuthProvider";
-import { Analytics } from "@vercel/analytics/react";
+// src/app/admin/layout.js
+"use client";
 
-const inter = Inter({ subsets: ["latin"] });
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
 
-export const metadata = {
-  metadataBase: new URL('https://streamy11.vercel.app'),
-  title: {
-    default: "LusoStream | Filmes e Séries Grátis",
-    template: "%s | LusoStream"
-  },
-  description: "O melhor site de streaming em Portugal. Filmes e séries HD grátis.",
-  openGraph: {
-    title: "LusoStream | Filmes e Séries Grátis",
-    description: "O melhor site de streaming em Portugal. Filmes e séries HD grátis.",
-    url: 'https://streamy11.vercel.app',
-    siteName: 'LusoStream',
-    locale: 'pt_PT',
-    type: 'website',
-  },
-};
+export default function AdminLayout({ children }) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
 
-export default function RootLayout({ children }) {
+  useEffect(() => {
+    async function checkAdmin() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return router.push("/auth");
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("user_id", session.user.id)
+        .single();
+
+      if (profile?.role !== "admin") {
+        router.push("/");
+      }
+      setLoading(false);
+    }
+    checkAdmin();
+  }, [router]);
+
+  if (loading) return <div className="bg-black h-screen flex items-center justify-center text-red-600">A carregar painel...</div>;
+
+  const menuItems = [
+    { name: "Dash", href: "/admin", icon: "📊" },
+    { name: "Conteúdo", href: "/admin/content", icon: "🔗" },
+    { name: "Anúncios", href: "/admin/announcements", icon: "📢" },
+    { name: "Pedidos", href: "/admin/suggestions", icon: "💡" },
+    { name: "Reportes", href: "/admin/reports", icon: "⚠️" },
+  ];
+
   return (
-    <html lang="pt">
-      <body className={`${inter.className} bg-black text-white antialiased`}>
-        {/* 1. O AuthProvider envolve TUDO. É a "memória" do site. */}
-        <AuthProvider>
-          <AuthModalProvider>
-            
-            <Navbar />
-            
-            <main className="min-h-screen">
-              {children}
-            </main>
+    <div className="flex flex-col md:flex-row min-h-screen bg-black text-gray-100 font-sans">
+      
+      {/* SIDEBAR (Desktop) */}
+      <aside className="w-64 bg-gray-900 border-r border-gray-800 hidden md:flex flex-col fixed h-full z-20">
+        <div className="p-6 border-b border-gray-800">
+          <h1 className="text-2xl font-bold text-red-600 tracking-tighter">LusoAdmin</h1>
+        </div>
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+          {menuItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl transition font-bold ${
+                pathname === item.href 
+                  ? "bg-red-600 text-white shadow-lg" 
+                  : "text-gray-400 hover:bg-gray-800 hover:text-white"
+              }`}
+            >
+              <span>{item.icon}</span>
+              {item.name}
+            </Link>
+          ))}
+          <Link href="/" className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-400 hover:bg-gray-800 hover:text-white transition font-bold mt-auto">
+             <span>🚪</span> Sair
+          </Link>
+        </nav>
+      </aside>
 
-            <Footer />
+      {/* HEADER MOBILE (Só aparece em mobile) */}
+      <div className="md:hidden bg-gray-900 p-4 border-b border-gray-800 flex justify-between items-center sticky top-0 z-30">
+         <h1 className="text-xl font-bold text-red-600">LusoAdmin</h1>
+         <Link href="/" className="text-xs bg-gray-800 px-3 py-1 rounded border border-gray-700">Sair</Link>
+      </div>
 
-          </AuthModalProvider>
-        </AuthProvider>
+      {/* MAIN CONTENT */}
+      <main className="flex-1 md:ml-64 p-4 md:p-10 mb-20 md:mb-0">
+        {children}
+      </main>
 
-        <Analytics />
-      </body>
-    </html>
+      {/* BOTTOM NAV (Mobile Only) */}
+      <nav className="md:hidden fixed bottom-0 left-0 w-full bg-gray-900 border-t border-gray-800 flex justify-around p-2 z-50 pb-safe">
+         {menuItems.map((item) => (
+            <Link 
+              key={item.href} 
+              href={item.href}
+              className={`flex flex-col items-center p-2 rounded-lg text-xs ${
+                 pathname === item.href ? "text-red-500" : "text-gray-500"
+              }`}
+            >
+               <span className="text-lg mb-0.5">{item.icon}</span>
+               <span className="truncate max-w-[50px]">{item.name}</span>
+            </Link>
+         ))}
+      </nav>
+    </div>
   );
 }
