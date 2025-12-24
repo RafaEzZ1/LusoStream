@@ -26,7 +26,7 @@ export function AuthProvider({ children }) {
           setRole(data?.role || "user");
         }
       } catch (e) {
-        console.error(e);
+        console.error("Auth Error:", e);
       } finally {
         setLoading(false);
       }

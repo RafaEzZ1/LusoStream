@@ -29,8 +29,10 @@ export async function middleware(request) {
     }
   )
 
+  // Refrescar sessão
   const { data: { user } } = await supabase.auth.getUser()
 
+  // Proteger rotas de Admin e Conta
   if (request.nextUrl.pathname.startsWith('/admin') && !user) {
     return NextResponse.redirect(new URL('/auth', request.url))
   }

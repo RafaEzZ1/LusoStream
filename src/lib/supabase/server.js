@@ -18,7 +18,7 @@ export async function createClient() {
               cookieStore.set(name, value, options)
             )
           } catch {
-            // O erro é ignorado se for chamado de um Server Component
+            // Ignorar erros em Server Components
           }
         },
       },
