@@ -14,51 +14,43 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     let mounted = true;
 
-    async function checkUser() {
+    async function checkSession() {
       try {
-        console.log("🔐 AuthProvider: A verificar sessão...");
+        console.log("🕵️ [AuthProvider] Iniciando verificação de sessão (getSession)...");
         const { data: { session }, error } = await supabase.auth.getSession();
         
-        if (error) {
-          console.error("❌ Erro grave no Supabase:", error.message);
-          throw error;
-        }
+        if (error) throw error;
 
         if (mounted) {
           if (session?.user) {
-            console.log("✅ Utilizador encontrado:", session.user.email);
+            console.log("✅ [AuthProvider] Sessão encontrada para:", session.user.email);
             setUser(session.user);
             
-            // Buscar Role
-            const { data, error: profileError } = await supabase
-              .from("profiles")
-              .select("role")
-              .eq("user_id", session.user.id)
-              .maybeSingle();
-            
-            if (profileError) console.error("⚠️ Erro ao ler perfil:", profileError.message);
-            
+            // Tentar ler Role
+            const { data } = await supabase.from("profiles").select("role").eq("user_id", session.user.id).maybeSingle();
             setRole(data?.role || "user");
           } else {
-            console.warn("⚠️ Nenhuma sessão ativa encontrada.");
+            console.warn("⚠️ [AuthProvider] Nenhuma sessão ativa.");
             setUser(null);
             setRole(null);
           }
         }
       } catch (e) {
-        console.error("❌ CRASH Auth:", e);
+        console.error("❌ [AuthProvider] Erro Fatal:", e);
       } finally {
-        if (mounted) setLoading(false);
+        if (mounted) {
+          console.log("🔓 [AuthProvider] Loading definido para FALSE. O site deve desbloquear.");
+          setLoading(false);
+        }
       }
     }
 
-    checkUser();
+    checkSession();
 
-    // Ouvir mudanças (Login, Logout, Token Expirado)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log(`🔄 Evento Auth Disparado: ${event}`);
-      
+      console.log(`🔄 [AuthProvider] Mudança de Estado: ${event}`);
       if (!mounted) return;
+      
       const u = session?.user || null;
       setUser(u);
       
@@ -78,12 +70,22 @@ export function AuthProvider({ children }) {
   }, []);
 
   const signOut = async () => {
-    console.log("👋 A sair...");
+    console.log("👋 [AuthProvider] A sair...");
     await supabase.auth.signOut();
     setUser(null);
-    setRole(null);
     window.location.href = "/auth";
   };
+
+  // DEBUG VISUAL: Se estiver bloqueado, mostra isto no ecrã
+  if (loading) {
+    return (
+      <div className="fixed inset-0 bg-black z-[9999] flex flex-col items-center justify-center text-white">
+        <div className="w-16 h-16 border-4 border-red-600 rounded-full animate-spin border-t-transparent mb-4"></div>
+        <p className="text-xl font-bold">A carregar sistema de login...</p>
+        <p className="text-sm text-gray-500 mt-2">Verifica a consola (F12) se isto demorar muito.</p>
+      </div>
+    );
+  }
 
   return (
     <AuthCtx.Provider value={{ user, role, loading, signOut }}>
