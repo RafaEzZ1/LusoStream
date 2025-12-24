@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/client";
 
 const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
 
+// Esta função já existia, mantemos igual
 export async function listContinueWatching(limit = 10) {
   const supabase = createClient();
   
@@ -42,4 +43,59 @@ export async function listContinueWatching(limit = 10) {
   );
 
   return enriched.filter((item) => item !== null);
+}
+
+// --- NOVAS FUNÇÕES ADICIONADAS (Isto corrige o erro de build) ---
+
+export async function markAsWatching(id, type, percent, season = null, episode = null) {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) return;
+
+  const updateData = {
+    user_id: user.id,
+    item_id: id,
+    item_type: type, // 'movie' ou 'series'
+    progress_percent: percent,
+    updated_at: new Date().toISOString(),
+  };
+
+  // Só adiciona temporada/episódio se existirem (para séries)
+  if (season) updateData.season_number = season;
+  if (episode) updateData.episode_number = episode;
+
+  // Tenta atualizar ou criar um novo registo
+  const { error } = await supabase
+    .from("continue_watching")
+    .upsert(updateData, { onConflict: "user_id, item_id, item_type" });
+
+  if (error) {
+    console.error("Erro ao salvar progresso:", error);
+  }
+}
+
+export async function markAsFinished(id, type, season = null, episode = null) {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) return;
+
+  // Quando termina, podemos remover da lista de "continuar a ver" 
+  // OU marcar como 100%. Aqui vou remover para limpar a lista da home.
+  const query = supabase
+    .from("continue_watching")
+    .delete()
+    .eq("user_id", user.id)
+    .eq("item_id", id)
+    .eq("item_type", type);
+
+  if (season) query.eq("season_number", season);
+  if (episode) query.eq("episode_number", episode);
+
+  const { error } = await query;
+
+  if (error) {
+    console.error("Erro ao marcar como terminado:", error);
+  }
 }
