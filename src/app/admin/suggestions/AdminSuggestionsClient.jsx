@@ -2,157 +2,51 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
-import { useAuth } from "@/lib/useAuth";
+import { createClient } from "@/lib/supabase/client"; // <--- NOVO IMPORT
 
 export default function AdminSuggestionsClient() {
-  const { user, authLoading } = useAuth();
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [list, setList] = useState([]);
+  const supabase = createClient();
+  const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [msg, setMsg] = useState(null);
-  const [replyMap, setReplyMap] = useState({});
 
-  // 1. Verificar se o utilizador é Admin
-  useEffect(() => {
-    if (!user) {
-      setIsAdmin(false);
-      setLoading(false);
-      return;
-    }
-    (async () => {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      
-      // Ajustado para aceitar apenas 'admin' conforme as novas regras
-      if (!error && data?.role === "admin") {
-        setIsAdmin(true);
-      } else {
-        setIsAdmin(false);
-      }
-      setLoading(false);
-    })();
-  }, [user]);
-
-  // 2. Carregar a lista de sugestões
-  useEffect(() => {
-    if (!isAdmin) return;
-    (async () => {
-      const { data, error } = await supabase
-        .from("suggestions")
-        .select("id, user_id, email, title, body, category, status, admin_reply, created_at, replied_at")
-        .order("created_at", { ascending: false });
-      if (!error) setList(data || []);
-    })();
-  }, [isAdmin]);
-
-  // 3. Função para Responder e Notificar o Utilizador
-  async function handleReply(id, sug) {
-    const reply = replyMap[id]?.trim();
-    if (!reply) {
-      setMsg({ type: "error", text: "Escreve uma resposta primeiro." });
-      return;
-    }
-
-    // A. Atualizar a Sugestão na tabela 'suggestions'
-    const { error: updateError } = await supabase
-      .from("suggestions")
-      .update({
-        admin_reply: reply,
-        status: "answered",
-        replied_at: new Date().toISOString(),
-      })
-      .eq("id", id);
-
-    if (updateError) {
-      setMsg({ type: "error", text: `Erro a responder: ${updateError.message}` });
-      return;
-    }
-
-    // B. Criar Notificação Direta para o Utilizador na nova tabela
-    await supabase.from("notifications").insert([
-      {
-        user_id: sug.user_id,
-        title: "Resposta ao teu Pedido! 🎬",
-        message: `O teu pedido "${sug.title}" foi respondido pelo Admin: ${reply}`,
-        link: "/suggestions"
-      },
-    ]);
-
-    // C. Atualizar o estado local para refletir a mudança no ecrã
-    setList((prev) =>
-      prev.map((s) =>
-        s.id === id
-          ? { ...s, admin_reply: reply, status: "answered", replied_at: new Date().toISOString() }
-          : s
-      )
-    );
-
-    setMsg({ type: "ok", text: "Resposta guardada e utilizador notificado! ✅" });
+  async function fetchItems() {
+    const { data } = await supabase.from("suggestions").select("*").order("created_at", { ascending: false });
+    setItems(data || []);
+    setLoading(false);
   }
 
-  if (authLoading || loading) return <p className="p-10 text-gray-400">A validar permissões…</p>;
-  if (!isAdmin) return <p className="p-10 text-red-300">Acesso negado.</p>;
+  useEffect(() => { fetchItems(); }, []);
+
+  async function updateStatus(id, st) {
+    await supabase.from("suggestions").update({ status: st }).eq("id", id);
+    fetchItems();
+  }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl md:text-3xl font-bold text-red-600">Gestão de Sugestões</h1>
-
-      {msg && (
-        <div className={`rounded px-4 py-3 text-sm animate-in fade-in ${
-          msg.type === "ok" ? "bg-green-900/30 border border-green-700 text-green-200" : "bg-red-900/30 border border-red-700 text-red-200"
-        }`}>
-          {msg.text}
+    <div className="text-white">
+      <h1 className="text-3xl font-bold mb-6 text-yellow-500">Pedidos & Sugestões</h1>
+      {loading ? <p>A carregar...</p> : (
+        <div className="space-y-4">
+           {items.map(item => (
+             <div key={item.id} className="bg-gray-900 p-4 rounded-xl border border-gray-800 flex justify-between items-center">
+                <div>
+                   <h3 className="font-bold text-lg">{item.title}</h3>
+                   <p className="text-sm text-gray-400">{item.media_type} • {item.year}</p>
+                   {item.note && <p className="text-sm text-gray-500 mt-1 italic">"{item.note}"</p>}
+                </div>
+                <div className="flex gap-2">
+                   {item.status === 'pending' && (
+                     <>
+                       <button onClick={()=>updateStatus(item.id, 'approved')} className="bg-green-600 px-3 py-1 rounded text-xs">Aprovar</button>
+                       <button onClick={()=>updateStatus(item.id, 'rejected')} className="bg-red-600 px-3 py-1 rounded text-xs">Rejeitar</button>
+                     </>
+                   )}
+                   {item.status !== 'pending' && <span className="uppercase text-xs font-bold">{item.status}</span>}
+                </div>
+             </div>
+           ))}
         </div>
       )}
-
-      <div className="space-y-4">
-        {list.map((sug) => (
-          <div key={sug.id} className="bg-gray-900 border border-gray-800 rounded-xl p-6 transition hover:border-gray-700">
-            <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-              <div>
-                <p className="text-xs text-gray-500 uppercase font-bold">{sug.category}</p>
-                <h2 className="text-lg font-bold text-white">{sug.title}</h2>
-                <p className="text-sm text-gray-400">{sug.email}</p>
-              </div>
-              <span className={`text-xs font-bold px-3 py-1 rounded-full ${
-                sug.status === "answered" ? "bg-green-600/20 text-green-500" : "bg-yellow-600/20 text-yellow-500"
-              }`}>
-                {sug.status === "answered" ? "Respondido" : "Pendente"}
-              </span>
-            </div>
-
-            <p className="text-gray-300 bg-black/40 p-3 rounded-lg text-sm mb-4 border border-gray-800 italic">
-              "{sug.body}"
-            </p>
-
-            <div className="space-y-3">
-              <textarea
-                rows={3}
-                defaultValue={sug.admin_reply || ""}
-                onChange={(e) => setReplyMap((prev) => ({ ...prev, [sug.id]: e.target.value }))}
-                className="w-full bg-black border border-gray-700 rounded-lg p-3 text-sm text-white outline-none focus:ring-2 focus:ring-red-600 transition"
-                placeholder="Escreve aqui a resposta que o utilizador vai receber..."
-              />
-              <button
-                onClick={() => handleReply(sug.id, sug)}
-                className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg text-sm font-bold transition shadow-lg shadow-red-900/20"
-              >
-                Guardar Resposta e Notificar
-              </button>
-            </div>
-            
-            {sug.replied_at && (
-              <p className="text-[10px] text-gray-600 mt-4 uppercase tracking-widest text-right">
-                Respondido em {new Date(sug.replied_at).toLocaleString()}
-              </p>
-            )}
-          </div>
-        ))}
-      </div>
     </div>
   );
 }

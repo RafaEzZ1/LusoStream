@@ -4,12 +4,15 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { createClient } from "@/lib/supabase/client"; // <--- NOVO IMPORT
 
 export default function AdminLayout({ children }) {
   const pathname = usePathname();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  
+  // Criar instância do Supabase
+  const supabase = createClient();
 
   useEffect(() => {
     let active = true;
@@ -27,13 +30,12 @@ export default function AdminLayout({ children }) {
           .single();
 
         if (profileError || profile?.role !== "admin") {
-          throw new Error("Não autorizado");
+          // Se for moderador, deixamos passar (ajusta conforme a tua lógica)
+          if (profile?.role !== "mod") throw new Error("Não autorizado");
         }
 
         if (active) setLoading(false);
       } catch (err) {
-        console.error("Admin Check Error:", err);
-        // Se falhar a verificação, manda para o login
         if (active) router.push("/auth"); 
       }
     }
@@ -61,57 +63,27 @@ export default function AdminLayout({ children }) {
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-black text-gray-100 font-sans">
-      
-      {/* SIDEBAR (Desktop) */}
       <aside className="w-64 bg-gray-900 border-r border-gray-800 hidden md:flex flex-col fixed h-full z-20">
         <div className="p-6 border-b border-gray-800">
           <h1 className="text-2xl font-bold text-red-600 tracking-tighter">LusoAdmin</h1>
         </div>
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
           {menuItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl transition font-bold ${
-                pathname === item.href 
-                  ? "bg-red-600 text-white shadow-lg" 
-                  : "text-gray-400 hover:bg-gray-800 hover:text-white"
-              }`}
-            >
-              <span>{item.icon}</span>
-              {item.name}
+            <Link key={item.href} href={item.href} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition font-bold ${pathname === item.href ? "bg-red-600 text-white shadow-lg" : "text-gray-400 hover:bg-gray-800 hover:text-white"}`}>
+              <span>{item.icon}</span>{item.name}
             </Link>
           ))}
-          <Link href="/" className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-400 hover:bg-gray-800 hover:text-white transition font-bold mt-auto">
-             <span>🚪</span> Sair
-          </Link>
+          <Link href="/" className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-400 hover:bg-gray-800 hover:text-white transition font-bold mt-auto"><span>🚪</span> Sair</Link>
         </nav>
       </aside>
-
-      {/* HEADER MOBILE */}
       <div className="md:hidden bg-gray-900 p-4 border-b border-gray-800 flex justify-between items-center sticky top-0 z-30">
          <h1 className="text-xl font-bold text-red-600">LusoAdmin</h1>
          <Link href="/" className="text-xs bg-gray-800 px-3 py-1 rounded border border-gray-700">Sair</Link>
       </div>
-
-      {/* MAIN CONTENT */}
-      <main className="flex-1 md:ml-64 p-4 md:p-10 mb-20 md:mb-0">
-        {children}
-      </main>
-
-      {/* BOTTOM NAV (Mobile Only) */}
+      <main className="flex-1 md:ml-64 p-4 md:p-10 mb-20 md:mb-0">{children}</main>
       <nav className="md:hidden fixed bottom-0 left-0 w-full bg-gray-900 border-t border-gray-800 flex justify-around p-2 z-50 pb-safe">
          {menuItems.map((item) => (
-            <Link 
-              key={item.href} 
-              href={item.href}
-              className={`flex flex-col items-center p-2 rounded-lg text-xs ${
-                 pathname === item.href ? "text-red-500" : "text-gray-500"
-              }`}
-            >
-               <span className="text-lg mb-0.5">{item.icon}</span>
-               <span className="truncate max-w-[50px]">{item.name}</span>
-            </Link>
+            <Link key={item.href} href={item.href} className={`flex flex-col items-center p-2 rounded-lg text-xs ${pathname === item.href ? "text-red-500" : "text-gray-500"}`}><span className="text-lg mb-0.5">{item.icon}</span><span className="truncate max-w-[50px]">{item.name}</span></Link>
          ))}
       </nav>
     </div>
