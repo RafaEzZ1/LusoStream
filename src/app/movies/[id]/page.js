@@ -5,14 +5,16 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useDraggableScroll } from "@/hooks/useDraggableScroll"; 
-import { useAuth } from "@/components/AuthProvider";
+import { useAuth } from "@/components/AuthProvider"; // Usa o hook global
+
+// REMOVIDO: import Navbar (Já está no layout)
 
 const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
 
 export default function MovieDetailsPage() {
   const { id } = useParams();
   const router = useRouter();
-  const { user } = useAuth(); // USA O HOOK CORRETO PARA NÃO PISCAR
+  const { user } = useAuth(); // Hook estável
   const supabase = createClient();
   
   const [movie, setMovie] = useState(null);
@@ -29,9 +31,11 @@ export default function MovieDetailsPage() {
     if (!id) return;
     async function fetchMovie() {
       try {
+        // Pedido COMPLETO: Filme + Elenco + Vídeos + Similares
         const res = await fetch(`https://api.themoviedb.org/3/movie/${id}?api_key=${API_KEY}&language=pt-BR&append_to_response=credits,videos,similar`);
         const data = await res.json();
         setMovie(data);
+        
         const trailer = data.videos?.results?.find(v => v.site === "YouTube" && (v.type === "Trailer" || v.type === "Teaser"));
         if (trailer) setTrailerKey(trailer.key);
       } catch (e) { 
@@ -63,20 +67,22 @@ export default function MovieDetailsPage() {
     setListLoading(false);
   }
 
-  if (loading) return <div className="bg-black min-h-screen flex items-center justify-center"><div className="w-12 h-12 border-4 border-red-600 rounded-full animate-spin border-t-transparent"></div></div>;
+  if (loading) return <div className="bg-black min-h-screen flex items-center justify-center text-white"><div className="w-12 h-12 border-4 border-red-600 rounded-full animate-spin border-t-transparent"></div></div>;
   if (!movie || !movie.title) return <div className="bg-black min-h-screen text-white flex items-center justify-center text-xl">Filme não encontrado.</div>;
 
   return (
     <div className="bg-black min-h-screen text-gray-200 font-sans pb-20">
       
-      {/* HEADER */}
+      {/* SEM NAVBAR AQUI - Ela vem do Layout */}
+
+      {/* Hero Section */}
       <div className="relative w-full min-h-[85vh] flex items-center">
         <div className="absolute inset-0 bg-cover bg-center fixed-bg" style={{ backgroundImage: `url(https://image.tmdb.org/t/p/original${movie.backdrop_path})` }}>
           <div className="absolute inset-0 bg-black/80"></div>
           <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent"></div>
         </div>
         
-        <div className="relative z-10 max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-12 items-center pt-20">
+        <div className="relative z-10 max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-12 items-center pt-24 pb-12">
           <div className="hidden md:block col-span-1 animate-in fade-in duration-700">
             <img src={`https://image.tmdb.org/t/p/w500${movie.poster_path}`} alt={movie.title} className="w-full rounded-xl shadow-2xl border border-gray-800" />
           </div>
@@ -103,18 +109,19 @@ export default function MovieDetailsPage() {
         </div>
       </div>
       
-      {/* ELENCO E RECOMENDAÇÕES (Falta de conteúdo resolvida) */}
-      <main className="max-w-7xl mx-auto px-6 py-12 space-y-16">
+      {/* Elenco e Similares (VOLTAM A APARECER AGORA) */}
+      <main className="max-w-7xl mx-auto px-6 py-12 space-y-16 bg-black relative z-20">
         {movie.credits?.cast?.length > 0 && (
           <div>
-            <h2 className="text-2xl font-bold text-white mb-6 border-l-4 border-red-600 pl-4">Elenco</h2>
+            <h2 className="text-2xl font-bold text-white mb-6 border-l-4 border-red-600 pl-4">Elenco Principal</h2>
             <div ref={castRef} {...castEvents(castRef)} className="flex gap-5 overflow-x-auto pb-4 no-scrollbar cursor-grab active:cursor-grabbing">
               {movie.credits.cast.slice(0, 15).map((actor) => (
                 <div key={actor.id} className="flex-none w-32 group select-none">
                   <div className="w-28 h-28 mx-auto mb-3 rounded-full overflow-hidden border-2 border-gray-800 group-hover:border-red-600 transition">
                     <img src={actor.profile_path ? `https://image.tmdb.org/t/p/w200${actor.profile_path}` : "/no-avatar.png"} alt={actor.name} onDragStart={(e) => e.preventDefault()} className="w-full h-full object-cover pointer-events-none" />
                   </div>
-                  <p className="text-sm font-bold text-center truncate">{actor.name}</p>
+                  <p className="text-sm font-bold text-center truncate text-white">{actor.name}</p>
+                  <p className="text-xs text-center text-gray-500 truncate">{actor.character}</p>
                 </div>
               ))}
             </div>
@@ -122,15 +129,15 @@ export default function MovieDetailsPage() {
         )}
         
         {movie.similar?.results?.length > 0 && (
-          <div>
+          <div className="pb-20">
             <h2 className="text-2xl font-bold text-white mb-6 border-l-4 border-red-600 pl-4">Recomendados</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
               {movie.similar.results.slice(0, 10).map((sim) => (
-                <Link key={sim.id} href={`/movies/${sim.id}`} className="group block relative">
-                  <div className="aspect-[2/3] rounded-xl overflow-hidden mb-3 bg-gray-800 shadow-lg group-hover:scale-105 transition duration-300">
-                    <img src={sim.poster_path ? `https://image.tmdb.org/t/p/w500${sim.poster_path}` : "/no-image.jpg"} alt={sim.title} className="w-full h-full object-cover opacity-80 group-hover:opacity-100" />
+                <Link key={sim.id} href={`/movies/${sim.id}`} className="group block relative bg-gray-900 rounded-xl overflow-hidden hover:scale-105 transition-all duration-300 shadow-lg">
+                  <div className="aspect-[2/3] w-full relative">
+                    <img src={sim.poster_path ? `https://image.tmdb.org/t/p/w500${sim.poster_path}` : "/no-image.jpg"} alt={sim.title} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition" />
                   </div>
-                  <h3 className="text-sm font-bold text-gray-300 group-hover:text-white truncate">{sim.title}</h3>
+                  <h3 className="text-sm font-bold text-gray-300 group-hover:text-white truncate p-2">{sim.title}</h3>
                 </Link>
               ))}
             </div>
@@ -146,7 +153,7 @@ export default function MovieDetailsPage() {
                <span className="font-bold text-white">Trailer Oficial</span>
                <button onClick={() => setShowTrailer(false)} className="bg-gray-800 hover:bg-red-600 text-white rounded-full p-2 transition">✕</button>
             </div>
-            <div className="aspect-video">
+            <div className="aspect-video bg-black">
               <iframe width="100%" height="100%" src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1`} frameBorder="0" allow="autoplay; encrypted-media" allowFullScreen></iframe>
             </div>
           </div>

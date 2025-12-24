@@ -16,7 +16,7 @@ export function AuthProvider({ children }) {
 
     async function getSession() {
       try {
-        // MUDANÇA: getSession é muito mais rápido e evita o logout visual
+        // MUDANÇA: getSession é instantâneo e evita o "logout fantasma"
         const { data: { session } } = await supabase.auth.getSession();
         
         if (mounted) {
@@ -34,7 +34,7 @@ export function AuthProvider({ children }) {
           }
         }
       } catch (e) {
-        console.error("Erro Auth:", e);
+        console.error("Auth Error:", e);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -44,6 +44,7 @@ export function AuthProvider({ children }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!mounted) return;
+      
       const u = session?.user || null;
       setUser(u);
       
