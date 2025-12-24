@@ -30,7 +30,6 @@ export default function SeriesDetailsPage() {
   const castRef = useRef(null);
   const { events: castEvents } = useDraggableScroll();
 
-  // Fetch Série (inclui créditos e similares logo de início)
   useEffect(() => {
     if (!id) return;
     async function fetchSeries() {
@@ -57,18 +56,17 @@ export default function SeriesDetailsPage() {
     }
   }, [user, id]);
 
-  // Fetch Episódios (Atualiza quando a temporada muda)
   useEffect(() => {
     if (id && series) {
       async function fetchEpisodes() {
         setLoadingEpisodes(true);
-        setEpisodes([]); // Limpa lista antiga
+        setEpisodes([]);
         try {
           const res = await fetch(
             `https://api.themoviedb.org/3/tv/${id}/season/${selectedSeason}?api_key=${API_KEY}&language=pt-BR`
           );
           const data = await res.json();
-          if (data.episodes) setEpisodes(data.episodes);
+          setEpisodes(data.episodes || []);
         } catch (error) { console.error("Erro episódios:", error); }
         setLoadingEpisodes(false);
       }
@@ -89,15 +87,14 @@ export default function SeriesDetailsPage() {
     setListLoading(false);
   }
 
-  if (loading) return <div className="bg-black min-h-screen flex items-center justify-center text-white"><div className="w-12 h-12 border-4 border-blue-600 rounded-full animate-spin border-t-transparent"></div></div>;
+  if (loading) return <div className="bg-black min-h-screen flex items-center justify-center"><div className="w-12 h-12 border-4 border-blue-600 rounded-full animate-spin border-t-transparent"></div></div>;
   if (!series || !series.name) return <div className="bg-black min-h-screen text-white flex items-center justify-center text-xl">Série não encontrada.</div>;
 
   return (
     <div className="bg-black min-h-screen text-gray-200 font-sans pb-20">
       
-      {/* SEM NAVBAR AQUI - Ela vem do Layout */}
+      {/* SEM NAVBAR AQUI - O Layout já a tem */}
 
-      {/* Hero Section */}
       <div className="relative w-full min-h-[85vh] flex items-center">
         <div className="absolute inset-0 bg-cover bg-center fixed-bg" style={{ backgroundImage: `url(https://image.tmdb.org/t/p/original${series.backdrop_path})` }}>
           <div className="absolute inset-0 bg-black/80"></div>
@@ -133,7 +130,7 @@ export default function SeriesDetailsPage() {
 
       <main className="max-w-7xl mx-auto px-6 py-12 space-y-16 bg-black relative z-20">
         
-        {/* Seletor de Episódios */}
+        {/* Seletor de Temporadas e Episódios */}
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
           <div className="flex flex-wrap items-center justify-between mb-6 border-b border-gray-800 pb-4 gap-4">
             <h2 className="text-2xl font-bold text-white border-l-4 border-blue-600 pl-4">Episódios</h2>
@@ -177,7 +174,7 @@ export default function SeriesDetailsPage() {
           )}
         </div>
         
-        {/* Elenco */}
+        {/* Elenco e Similares */}
         {series.credits?.cast?.length > 0 && (
           <div>
             <h2 className="text-2xl font-bold text-white mb-6 border-l-4 border-blue-600 pl-4">Elenco Principal</h2>
@@ -195,7 +192,6 @@ export default function SeriesDetailsPage() {
           </div>
         )}
 
-        {/* Recomendados */}
         {series.similar?.results?.length > 0 && (
           <div className="pb-20">
             <h2 className="text-2xl font-bold text-white mb-6 border-l-4 border-blue-600 pl-4">Séries Semelhantes</h2>

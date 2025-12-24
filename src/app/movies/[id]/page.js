@@ -5,16 +5,14 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useDraggableScroll } from "@/hooks/useDraggableScroll"; 
-import { useAuth } from "@/components/AuthProvider"; // Usa o hook global
-
-// REMOVIDO: import Navbar (Já está no layout)
+import { useAuth } from "@/components/AuthProvider";
 
 const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
 
 export default function MovieDetailsPage() {
   const { id } = useParams();
   const router = useRouter();
-  const { user } = useAuth(); // Hook estável
+  const { user } = useAuth();
   const supabase = createClient();
   
   const [movie, setMovie] = useState(null);
@@ -31,11 +29,9 @@ export default function MovieDetailsPage() {
     if (!id) return;
     async function fetchMovie() {
       try {
-        // Pedido COMPLETO: Filme + Elenco + Vídeos + Similares
         const res = await fetch(`https://api.themoviedb.org/3/movie/${id}?api_key=${API_KEY}&language=pt-BR&append_to_response=credits,videos,similar`);
         const data = await res.json();
         setMovie(data);
-        
         const trailer = data.videos?.results?.find(v => v.site === "YouTube" && (v.type === "Trailer" || v.type === "Teaser"));
         if (trailer) setTrailerKey(trailer.key);
       } catch (e) { 
@@ -67,22 +63,20 @@ export default function MovieDetailsPage() {
     setListLoading(false);
   }
 
-  if (loading) return <div className="bg-black min-h-screen flex items-center justify-center text-white"><div className="w-12 h-12 border-4 border-red-600 rounded-full animate-spin border-t-transparent"></div></div>;
-  if (!movie || !movie.title) return <div className="bg-black min-h-screen text-white flex items-center justify-center text-xl">Filme não encontrado.</div>;
+  if (loading) return <div className="bg-black min-h-screen flex items-center justify-center"><div className="w-12 h-12 border-4 border-red-600 rounded-full animate-spin border-t-transparent"></div></div>;
+  if (!movie || !movie.title) return <div className="bg-black min-h-screen text-white flex items-center justify-center pt-20">Filme não encontrado.</div>;
 
   return (
     <div className="bg-black min-h-screen text-gray-200 font-sans pb-20">
+      {/* NAVBAR REMOVIDA - O Layout já a tem */}
       
-      {/* SEM NAVBAR AQUI - Ela vem do Layout */}
-
-      {/* Hero Section */}
       <div className="relative w-full min-h-[85vh] flex items-center">
         <div className="absolute inset-0 bg-cover bg-center fixed-bg" style={{ backgroundImage: `url(https://image.tmdb.org/t/p/original${movie.backdrop_path})` }}>
           <div className="absolute inset-0 bg-black/80"></div>
           <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent"></div>
         </div>
         
-        <div className="relative z-10 max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-12 items-center pt-24 pb-12">
+        <div className="relative z-10 max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-12 items-center pt-20">
           <div className="hidden md:block col-span-1 animate-in fade-in duration-700">
             <img src={`https://image.tmdb.org/t/p/w500${movie.poster_path}`} alt={movie.title} className="w-full rounded-xl shadow-2xl border border-gray-800" />
           </div>
@@ -109,7 +103,6 @@ export default function MovieDetailsPage() {
         </div>
       </div>
       
-      {/* Elenco e Similares (VOLTAM A APARECER AGORA) */}
       <main className="max-w-7xl mx-auto px-6 py-12 space-y-16 bg-black relative z-20">
         {movie.credits?.cast?.length > 0 && (
           <div>
@@ -145,7 +138,6 @@ export default function MovieDetailsPage() {
         )}
       </main>
 
-      {/* Modal Trailer */}
       {showTrailer && trailerKey && (
         <div className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
           <div className="relative w-full max-w-5xl bg-black rounded-2xl overflow-hidden border border-gray-800 shadow-2xl">

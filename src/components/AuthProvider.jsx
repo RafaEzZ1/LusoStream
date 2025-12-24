@@ -16,12 +16,13 @@ export function AuthProvider({ children }) {
 
     async function getSession() {
       try {
-        // MUDANÇA: getSession é instantâneo e evita o "logout fantasma"
+        // CORREÇÃO: Usar getSession para leitura rápida da sessão local
         const { data: { session } } = await supabase.auth.getSession();
         
         if (mounted) {
           if (session?.user) {
             setUser(session.user);
+            // Buscar Role do perfil
             const { data } = await supabase
               .from("profiles")
               .select("role")
