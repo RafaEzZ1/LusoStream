@@ -7,6 +7,8 @@ import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient"; 
 import Navbar from "@/components/Navbar";
 import { useDraggableScroll } from "@/hooks/useDraggableScroll"; 
+// IMPORTANTE:
+import { useAuth } from "@/components/AuthProvider";
 
 const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
 
@@ -14,21 +16,21 @@ export default function MovieDetailsPage() {
   const { id } = useParams();
   const router = useRouter();
   
-  // ESTADO DO FILME (Prioridade Máxima)
+  // USA O USER GLOBAL (Estável)
+  const { user } = useAuth();
+  
   const [movie, setMovie] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showTrailer, setShowTrailer] = useState(false);
   const [trailerKey, setTrailerKey] = useState(null);
   
-  // ESTADO DO USER (Prioridade Baixa - Não bloqueia a página)
-  const [user, setUser] = useState(null);
   const [isInList, setIsInList] = useState(false);
   const [listLoading, setListLoading] = useState(false);
 
   const castRef = useRef(null);
   const { events: castEvents } = useDraggableScroll();
 
-  // 1. CARREGAR FILME IMEDIATAMENTE
+  // 1. CARREGAR FILME
   useEffect(() => {
     if (!id) return;
     async function fetchMovie() {
@@ -43,33 +45,31 @@ export default function MovieDetailsPage() {
         const trailer = videos.find(v => v.site === "YouTube" && (v.type === "Trailer" || v.type === "Teaser"));
         if (trailer) setTrailerKey(trailer.key);
       } catch (e) { console.error(e); } 
-      finally { setLoading(false); } // Liberta a página logo aqui
+      finally { setLoading(false); }
     }
     fetchMovie();
   }, [id]);
 
-  // 2. VERIFICAR LOGIN EM PARALELO
+  // 2. VERIFICAR LISTA (Usa o user global, não faz fetch de sessão)
   useEffect(() => {
-    if (!id) return;
-    async function checkUser() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        setUser(session.user);
+    if (user && id) {
+      async function checkList() {
         const { data } = await supabase
           .from("watchlists")
           .select("id")
-          .eq("user_id", session.user.id)
+          .eq("user_id", user.id)
           .eq("item_id", id)
           .eq("item_type", "movie")
           .maybeSingle();
         if (data) setIsInList(true);
       }
+      checkList();
     }
-    checkUser();
-  }, [id]);
+  }, [user, id]);
 
   async function toggleMyList() {
     if (!user) return router.push("/auth");
+    
     setListLoading(true);
     if (isInList) {
       await supabase.from("watchlists").delete().eq("user_id", user.id).eq("item_id", movie.id).eq("item_type", "movie");
@@ -81,7 +81,6 @@ export default function MovieDetailsPage() {
     setListLoading(false);
   }
 
-  // Loading APENAS se o filme ainda não chegou. O login não interessa para aqui.
   if (loading) return <div className="bg-black min-h-screen flex items-center justify-center"><div className="w-12 h-12 border-4 border-red-600 rounded-full animate-spin border-t-transparent"></div></div>;
   if (!movie) return <div className="text-white text-center pt-40">Filme não encontrado.</div>;
 
@@ -89,7 +88,7 @@ export default function MovieDetailsPage() {
     <div className="bg-black min-h-screen text-gray-200 font-sans pb-20">
       <Navbar />
 
-      {/* HERO SECTION */}
+      {/* HERO */}
       <div className="relative w-full min-h-[85vh] flex items-center">
         <div className="absolute inset-0 bg-cover bg-center fixed-bg" style={{ backgroundImage: `url(https://image.tmdb.org/t/p/original${movie.backdrop_path})` }}>
           <div className="absolute inset-0 bg-gradient-to-r from-black via-black/80 to-transparent"></div>

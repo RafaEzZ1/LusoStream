@@ -4,13 +4,13 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { supabase, hardLogout } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabaseClient"; // Para queries extra
+import { useAuth } from "@/components/AuthProvider"; // <--- A MAGIA ESTÁ AQUI
 import NotificationBell from "@/components/NotificationBell";
 import Logo from "@/components/Logo";
 
 const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
 
-// Mapeamento dos Avatares
 const AVATARS_MAP = {
   ghost: { icon: "👻", color: "bg-purple-600" },
   alien: { icon: "👽", color: "bg-green-600" },
@@ -24,9 +24,8 @@ const AVATARS_MAP = {
 
 export default function Navbar() {
   const pathname = usePathname();
-  const [user, setUser] = useState(null);
-  const [role, setRole] = useState("user");
-  const [loading, setLoading] = useState(true);
+  // Agora usamos o Contexto Global. Nada de timeouts manuais!
+  const { user, role, loading: authLoading, signOut } = useAuth();
   
   const [pendingCount, setPendingCount] = useState(0);
   const [avatarId, setAvatarId] = useState(null);
@@ -40,44 +39,22 @@ export default function Navbar() {
   
   const isAdmin = role === "admin" || role === "mod";
 
-  // 1. Verificar Sessão e Perfil
+  // 1. Carregar Avatar (Apenas se tivermos user)
   useEffect(() => {
-    async function getUserData() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        setUser(session.user);
-        
-        // Buscar Perfil (Avatar + Role)
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("role, avatar_url")
-          .eq("user_id", session.user.id)
-          .maybeSingle();
-          
-        if (profile) {
-          setRole(profile.role);
-          setAvatarId(profile.avatar_url);
-        }
-      }
-      setLoading(false);
+    if (user) {
+      // Pequeno fetch apenas para o avatar, o resto já vem do AuthProvider
+      supabase
+        .from("profiles")
+        .select("avatar_url")
+        .eq("user_id", user.id)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data) setAvatarId(data.avatar_url);
+        });
+    } else {
+      setAvatarId(null);
     }
-    getUserData();
-
-    // Listener para mudanças de Auth
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_OUT') {
-        setUser(null);
-        setRole("user");
-        setAvatarId(null);
-      } else if (session?.user) {
-        getUserData(); 
-      }
-    });
-
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
-  }, []);
+  }, [user]);
 
   // 2. Notificações Admin
   useEffect(() => {
@@ -128,7 +105,6 @@ export default function Navbar() {
     document.addEventListener("mousedown", out); return () => document.removeEventListener("mousedown", out);
   }, []);
 
-  async function handleLogout() { await hardLogout(); setMobileOpen(false); }
   const goMobile = (href) => { setMobileOpen(false); router.push(href); };
   
   const displayName = user?.email || "?";
@@ -161,7 +137,6 @@ export default function Navbar() {
 
         {/* DIREITA (DESKTOP) */}
         <div className="hidden md:flex items-center gap-5">
-          {/* Pesquisa */}
           <div className="relative" ref={dropdownRef}>
             <form onSubmit={handleSearchSubmit} className="relative group">
               <input 
@@ -192,7 +167,8 @@ export default function Navbar() {
           </div>
 
           <div className="flex items-center gap-4 border-l border-gray-800 pl-4">
-            {loading ? (
+            {/* Usa o loading do AuthProvider */}
+            {authLoading ? (
               <div className="w-8 h-8 rounded-full bg-gray-800 animate-pulse"></div>
             ) : user ? (
               <>
@@ -208,7 +184,7 @@ export default function Navbar() {
                       </div>
                    )}
                 </Link>
-                <button onClick={handleLogout} className="text-xs text-gray-400 hover:text-white transition font-medium uppercase tracking-wide">
+                <button onClick={() => { signOut(); setMobileOpen(false); }} className="text-xs text-gray-400 hover:text-white transition font-medium uppercase tracking-wide">
                   Sair
                 </button>
               </>
@@ -220,11 +196,9 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* MOBILE CONTROLS (SININHO + HAMBURGER) */}
+        {/* MOBILE CONTROLS */}
         <div className="md:hidden flex items-center gap-4">
-          {/* 👇 SININHO AGORA VISÍVEL NO MOBILE */}
-          {user && <NotificationBell user={user} />}
-          
+          {!authLoading && user && <NotificationBell user={user} />}
           <button type="button" className="p-2 text-gray-300" onClick={() => setMobileOpen((s) => !s)}>
              <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" /></svg>
           </button>
@@ -251,7 +225,7 @@ export default function Navbar() {
                  <button onClick={() => goMobile("/account")} className="bg-gray-800 py-3 rounded-xl font-bold flex items-center justify-center gap-2">
                    Minha Conta
                  </button>
-                 <button onClick={handleLogout} className="bg-red-600 py-3 rounded-xl font-bold text-white">Terminar Sessão</button>
+                 <button onClick={() => { signOut(); setMobileOpen(false); }} className="bg-red-600 py-3 rounded-xl font-bold text-white">Terminar Sessão</button>
               </div>
             ) : (
               <button onClick={() => goMobile("/auth")} className="w-full bg-white text-black py-4 rounded-xl font-bold">Entrar</button>

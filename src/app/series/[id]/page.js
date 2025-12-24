@@ -7,6 +7,7 @@ import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient"; 
 import Navbar from "@/components/Navbar";
 import { useDraggableScroll } from "@/hooks/useDraggableScroll"; 
+import { useAuth } from "@/components/AuthProvider";
 
 const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
 
@@ -14,30 +15,27 @@ export default function SeriesDetailsPage() {
   const { id } = useParams();
   const router = useRouter();
   
-  // ESTADO DA SÉRIE (Prioridade Máxima)
+  // USA O USER GLOBAL
+  const { user } = useAuth();
+  
   const [series, setSeries] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showTrailer, setShowTrailer] = useState(false);
   const [trailerKey, setTrailerKey] = useState(null);
   
-  // ESTADO DAS TEMPORADAS
   const [selectedSeason, setSelectedSeason] = useState(1);
   const [episodes, setEpisodes] = useState([]);
   const [loadingEpisodes, setLoadingEpisodes] = useState(false);
 
-  // ESTADO DO USER (Prioridade Baixa - Segundo Plano)
-  const [user, setUser] = useState(null);
   const [isInList, setIsInList] = useState(false);
   const [listLoading, setListLoading] = useState(false);
 
-  // Hook de Arrastar
   const castRef = useRef(null);
   const { events: castEvents } = useDraggableScroll();
 
-  // 1. CARREGAR SÉRIE IMEDIATAMENTE (Não espera pelo login)
+  // 1. CARREGAR SÉRIE
   useEffect(() => {
     if (!id) return;
-
     async function fetchSeries() {
       try {
         const res = await fetch(
@@ -46,41 +44,35 @@ export default function SeriesDetailsPage() {
         const data = await res.json();
         setSeries(data);
 
-        // Trailer
         const videos = data.videos?.results || [];
         const trailer = videos.find(v => v.site === "YouTube" && (v.type === "Trailer" || v.type === "Teaser"));
         if (trailer) setTrailerKey(trailer.key);
       } catch (error) { console.error("Erro série:", error); }
-      finally { setLoading(false); } // Liberta a página
+      finally { setLoading(false); }
     }
-
     fetchSeries();
   }, [id]);
 
-  // 2. VERIFICAR USER EM PARALELO
+  // 2. VERIFICAR LISTA (Rápido e Estável)
   useEffect(() => {
-    async function checkUser() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        setUser(session.user);
-        // Verificar Lista
+    if (user && id) {
+      async function checkList() {
         const { data } = await supabase
           .from("watchlists")
           .select("id")
-          .eq("user_id", session.user.id)
+          .eq("user_id", user.id)
           .eq("item_id", id)
           .eq("item_type", "tv")
           .maybeSingle();
-        
         if (data) setIsInList(true);
       }
+      checkList();
     }
-    checkUser();
-  }, [id]);
+  }, [user, id]);
 
-  // 3. CARREGAR EPISÓDIOS (Sempre que muda a temporada)
+  // 3. CARREGAR EPISÓDIOS
   useEffect(() => {
-    if (id && selectedSeason) {
+    if (id && series) {
       async function fetchEpisodes() {
         setLoadingEpisodes(true);
         try {
@@ -94,11 +86,10 @@ export default function SeriesDetailsPage() {
       }
       fetchEpisodes();
     }
-  }, [id, selectedSeason]);
+  }, [id, selectedSeason, series]);
 
   async function toggleMyList() {
     if (!user) return router.push("/auth");
-    
     setListLoading(true);
     if (isInList) {
       await supabase.from("watchlists").delete().eq("user_id", user.id).eq("item_id", series.id).eq("item_type", "tv");
@@ -110,7 +101,6 @@ export default function SeriesDetailsPage() {
     setListLoading(false);
   }
 
-  // Loading APENAS para a série principal
   if (loading) return <div className="bg-black min-h-screen flex items-center justify-center"><div className="w-12 h-12 border-4 border-blue-600 rounded-full animate-spin border-t-transparent"></div></div>;
   if (!series) return <div className="text-white text-center pt-40">Série não encontrada.</div>;
 
@@ -141,7 +131,6 @@ export default function SeriesDetailsPage() {
             
             <p className="text-gray-300 text-lg leading-relaxed max-w-2xl line-clamp-4 md:line-clamp-none">{series.overview}</p>
 
-            {/* BOTÕES */}
             <div className="flex flex-wrap items-center gap-4 pt-4">
               <Link href={`/watch/series/${series.id}/season/1/episode/1`} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full transition hover:scale-105 flex items-center gap-2 shadow-lg shadow-blue-900/40">
                 <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
@@ -167,12 +156,9 @@ export default function SeriesDetailsPage() {
       </div>
 
       <main className="max-w-7xl mx-auto px-6 py-12 space-y-16">
-        
-        {/* EPISÓDIOS */}
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
           <div className="flex items-center justify-between mb-6 border-b border-gray-800 pb-4">
             <h2 className="text-2xl font-bold text-white border-l-4 border-blue-600 pl-4">Episódios</h2>
-            
             <select 
               className="bg-gray-900 border border-gray-700 text-white rounded-lg px-4 py-2 outline-none focus:border-blue-600 transition font-bold"
               value={selectedSeason}
@@ -200,14 +186,11 @@ export default function SeriesDetailsPage() {
                       alt={ep.name} 
                       className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition"
                     />
-                    <div className="absolute bottom-1 left-1 bg-black/80 px-2 py-0.5 text-xs font-bold rounded text-white">
-                       E{ep.episode_number}
-                    </div>
+                    <div className="absolute bottom-1 left-1 bg-black/80 px-2 py-0.5 text-xs font-bold rounded text-white">E{ep.episode_number}</div>
                   </div>
-
                   <div className="py-2 pr-3 flex flex-col justify-center overflow-hidden w-full">
                     <h4 className="font-bold text-gray-200 group-hover:text-blue-400 truncate text-sm">{ep.episode_number}. {ep.name}</h4>
-                    <p className="text-xs text-gray-500 mt-1 line-clamp-2">{ep.overview || "Sem descrição disponível."}</p>
+                    <p className="text-xs text-gray-500 mt-1 line-clamp-2">{ep.overview || "Sem descrição."}</p>
                     <p className="text-xs text-gray-600 mt-2 font-mono">{ep.air_date?.split("-")[0] || "N/A"} • {ep.runtime || "?"} min</p>
                   </div>
                 </Link>
@@ -216,7 +199,7 @@ export default function SeriesDetailsPage() {
           )}
         </div>
 
-        {/* ELENCO */}
+        {/* ELENCO e RECOMENDADOS (Mantém o código anterior para estas secções) */}
         {series.credits?.cast?.length > 0 && (
           <div>
             <h2 className="text-2xl font-bold text-white mb-6 border-l-4 border-blue-600 pl-4">Elenco</h2>
@@ -233,7 +216,6 @@ export default function SeriesDetailsPage() {
           </div>
         )}
 
-        {/* RECOMENDADOS */}
         {series.similar?.results?.length > 0 && (
           <div>
             <h2 className="text-2xl font-bold text-white mb-6 border-l-4 border-blue-600 pl-4">Recomendados</h2>
@@ -250,20 +232,6 @@ export default function SeriesDetailsPage() {
           </div>
         )}
       </main>
-
-      {showTrailer && trailerKey && (
-        <div className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
-          <div className="relative w-full max-w-5xl bg-black rounded-2xl overflow-hidden border border-gray-800">
-            <div className="flex justify-between items-center p-4 border-b border-gray-800 bg-gray-900">
-               <span className="font-bold text-white">Trailer Oficial</span>
-               <button onClick={() => setShowTrailer(false)} className="bg-gray-800 hover:bg-red-600 text-white rounded-full p-2 transition">✕</button>
-            </div>
-            <div className="aspect-video">
-              <iframe width="100%" height="100%" src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1`} frameBorder="0" allow="autoplay; encrypted-media" allowFullScreen></iframe>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
