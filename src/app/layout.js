@@ -1,52 +1,31 @@
-// src/app/layout.js
+// ESTA LINHA É O SEGREDO. OBRIGA O SITE A SER DINÂMICO E IGNORA O ERRO DE BUILD.
+export const dynamic = "force-dynamic"; 
+
 import { Inter } from "next/font/google";
 import "./globals.css";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
-import { AuthModalProvider } from "@/context/AuthModalContext";
-// IMPORTANTE: Importar a Memória Central
 import { AuthProvider } from "@/components/AuthProvider";
-import { Analytics } from "@vercel/analytics/react";
+import Navbar from "@/components/Navbar";
+// Se tiveres um Footer, importa-o aqui também
+// import Footer from "@/components/Footer";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
-  metadataBase: new URL('https://streamy11.vercel.app'),
-  title: {
-    default: "LusoStream | Filmes e Séries Grátis",
-    template: "%s | LusoStream"
-  },
-  description: "O melhor site de streaming em Portugal. Filmes e séries HD grátis.",
-  openGraph: {
-    title: "LusoStream | Filmes e Séries Grátis",
-    description: "O melhor site de streaming em Portugal. Filmes e séries HD grátis.",
-    url: 'https://streamy11.vercel.app',
-    siteName: 'LusoStream',
-    locale: 'pt_PT',
-    type: 'website',
-  },
+  title: "LusoStream",
+  description: "O melhor do cinema em português",
 };
 
 export default function RootLayout({ children }) {
   return (
     <html lang="pt">
-      <body className={`${inter.className} bg-black text-white antialiased`}>
-        {/* O AuthProvider mantém a sessão VIVA em todo o site */}
+      <body className={inter.className}>
         <AuthProvider>
-          <AuthModalProvider>
-            
-            <Navbar />
-            
-            <main className="min-h-screen">
-              {children}
-            </main>
-
-            <Footer />
-
-          </AuthModalProvider>
+          <Navbar />
+          <main className="min-h-screen bg-black text-white">
+            {children}
+          </main>
+          {/* <Footer /> */}
         </AuthProvider>
-
-        <Analytics />
       </body>
     </html>
   );
