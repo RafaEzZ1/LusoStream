@@ -3,9 +3,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
+import { createClient } from "@/lib/supabase/client"; // <--- Novo Import
 
-// Lista de Avatares Pré-definidos (Emojis com fundo colorido)
 const AVATARS = [
   { id: "ghost", icon: "👻", color: "bg-purple-600" },
   { id: "alien", icon: "👽", color: "bg-green-600" },
@@ -19,11 +18,11 @@ const AVATARS = [
 
 export default function AccountClient() {
   const router = useRouter();
+  const supabase = createClient(); // Criar instância
+
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [username, setUsername] = useState("");
-  
-  // O Avatar agora guarda apenas o ID do avatar escolhido (ex: "ghost")
   const [selectedAvatar, setSelectedAvatar] = useState("ghost");
   const [msg, setMsg] = useState(null);
 
@@ -36,7 +35,6 @@ export default function AccountClient() {
       }
       setUser(user);
 
-      // Carregar perfil
       const { data: profile } = await supabase
         .from("profiles")
         .select("*")
@@ -45,7 +43,6 @@ export default function AccountClient() {
 
       if (profile) {
         setUsername(profile.username || "");
-        // Se o avatar guardado estiver na nossa lista, seleciona-o. Senão, usa o default.
         if (profile.avatar_url && AVATARS.find(a => a.id === profile.avatar_url)) {
           setSelectedAvatar(profile.avatar_url);
         }
@@ -62,7 +59,7 @@ export default function AccountClient() {
     const updates = {
       user_id: user.id,
       username,
-      avatar_url: selectedAvatar, // Guardamos o ID (ex: "robot")
+      avatar_url: selectedAvatar,
       updated_at: new Date().toISOString(),
     };
 
@@ -70,7 +67,7 @@ export default function AccountClient() {
     if (error) setMsg({ type: "error", text: "Erro ao atualizar." });
     else {
       setMsg({ type: "ok", text: "Perfil atualizado! 🎉" });
-      router.refresh(); // Atualiza a página para refletir mudanças
+      router.refresh();
     }
   }
 

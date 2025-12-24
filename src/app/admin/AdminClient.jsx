@@ -4,20 +4,21 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { supabase } from "@/lib/supabaseClient";
+import { createClient } from "@/lib/supabase/client"; // <--- Novo Import
 import { getUserAndRole, isModOrAdmin } from "@/lib/roles";
 import { upsertMovieEmbed, deleteMovieEmbed, upsertEpisodeEmbed, deleteEpisodeEmbed, getMovieEmbed, getEpisodeEmbed } from "@/lib/embeds";
-// 👇 Importar AccessDenied
 import AccessDenied from "@/components/AccessDenied";
 
 const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
 
 export default function AdminClient() {
   const router = useRouter();
+  const supabase = createClient(); // Criar instância
+
   const [authorized, setAuthorized] = useState(false);
   const [checking, setChecking] = useState(true);
 
-  // Forms e Estados (Mantidos iguais)
+  // Forms e Estados
   const [movieId, setMovieId] = useState("");
   const [movieUrl, setMovieUrl] = useState("");
   const [seriesId, setSeriesId] = useState("");
@@ -36,24 +37,20 @@ export default function AdminClient() {
   const [currentMovieEmbed, setCurrentMovieEmbed] = useState(null);
   const [currentEpisodeEmbed, setCurrentEpisodeEmbed] = useState(null);
 
-  // 🔒 SEGURANÇA REFORÇADA
   useEffect(() => {
     let active = true;
     (async () => {
       const { user, role } = await getUserAndRole();
       if (!active) return;
       
-      // Se for Admin/Mod, autoriza
       if (user && isModOrAdmin(role)) {
         setAuthorized(true);
       }
-      // Se não for, fica authorized=false
       setChecking(false);
     })();
     return () => { active = false; };
   }, [router]);
 
-  // Search, RefreshEmbeds e handleSendNotification (Lógica igual ao anterior)
   useEffect(() => {
     const t = setTimeout(async () => {
       if (!search.trim()) { setMovieHits([]); setSeriesHits([]); return; }
@@ -82,15 +79,14 @@ export default function AdminClient() {
     else { setNotifMsg({ type: "ok", text: "Enviado! 🚀" }); setNotifTitle(""); setNotifLink(""); setNotifImage(""); }
   }
 
-  // Lógica de Renderização de Segurança
   if (checking) return <div className="min-h-screen bg-black flex items-center justify-center text-white">Verificando...</div>;
-  if (!authorized) return <AccessDenied />; // 👇 MOSTRA O GANDALF AQUI
+  if (!authorized) return <AccessDenied />;
 
   return (
     <main className="pt-24 px-6 max-w-6xl mx-auto pb-16 text-white">
       <h1 className="text-3xl font-bold mb-8 text-red-600 border-l-4 border-white pl-4">Painel de Administração</h1>
       
-      {/* Botões */}
+      {/* Botões de Navegação */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
         <Link href="/admin/suggestions" className="flex items-center gap-4 p-6 bg-gray-900 border border-gray-800 rounded-xl hover:bg-gray-800 transition"><div className="bg-blue-500/20 p-3 rounded text-blue-400">💡</div><div><h3 className="font-bold">Pedidos</h3><p className="text-sm text-gray-400">Ver sugestões</p></div></Link>
         <Link href="/admin/reports" className="flex items-center gap-4 p-6 bg-gray-900 border border-gray-800 rounded-xl hover:bg-gray-800 transition"><div className="bg-red-500/20 p-3 rounded text-red-500">🚩</div><div><h3 className="font-bold">Reports</h3><p className="text-sm text-gray-400">Ver erros</p></div></Link>
