@@ -4,12 +4,16 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useAuthRole } from "@/hooks/useAuthRole"; // <--- O SEGREDO: Usa o teu hook estável
 
 export default function Navbar() {
   const router = useRouter();
   const supabase = createClient();
-  const [user, setUser] = useState(null);
-  const [isAdmin, setIsAdmin] = useState(false); // Estado para Admin
+  
+  // Usa o teu hook para garantir que o user e a role vêm sempre certos
+  const { user, role, loading } = useAuthRole();
+  const isAdmin = role === "admin";
+
   const [isScrolled, setIsScrolled] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -21,25 +25,6 @@ export default function Navbar() {
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 0);
     window.addEventListener("scroll", handleScroll);
-
-    async function getUserData() {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-
-      if (user) {
-        // Verificar se é Admin na tabela 'profiles'
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("user_id", user.id)
-          .maybeSingle();
-        
-        if (profile?.role === "admin") {
-          setIsAdmin(true);
-        }
-      }
-    }
-    getUserData();
 
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -59,11 +44,7 @@ export default function Navbar() {
 
   async function handleLogout() {
     await supabase.auth.signOut();
-    setUser(null);
-    setIsAdmin(false);
-    setShowDropdown(false);
-    router.refresh();
-    router.push("/auth");
+    window.location.href = "/auth"; // Força um refresh limpo para garantir logout
   }
 
   function handleSearch(e) {
@@ -73,6 +54,9 @@ export default function Navbar() {
       setSearchOpen(false);
     }
   }
+
+  // Enquanto carrega, mostra uma navbar vazia ou skeleton para não "saltar"
+  if (loading) return <nav className="fixed top-0 w-full h-20 z-50 bg-black/80 backdrop-blur-md" />;
 
   return (
     <nav className={`fixed top-0 w-full z-50 transition-all duration-500 ${isScrolled ? "bg-black/90 backdrop-blur-md shadow-lg border-b border-white/5" : "bg-gradient-to-b from-black/80 via-black/40 to-transparent"}`}>
@@ -91,12 +75,11 @@ export default function Navbar() {
               <NavLink href="/">Início</NavLink>
               <NavLink href="/series">Séries</NavLink>
               <NavLink href="/movies">Filmes</NavLink>
-              {/* Mudámos o nome para ser mais claro */}
-              <NavLink href="/suggestions">Fazer Pedido</NavLink>
+              <NavLink href="/suggestions">Pedir Filmes</NavLink>
               
-              {/* Botão de Admin só aparece para Admins */}
+              {/* Link de Admin só aparece se a role for admin */}
               {isAdmin && (
-                <Link href="/admin" className="text-red-500 hover:text-red-400 font-bold transition-colors">
+                <Link href="/admin" className="text-red-500 hover:text-red-400 font-bold transition-colors border border-red-500/30 px-3 py-1 rounded bg-red-500/10">
                   Painel Admin
                 </Link>
               )}
@@ -144,7 +127,7 @@ export default function Navbar() {
                   </div>
                   
                   <DropdownLink href="/account">Minha Conta</DropdownLink>
-                  <DropdownLink href="/suggestions">Fazer Pedido</DropdownLink>
+                  <DropdownLink href="/suggestions">Meus Pedidos</DropdownLink>
                   {isAdmin && <DropdownLink href="/admin">Painel de Admin</DropdownLink>}
                   
                   <div className="border-t border-white/5 mt-2 pt-2">
