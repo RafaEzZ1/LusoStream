@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/components/AuthProvider";
+import { useAuth } from "@/components/AuthProvider"; // Usa o nosso AuthProvider corrigido
 import NotificationBell from "@/components/NotificationBell";
 import Logo from "@/components/Logo";
 
@@ -36,9 +36,7 @@ export default function Navbar() {
   const dropdownRef = useRef(null);
   
   const isAdmin = role === "admin" || role === "mod";
-  
-  // Obter o nome para mostrar no avatar default
-  const displayName = user?.user_metadata?.username || user?.email || "U";
+  const displayName = user?.user_metadata?.username || user?.email?.split('@')[0] || "U";
 
   useEffect(() => {
     if (user) {
@@ -47,7 +45,7 @@ export default function Navbar() {
     } else {
       setAvatarId(null);
     }
-  }, [user, supabase]);
+  }, [user]);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -57,10 +55,9 @@ export default function Navbar() {
       setPendingCount((c1 || 0) + (c2 || 0));
     }
     checkPending();
-    const interval = setInterval(checkPending, 60000); 
-    return () => clearInterval(interval);
-  }, [isAdmin, supabase]);
+  }, [isAdmin]);
 
+  // Pesquisa
   useEffect(() => {
     const t = setTimeout(() => { if (searchTerm.trim()) fetchResults(searchTerm); else setResults([]); }, 350);
     return () => clearTimeout(t);
@@ -89,6 +86,7 @@ export default function Navbar() {
     setMobileOpen(false);
   }
 
+  // Fechar dropdown ao clicar fora
   useEffect(() => {
     function out(e) { if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setShowDropdown(false); }
     document.addEventListener("mousedown", out); return () => document.removeEventListener("mousedown", out);
@@ -96,7 +94,6 @@ export default function Navbar() {
 
   const goMobile = (href) => { setMobileOpen(false); router.push(href); };
   
-  // Condição para esconder Navbar (apenas Auth e Admin Dashboard completo)
   if (pathname && (pathname.startsWith('/admin') || pathname === '/auth')) return null;
 
   return (
@@ -117,6 +114,7 @@ export default function Navbar() {
         </div>
 
         <div className="hidden md:flex items-center gap-5">
+          {/* BARRA DE PESQUISA */}
           <div className="relative" ref={dropdownRef}>
             <form onSubmit={handleSearchSubmit} className="relative group">
               <input className="w-32 sm:w-48 lg:w-64 py-2 pl-4 pr-10 rounded-full bg-gray-900 border border-gray-700 text-sm text-white focus:ring-2 focus:ring-red-600 transition-all group-hover:bg-gray-800" placeholder="Pesquisar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} onFocus={() => setShowDropdown(true)} />
@@ -162,6 +160,7 @@ export default function Navbar() {
           </div>
         </div>
 
+        {/* MOBILE MENU */}
         <div className="md:hidden flex items-center gap-4">
           {!authLoading && user && <NotificationBell user={user} />}
           <button type="button" className="p-2 text-gray-300" onClick={() => setMobileOpen((s) => !s)}>

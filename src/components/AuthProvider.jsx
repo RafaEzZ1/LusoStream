@@ -16,13 +16,12 @@ export function AuthProvider({ children }) {
 
     async function getSession() {
       try {
-        // MUDANÇA CRÍTICA: Usamos getSession em vez de getUser para performance instantânea no cliente
+        // MUDANÇA: getSession é muito mais rápido e evita o logout visual
         const { data: { session } } = await supabase.auth.getSession();
         
         if (mounted) {
           if (session?.user) {
             setUser(session.user);
-            // Buscar Role
             const { data } = await supabase
               .from("profiles")
               .select("role")
@@ -35,7 +34,7 @@ export function AuthProvider({ children }) {
           }
         }
       } catch (e) {
-        console.error("Auth Error:", e);
+        console.error("Erro Auth:", e);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -45,7 +44,6 @@ export function AuthProvider({ children }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!mounted) return;
-      
       const u = session?.user || null;
       setUser(u);
       
