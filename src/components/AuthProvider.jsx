@@ -14,52 +14,74 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     let mounted = true;
 
-    async function checkSession() {
+    async function initAuth() {
       try {
-        console.log("🕵️ [AuthProvider] Iniciando verificação de sessão (getSession)...");
-        const { data: { session }, error } = await supabase.auth.getSession();
+        console.log("🚀 [Auth] A iniciar...");
         
-        if (error) throw error;
-
+        // 1. Obter Sessão (Rápido)
+        const { data: { session } } = await supabase.auth.getSession();
+        
         if (mounted) {
           if (session?.user) {
-            console.log("✅ [AuthProvider] Sessão encontrada para:", session.user.email);
+            console.log("✅ [Auth] Sessão encontrada.");
             setUser(session.user);
             
-            // Tentar ler Role
-            const { data } = await supabase.from("profiles").select("role").eq("user_id", session.user.id).maybeSingle();
-            setRole(data?.role || "user");
+            // 2. Buscar Role com TIMEOUT (Para não bloquear o site)
+            // Se a base de dados não responder em 2 segundos, avança.
+            const rolePromise = supabase
+              .from("profiles")
+              .select("role")
+              .eq("user_id", session.user.id)
+              .maybeSingle();
+              
+            const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve({ timeout: true }), 2000));
+
+            const result = await Promise.race([rolePromise, timeoutPromise]);
+
+            if (result.timeout) {
+              console.warn("⚠️ [Auth] A base de dados demorou muito. A ignorar perfil.");
+              setRole("user"); // Assume utilizador normal para não bloquear
+            } else if (result.data) {
+              setRole(result.data.role);
+            } else {
+              setRole("user");
+            }
           } else {
-            console.warn("⚠️ [AuthProvider] Nenhuma sessão ativa.");
+            console.log("⚪ [Auth] Visitante.");
             setUser(null);
             setRole(null);
           }
         }
       } catch (e) {
-        console.error("❌ [AuthProvider] Erro Fatal:", e);
+        console.error("❌ [Auth] Erro:", e);
       } finally {
         if (mounted) {
-          console.log("🔓 [AuthProvider] Loading definido para FALSE. O site deve desbloquear.");
+          console.log("🔓 [Auth] Desbloqueando UI.");
           setLoading(false);
         }
       }
     }
 
-    checkSession();
+    initAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log(`🔄 [AuthProvider] Mudança de Estado: ${event}`);
+      console.log(`🔄 [Auth] Evento: ${event}`);
       if (!mounted) return;
       
       const u = session?.user || null;
       setUser(u);
       
+      // Se for login, tenta buscar a role rapidamente
       if (u) {
-        const { data } = await supabase.from("profiles").select("role").eq("user_id", u.id).maybeSingle();
-        setRole(data?.role || "user");
+         // Lógica simplificada para updates de estado
+         // Não bloqueamos aqui, deixamos carregar em background se necessário
+         supabase.from("profiles").select("role").eq("user_id", u.id).maybeSingle()
+           .then(({ data }) => { if (mounted) setRole(data?.role || "user"); });
       } else {
         setRole(null);
       }
+      
+      // Garante que o loading desaparece sempre
       setLoading(false);
     });
 
@@ -70,19 +92,17 @@ export function AuthProvider({ children }) {
   }, []);
 
   const signOut = async () => {
-    console.log("👋 [AuthProvider] A sair...");
     await supabase.auth.signOut();
     setUser(null);
+    setRole(null);
     window.location.href = "/auth";
   };
 
-  // DEBUG VISUAL: Se estiver bloqueado, mostra isto no ecrã
+  // DEBUG VISUAL: Só mostra isto se demorar mesmo muito
   if (loading) {
     return (
-      <div className="fixed inset-0 bg-black z-[9999] flex flex-col items-center justify-center text-white">
-        <div className="w-16 h-16 border-4 border-red-600 rounded-full animate-spin border-t-transparent mb-4"></div>
-        <p className="text-xl font-bold">A carregar sistema de login...</p>
-        <p className="text-sm text-gray-500 mt-2">Verifica a consola (F12) se isto demorar muito.</p>
+      <div className="fixed inset-0 bg-black z-[9999] flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-red-600 rounded-full animate-spin border-t-transparent"></div>
       </div>
     );
   }
@@ -96,4 +116,4 @@ export function AuthProvider({ children }) {
 
 export function useAuth() {
   return useContext(AuthCtx);
-}
+}a
