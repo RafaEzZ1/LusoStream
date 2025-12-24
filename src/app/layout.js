@@ -4,6 +4,7 @@ import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { AuthModalProvider } from "@/context/AuthModalContext";
+// IMPORTANTE: Importar a Memória Central
 import { AuthProvider } from "@/components/AuthProvider";
 import { Analytics } from "@vercel/analytics/react";
 
@@ -30,7 +31,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="pt">
       <body className={`${inter.className} bg-black text-white antialiased`}>
-        {/* AuthProvider gere a sessão globalmente para não "piscar" */}
+        {/* O AuthProvider mantém a sessão VIVA em todo o site */}
         <AuthProvider>
           <AuthModalProvider>
             

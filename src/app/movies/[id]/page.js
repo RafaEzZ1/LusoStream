@@ -88,7 +88,6 @@ export default function MovieDetailsPage() {
     <div className="bg-black min-h-screen text-gray-200 font-sans pb-20">
       <Navbar />
 
-      {/* HERO */}
       <div className="relative w-full min-h-[85vh] flex items-center">
         <div className="absolute inset-0 bg-cover bg-center fixed-bg" style={{ backgroundImage: `url(https://image.tmdb.org/t/p/original${movie.backdrop_path})` }}>
           <div className="absolute inset-0 bg-gradient-to-r from-black via-black/80 to-transparent"></div>

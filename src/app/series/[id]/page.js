@@ -131,6 +131,7 @@ export default function SeriesDetailsPage() {
             
             <p className="text-gray-300 text-lg leading-relaxed max-w-2xl line-clamp-4 md:line-clamp-none">{series.overview}</p>
 
+            {/* BOTÕES */}
             <div className="flex flex-wrap items-center gap-4 pt-4">
               <Link href={`/watch/series/${series.id}/season/1/episode/1`} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full transition hover:scale-105 flex items-center gap-2 shadow-lg shadow-blue-900/40">
                 <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
@@ -156,9 +157,12 @@ export default function SeriesDetailsPage() {
       </div>
 
       <main className="max-w-7xl mx-auto px-6 py-12 space-y-16">
+        
+        {/* EPISÓDIOS */}
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
           <div className="flex items-center justify-between mb-6 border-b border-gray-800 pb-4">
             <h2 className="text-2xl font-bold text-white border-l-4 border-blue-600 pl-4">Episódios</h2>
+            
             <select 
               className="bg-gray-900 border border-gray-700 text-white rounded-lg px-4 py-2 outline-none focus:border-blue-600 transition font-bold"
               value={selectedSeason}
@@ -186,8 +190,11 @@ export default function SeriesDetailsPage() {
                       alt={ep.name} 
                       className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition"
                     />
-                    <div className="absolute bottom-1 left-1 bg-black/80 px-2 py-0.5 text-xs font-bold rounded text-white">E{ep.episode_number}</div>
+                    <div className="absolute bottom-1 left-1 bg-black/80 px-2 py-0.5 text-xs font-bold rounded text-white">
+                       E{ep.episode_number}
+                    </div>
                   </div>
+
                   <div className="py-2 pr-3 flex flex-col justify-center overflow-hidden w-full">
                     <h4 className="font-bold text-gray-200 group-hover:text-blue-400 truncate text-sm">{ep.episode_number}. {ep.name}</h4>
                     <p className="text-xs text-gray-500 mt-1 line-clamp-2">{ep.overview || "Sem descrição."}</p>

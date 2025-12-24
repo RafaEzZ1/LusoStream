@@ -4,8 +4,9 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient"; // Para queries extra
-import { useAuth } from "@/components/AuthProvider"; // <--- A MAGIA ESTÁ AQUI
+import { supabase } from "@/lib/supabaseClient";
+// IMPORTANTE: Usar o hook global
+import { useAuth } from "@/components/AuthProvider";
 import NotificationBell from "@/components/NotificationBell";
 import Logo from "@/components/Logo";
 
@@ -24,7 +25,7 @@ const AVATARS_MAP = {
 
 export default function Navbar() {
   const pathname = usePathname();
-  // Agora usamos o Contexto Global. Nada de timeouts manuais!
+  // LÊ DIRETAMENTE DA MEMÓRIA GLOBAL (ZERO LAG)
   const { user, role, loading: authLoading, signOut } = useAuth();
   
   const [pendingCount, setPendingCount] = useState(0);
@@ -39,10 +40,9 @@ export default function Navbar() {
   
   const isAdmin = role === "admin" || role === "mod";
 
-  // 1. Carregar Avatar (Apenas se tivermos user)
+  // Carregar apenas o avatar visual (rápido)
   useEffect(() => {
     if (user) {
-      // Pequeno fetch apenas para o avatar, o resto já vem do AuthProvider
       supabase
         .from("profiles")
         .select("avatar_url")
@@ -56,7 +56,7 @@ export default function Navbar() {
     }
   }, [user]);
 
-  // 2. Notificações Admin
+  // Notificações Admin
   useEffect(() => {
     async function checkPending() {
       if (!isAdmin) return;
@@ -71,7 +71,7 @@ export default function Navbar() {
     }
   }, [user, isAdmin]);
 
-  // 3. Pesquisa
+  // Pesquisa
   useEffect(() => {
     const t = setTimeout(() => { if (searchTerm.trim()) fetchResults(searchTerm); else setResults([]); }, 350);
     return () => clearTimeout(t);
@@ -117,7 +117,6 @@ export default function Navbar() {
     <>
       <nav className="fixed top-0 left-0 w-full bg-black/90 backdrop-blur-md z-50 px-4 sm:px-6 h-16 flex items-center justify-between border-b border-gray-800 shadow-lg shadow-black/50">
         
-        {/* ESQUERDA */}
         <div className="flex items-center gap-6 md:gap-8">
           <Logo />
           
@@ -135,7 +134,6 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* DIREITA (DESKTOP) */}
         <div className="hidden md:flex items-center gap-5">
           <div className="relative" ref={dropdownRef}>
             <form onSubmit={handleSearchSubmit} className="relative group">
@@ -167,7 +165,6 @@ export default function Navbar() {
           </div>
 
           <div className="flex items-center gap-4 border-l border-gray-800 pl-4">
-            {/* Usa o loading do AuthProvider */}
             {authLoading ? (
               <div className="w-8 h-8 rounded-full bg-gray-800 animate-pulse"></div>
             ) : user ? (
@@ -196,7 +193,6 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* MOBILE CONTROLS */}
         <div className="md:hidden flex items-center gap-4">
           {!authLoading && user && <NotificationBell user={user} />}
           <button type="button" className="p-2 text-gray-300" onClick={() => setMobileOpen((s) => !s)}>
@@ -205,7 +201,6 @@ export default function Navbar() {
         </div>
       </nav>
 
-      {/* MOBILE MENU */}
       {mobileOpen && (
         <div className="md:hidden fixed inset-0 z-40 bg-black/95 backdrop-blur-xl pt-20 px-6 animate-in fade-in slide-in-from-top-5 overflow-y-auto">
           <form onSubmit={handleSearchSubmit} className="mb-8">
