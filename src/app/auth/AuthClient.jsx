@@ -18,12 +18,8 @@ export default function AuthClient() {
   const [msg, setMsg] = useState(null);
   const [captchaToken, setCaptchaToken] = useState(null);
 
-  // Garante que o componente só renderiza o Captcha no cliente
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  useEffect(() => { setMounted(true); }, []);
 
-  // Limpar msg ao trocar de modo
   useEffect(() => { 
     setMsg(null); 
     setCaptchaToken(null); 
@@ -35,21 +31,17 @@ export default function AuthClient() {
     setMsg(null);
 
     if (!email || !password) return setMsg({ type: "error", text: "Preenche todos os campos." });
-    
-    // Validação Captcha apenas no Registo
     if (!isLogin && !captchaToken) return setMsg({ type: "error", text: "Por favor resolve o Captcha." });
 
     setLoading(true);
 
     try {
       if (isLogin) {
-        // LOGIN
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         router.push("/");
         router.refresh();
       } else {
-        // REGISTO
         const { error } = await supabase.auth.signUp({
           email,
           password,
@@ -60,77 +52,91 @@ export default function AuthClient() {
         if(captchaRef.current) captchaRef.current.resetCaptcha();
       }
     } catch (err) {
-      setMsg({ type: "error", text: err.message.includes("Invalid login") ? "Email ou password errados." : "Ocorreu um erro. Tenta novamente." });
+      setMsg({ type: "error", text: err.message.includes("Invalid login") ? "Dados incorretos." : "Erro ao processar." });
     } finally {
       setLoading(false);
     }
   }
 
-  if (!mounted) return null; // Evita erros de hidratação
+  if (!mounted) return null;
 
   return (
-    <div className="w-full max-w-md bg-black/80 p-8 rounded-xl border border-white/10 backdrop-blur-md shadow-2xl animate-in fade-in zoom-in duration-500">
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-white mb-2">{isLogin ? "Bem-vindo de volta" : "Junta-te ao LusoStream"}</h1>
-        <p className="text-gray-400 text-sm">O melhor do entretenimento num só lugar.</p>
+    <div className="min-h-screen w-full flex items-center justify-center relative overflow-hidden bg-black font-sans">
+      {/* Background Animado */}
+      <div className="absolute inset-0 z-0">
+        <div className="absolute inset-0 bg-[url('https://assets.nflxext.com/ffe/siteui/vlv3/c38a2d52-138e-48a3-ab68-36787ece46b3/eeb03fc9-99bf-440d-a630-1e97e70d7bd2/PT-pt-20240101-popsignuptwoweeks-perspective_alpha_website_large.jpg')] bg-cover bg-center animate-pulse-slow opacity-40 scale-105" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-black/40" />
       </div>
 
-      {msg && (
-        <div className={`p-3 rounded mb-6 text-sm font-medium border ${msg.type === "error" ? "bg-red-500/10 text-red-400 border-red-500/20" : "bg-green-500/10 text-green-400 border-green-500/20"}`}>
-          {msg.text}
-        </div>
-      )}
-
-      <form onSubmit={handleAuth} className="space-y-5">
-        <div className="space-y-4">
-          <input 
-            type="email" 
-            placeholder="Email" 
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full bg-gray-900/60 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-red-600 focus:bg-gray-900 outline-none transition-all"
-          />
-          <input 
-            type="password" 
-            placeholder="Password" 
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full bg-gray-900/60 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-red-600 focus:bg-gray-900 outline-none transition-all"
-          />
+      {/* Cartão de Login */}
+      <div className="relative z-10 w-full max-w-md p-8 bg-black/60 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl animate-in fade-in slide-in-from-bottom-8 duration-700">
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-extrabold text-white tracking-tight mb-2 drop-shadow-lg">
+            {isLogin ? "Bem-vindo" : "Criar Conta"}
+          </h1>
+          <p className="text-gray-400 text-sm">O teu portal para o entretenimento.</p>
         </div>
 
-        {!isLogin && (
-          <div className="flex justify-center py-2 bg-white/5 rounded-lg">
-            <HCaptcha 
-              sitekey="1d1e6720-d38e-4a87-94b1-8854a8528913" 
-              onVerify={(token) => setCaptchaToken(token)}
-              ref={captchaRef}
-              theme="dark"
-            />
+        {msg && (
+          <div className={`p-4 rounded-lg mb-6 text-sm font-medium border animate-in zoom-in duration-300 ${msg.type === "error" ? "bg-red-500/10 text-red-200 border-red-500/20" : "bg-green-500/10 text-green-200 border-green-500/20"}`}>
+            {msg.text}
           </div>
         )}
 
-        <button 
-          type="submit" 
-          disabled={loading}
-          className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3.5 rounded-lg transition-all duration-200 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-red-900/30"
-        >
-          {loading ? (
-            <span className="flex items-center justify-center gap-2">
-              <span className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"/> A processar...
-            </span>
-          ) : (isLogin ? "Entrar" : "Criar Conta")}
-        </button>
-      </form>
+        <form onSubmit={handleAuth} className="space-y-6">
+          <div className="space-y-4">
+            <div className="group">
+              <input 
+                type="email" 
+                placeholder="Email" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full bg-gray-900/50 border border-gray-700 rounded-xl px-5 py-4 text-white placeholder-gray-500 focus:border-red-600 focus:bg-gray-900 focus:ring-1 focus:ring-red-600/50 outline-none transition-all duration-300"
+              />
+            </div>
+            <div className="group">
+              <input 
+                type="password" 
+                placeholder="Password" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full bg-gray-900/50 border border-gray-700 rounded-xl px-5 py-4 text-white placeholder-gray-500 focus:border-red-600 focus:bg-gray-900 focus:ring-1 focus:ring-red-600/50 outline-none transition-all duration-300"
+              />
+            </div>
+          </div>
 
-      <div className="mt-8 pt-6 border-t border-gray-800 text-center text-gray-400 text-sm">
-        <span>{isLogin ? "Novo no LusoStream?" : "Já tens conta?"}</span>
-        <button 
-          onClick={() => setIsLogin(!isLogin)} 
-          className="ml-2 text-white hover:text-red-500 font-semibold transition-colors"
-        >
-          {isLogin ? "Regista-te agora." : "Faz login aqui."}
-        </button>
+          {!isLogin && (
+            <div className="flex justify-center bg-white/5 p-2 rounded-lg border border-white/5">
+              <HCaptcha 
+                sitekey="1d1e6720-d38e-4a87-94b1-8854a8528913" 
+                onVerify={(token) => setCaptchaToken(token)}
+                ref={captchaRef}
+                theme="dark"
+              />
+            </div>
+          )}
+
+          <button 
+            type="submit" 
+            disabled={loading}
+            className="w-full bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 text-white font-bold py-4 rounded-xl transition-all duration-300 transform hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-red-900/30"
+          >
+            {loading ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin"/> A processar...
+              </span>
+            ) : (isLogin ? "Entrar na Conta" : "Registar Gratuitamente")}
+          </button>
+        </form>
+
+        <div className="mt-8 pt-6 border-t border-white/10 text-center">
+          <button 
+            onClick={() => setIsLogin(!isLogin)} 
+            className="text-gray-400 hover:text-white text-sm font-medium transition-colors hover:underline"
+          >
+            {isLogin ? "Ainda não tens conta? Cria uma agora." : "Já tens conta? Faz login."}
+          </button>
+        </div>
       </div>
     </div>
   );
