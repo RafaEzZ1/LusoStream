@@ -4,17 +4,19 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+// IMPORTANTE: Não importamos Navbar aqui (já está no layout)
 import { useDraggableScroll } from "@/hooks/useDraggableScroll"; 
-import { useAuth } from "@/components/AuthProvider";
-
-// REMOVIDO: import Navbar... (Já está no layout)
+import { useAuth } from "@/components/AuthProvider"; // Usamos o hook global
 
 const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
 
 export default function MovieDetailsPage() {
   const { id } = useParams();
   const router = useRouter();
-  const { user } = useAuth(); // Usa o hook global de autenticação
+  
+  // MUDANÇA CRÍTICA: Lemos o user diretamente do contexto global (instantâneo)
+  // Em vez de o tentar buscar manualmente ao Supabase
+  const { user, loading: authLoading } = useAuth(); 
   const supabase = createClient();
   
   const [movie, setMovie] = useState(null);
@@ -27,24 +29,18 @@ export default function MovieDetailsPage() {
   const castRef = useRef(null);
   const { events: castEvents } = useDraggableScroll();
 
+  // 1. Fetch do Filme (Independente do Login)
   useEffect(() => {
     if (!id) return;
     async function fetchMovie() {
       try {
-        // O segredo está no 'append_to_response' para trazer créditos e similares num só pedido
         const res = await fetch(`https://api.themoviedb.org/3/movie/${id}?api_key=${API_KEY}&language=pt-BR&append_to_response=credits,videos,similar`);
-        
-        if (!res.ok) throw new Error("Falha ao carregar filme");
-        
         const data = await res.json();
         setMovie(data);
-
-        // Procura trailer oficial
         const trailer = data.videos?.results?.find(v => v.site === "YouTube" && (v.type === "Trailer" || v.type === "Teaser"));
         if (trailer) setTrailerKey(trailer.key);
-
       } catch (e) { 
-        console.error("Erro ao carregar filme:", e); 
+        console.error(e); 
       } finally { 
         setLoading(false); 
       }
@@ -52,12 +48,13 @@ export default function MovieDetailsPage() {
     fetchMovie();
   }, [id]);
 
+  // 2. Verificar Lista (Só corre quando o user estiver garantidamente carregado)
   useEffect(() => {
     if (user && id) {
       supabase.from("watchlists").select("id").eq("user_id", user.id).eq("item_id", id).eq("item_type", "movie").maybeSingle()
         .then(({ data }) => { if (data) setIsInList(true); });
     }
-  }, [user, id]);
+  }, [user, id]); // Depende do user do useAuth
 
   async function toggleMyList() {
     if (!user) return router.push("/auth");
@@ -72,13 +69,15 @@ export default function MovieDetailsPage() {
     setListLoading(false);
   }
 
-  if (loading) return <div className="bg-black min-h-screen flex items-center justify-center text-white"><div className="w-12 h-12 border-4 border-red-600 rounded-full animate-spin border-t-transparent"></div></div>;
+  // Loading inicial apenas do filme
+  if (loading) return <div className="bg-black min-h-screen flex items-center justify-center"><div className="w-12 h-12 border-4 border-red-600 rounded-full animate-spin border-t-transparent"></div></div>;
+  
   if (!movie || !movie.title) return <div className="bg-black min-h-screen text-white flex items-center justify-center text-xl">Filme não encontrado.</div>;
 
   return (
     <div className="bg-black min-h-screen text-gray-200 font-sans pb-20">
+      {/* SEM NAVBAR AQUI - Ela vem do Layout */}
       
-      {/* HEADER / HERO SECTION */}
       <div className="relative w-full min-h-[85vh] flex items-center">
         <div className="absolute inset-0 bg-cover bg-center fixed-bg" style={{ backgroundImage: `url(https://image.tmdb.org/t/p/original${movie.backdrop_path})` }}>
           <div className="absolute inset-0 bg-black/80"></div>
@@ -86,9 +85,12 @@ export default function MovieDetailsPage() {
         </div>
         
         <div className="relative z-10 max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-12 items-center pt-20">
+          {/* Poster */}
           <div className="hidden md:block col-span-1 animate-in fade-in duration-700">
             <img src={`https://image.tmdb.org/t/p/w500${movie.poster_path}`} alt={movie.title} className="w-full rounded-xl shadow-2xl border border-gray-800" />
           </div>
+          
+          {/* Detalhes */}
           <div className="col-span-1 md:col-span-2 space-y-6 animate-in slide-in-from-right-10 duration-700">
             <h1 className="text-4xl md:text-6xl font-bold text-white drop-shadow-lg">{movie.title}</h1>
             <div className="flex flex-wrap items-center gap-4 text-sm md:text-base text-gray-300">
@@ -102,9 +104,12 @@ export default function MovieDetailsPage() {
               <Link href={`/watch/movie/${movie.id}`} className="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-8 rounded-full transition hover:scale-105 flex items-center gap-2 shadow-lg shadow-red-900/40">
                 <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg> Assistir
               </Link>
+              
               <button onClick={toggleMyList} disabled={listLoading} className={`font-bold py-3 px-6 rounded-full transition border flex items-center gap-2 ${isInList ? "bg-green-600 border-green-600 text-white" : "bg-gray-800/60 border-gray-500 text-white hover:bg-gray-700"}`}>
+                {/* Mostra loading circular se estiver a processar a lista */}
                 {listLoading ? <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"/> : isInList ? "Na Lista" : "Minha Lista"}
               </button>
+              
               {trailerKey && (
                 <button onClick={() => setShowTrailer(true)} className="bg-white/10 hover:bg-white/20 text-white font-bold py-3 px-6 rounded-full transition border border-white/30 flex items-center gap-2 backdrop-blur-md">Trailer</button>
               )}
@@ -113,44 +118,34 @@ export default function MovieDetailsPage() {
         </div>
       </div>
       
-      {/* CONTENT MAIN - ELENCO E RECOMENDAÇÕES */}
-      <main className="max-w-7xl mx-auto px-6 py-12 space-y-16 relative z-10">
-        
-        {/* Secção Elenco */}
+      {/* ELENCO & RECOMENDAÇÕES */}
+      <main className="max-w-7xl mx-auto px-6 py-12 space-y-16">
         {movie.credits?.cast?.length > 0 && (
-          <div className="animate-in fade-in duration-700">
-            <h2 className="text-2xl font-bold text-white mb-6 border-l-4 border-red-600 pl-4">Elenco Principal</h2>
+          <div>
+            <h2 className="text-2xl font-bold text-white mb-6 border-l-4 border-red-600 pl-4">Elenco</h2>
             <div ref={castRef} {...castEvents(castRef)} className="flex gap-5 overflow-x-auto pb-4 no-scrollbar cursor-grab active:cursor-grabbing">
               {movie.credits.cast.slice(0, 15).map((actor) => (
                 <div key={actor.id} className="flex-none w-32 group select-none">
-                  <div className="w-28 h-28 mx-auto mb-3 rounded-full overflow-hidden border-2 border-gray-800 group-hover:border-red-600 transition shadow-lg">
+                  <div className="w-28 h-28 mx-auto mb-3 rounded-full overflow-hidden border-2 border-gray-800 group-hover:border-red-600 transition">
                     <img src={actor.profile_path ? `https://image.tmdb.org/t/p/w200${actor.profile_path}` : "/no-avatar.png"} alt={actor.name} onDragStart={(e) => e.preventDefault()} className="w-full h-full object-cover pointer-events-none" />
                   </div>
-                  <p className="text-sm font-bold text-center truncate text-white">{actor.name}</p>
-                  <p className="text-xs text-center text-gray-500 truncate">{actor.character}</p>
+                  <p className="text-sm font-bold text-center truncate">{actor.name}</p>
                 </div>
               ))}
             </div>
           </div>
         )}
         
-        {/* Secção Recomendados */}
         {movie.similar?.results?.length > 0 && (
-          <div className="animate-in fade-in duration-700 delay-100">
-            <h2 className="text-2xl font-bold text-white mb-6 border-l-4 border-red-600 pl-4">Recomendados para ti</h2>
+          <div>
+            <h2 className="text-2xl font-bold text-white mb-6 border-l-4 border-red-600 pl-4">Recomendados</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
               {movie.similar.results.slice(0, 10).map((sim) => (
-                <Link key={sim.id} href={`/movies/${sim.id}`} className="group block relative bg-gray-900 rounded-xl overflow-hidden hover:scale-105 transition-all duration-300 shadow-lg">
-                  <div className="aspect-[2/3] w-full relative">
-                    <img src={sim.poster_path ? `https://image.tmdb.org/t/p/w500${sim.poster_path}` : "/no-image.jpg"} alt={sim.title} className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <span className="text-white font-bold border border-white px-3 py-1 rounded-full">Ver Detalhes</span>
-                    </div>
+                <Link key={sim.id} href={`/movies/${sim.id}`} className="group block relative">
+                  <div className="aspect-[2/3] rounded-xl overflow-hidden mb-3 bg-gray-800 shadow-lg group-hover:scale-105 transition duration-300">
+                    <img src={sim.poster_path ? `https://image.tmdb.org/t/p/w500${sim.poster_path}` : "/no-image.jpg"} alt={sim.title} className="w-full h-full object-cover opacity-80 group-hover:opacity-100" />
                   </div>
-                  <div className="p-3">
-                    <h3 className="text-sm font-bold text-gray-200 group-hover:text-red-500 truncate transition-colors">{sim.title}</h3>
-                    <span className="text-xs text-gray-500">{sim.release_date?.split("-")[0]}</span>
-                  </div>
+                  <h3 className="text-sm font-bold text-gray-300 group-hover:text-white truncate">{sim.title}</h3>
                 </Link>
               ))}
             </div>
@@ -158,15 +153,15 @@ export default function MovieDetailsPage() {
         )}
       </main>
 
-      {/* MODAL TRAILER */}
+      {/* Modal do Trailer */}
       {showTrailer && trailerKey && (
         <div className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
-          <div className="relative w-full max-w-5xl bg-black rounded-2xl overflow-hidden border border-gray-800 shadow-2xl">
+          <div className="relative w-full max-w-5xl bg-black rounded-2xl overflow-hidden border border-gray-800">
             <div className="flex justify-between items-center p-4 border-b border-gray-800 bg-gray-900">
                <span className="font-bold text-white">Trailer Oficial</span>
-               <button onClick={() => setShowTrailer(false)} className="bg-gray-800 hover:bg-red-600 text-white rounded-full w-8 h-8 flex items-center justify-center transition">✕</button>
+               <button onClick={() => setShowTrailer(false)} className="bg-gray-800 hover:bg-red-600 text-white rounded-full p-2 transition">✕</button>
             </div>
-            <div className="aspect-video bg-black">
+            <div className="aspect-video">
               <iframe width="100%" height="100%" src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1`} frameBorder="0" allow="autoplay; encrypted-media" allowFullScreen></iframe>
             </div>
           </div>

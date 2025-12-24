@@ -12,31 +12,43 @@ export function AuthProvider({ children }) {
   const supabase = createClient();
 
   useEffect(() => {
-    async function getUser() {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        setUser(user);
+    let mounted = true;
 
-        if (user) {
-          const { data } = await supabase
-            .from("profiles")
-            .select("role")
-            .eq("user_id", user.id)
-            .maybeSingle();
-          setRole(data?.role || "user");
+    async function getSession() {
+      try {
+        // MUDANÇA CRÍTICA: Usamos getSession em vez de getUser para performance instantânea no cliente
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (mounted) {
+          if (session?.user) {
+            setUser(session.user);
+            // Buscar Role
+            const { data } = await supabase
+              .from("profiles")
+              .select("role")
+              .eq("user_id", session.user.id)
+              .maybeSingle();
+            setRole(data?.role || "user");
+          } else {
+            setUser(null);
+            setRole(null);
+          }
         }
       } catch (e) {
         console.error("Auth Error:", e);
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     }
 
-    getUser();
+    getSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!mounted) return;
+      
       const u = session?.user || null;
       setUser(u);
+      
       if (u) {
         const { data } = await supabase.from("profiles").select("role").eq("user_id", u.id).maybeSingle();
         setRole(data?.role || "user");
@@ -46,11 +58,16 @@ export function AuthProvider({ children }) {
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    setUser(null);
+    setRole(null);
     window.location.href = "/auth";
   };
 
