@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import HCaptcha from "@hcaptcha/react-hcaptcha";
 
+// --- CONFIGURAÇÃO ---
+// TUA SITE KEY REAL (Pública)
+const HCAPTCHA_SITE_KEY = "da08ffe6-ce28-4748-9e2a-1684612cf2c6"; 
+
 export default function AuthClient() {
   const router = useRouter();
   const supabase = createClient();
@@ -14,7 +18,7 @@ export default function AuthClient() {
   const [isLogin, setIsLogin] = useState(true);
   
   // Dados do Formulário
-  const [username, setUsername] = useState(""); // NOVO
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [captchaToken, setCaptchaToken] = useState(null);
@@ -24,7 +28,7 @@ export default function AuthClient() {
 
   useEffect(() => { setMounted(true); }, []);
   
-  // Limpa tudo ao mudar de aba
+  // Limpa campos e captcha ao mudar entre Login e Registo
   useEffect(() => { 
     setMsg(null); 
     setCaptchaToken(null); 
@@ -37,11 +41,11 @@ export default function AuthClient() {
     e.preventDefault();
     setMsg(null);
 
-    // Validações
+    // Validações básicas
     if (!email || !password) return setMsg({ type: "error", text: "Preenche o email e a password." });
-    if (!isLogin && !username) return setMsg({ type: "error", text: "Escolhe um nome de utilizador." }); // Valida Username
+    if (!isLogin && !username) return setMsg({ type: "error", text: "Escolhe um nome de utilizador." });
     
-    // Valida Captcha (Só no registo)
+    // Valida Captcha (Obrigatório apenas no Registo)
     if (!isLogin && !captchaToken) return setMsg({ type: "error", text: "Tens de resolver o Captcha." });
 
     setLoading(true);
@@ -59,9 +63,9 @@ export default function AuthClient() {
           email, 
           password, 
           options: { 
-            captchaToken,
+            captchaToken, // Envia o token para o Supabase validar com a tua Chave Secreta
             data: { 
-              username: username, // Salva o nome nos metadados do utilizador
+              username: username, // Salva o Username
               full_name: username 
             }
           } 
@@ -69,17 +73,22 @@ export default function AuthClient() {
         
         if (error) throw error;
         
-        setMsg({ type: "success", text: "Conta criada com sucesso! Verifica o teu email." });
+        setMsg({ type: "success", text: "Conta criada! Verifica o teu email para confirmar." });
         if(captchaRef.current) captchaRef.current.resetCaptcha();
       }
     } catch (err) {
       console.error(err);
       let errorMsg = "Ocorreu um erro. Tenta novamente.";
+      
+      // Mensagens de erro amigáveis
       if (err.message.includes("Invalid login")) errorMsg = "Email ou password errados.";
-      if (err.message.includes("captcha")) errorMsg = "Erro no Captcha. Tenta recarregar.";
+      if (err.message.includes("User already registered")) errorMsg = "Este email já está registado.";
+      if (err.message.includes("captcha")) errorMsg = "Erro ao validar o Captcha. Tenta recarregar.";
       if (err.message.includes("rate limit")) errorMsg = "Muitas tentativas. Aguarda um pouco.";
       
       setMsg({ type: "error", text: errorMsg });
+      
+      // Reinicia o Captcha se der erro no registo
       if(!isLogin && captchaRef.current) captchaRef.current.resetCaptcha();
     } finally {
       setLoading(false);
@@ -153,7 +162,7 @@ export default function AuthClient() {
             {!isLogin && (
               <div className="flex justify-center py-2 scale-90 origin-center min-h-[78px]">
                 <HCaptcha 
-                  sitekey="1d1e6720-d38e-4a87-94b1-8854a8528913" 
+                  sitekey={HCAPTCHA_SITE_KEY}
                   onVerify={(token) => setCaptchaToken(token)}
                   onExpire={() => setCaptchaToken(null)}
                   onError={(err) => {
@@ -185,6 +194,7 @@ export default function AuthClient() {
   );
 }
 
+// Input Moderno com Label Flutuante
 function FloatingLabelInput({ type, label, value, onChange }) {
   const [focused, setFocused] = useState(false);
   return (
