@@ -1,10 +1,8 @@
-// src/app/not-found.jsx
 import Link from "next/link";
 
 export default function NotFound() {
   return (
-    <div className="bg-black min-h-screen text-white flex flex-col items-center justify-center text-center px-6">
-      {/* O fundo e o layout já vêm do RootLayout global */}
+    <div className="bg-black min-h-[70vh] text-white flex flex-col items-center justify-center text-center px-6">
       <h1 className="text-9xl font-bold text-red-600 opacity-20 select-none animate-pulse">
         404
       </h1>
