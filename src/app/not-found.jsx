@@ -1,14 +1,14 @@
-// src/app/not-found.jsx
 import Link from "next/link";
-import Navbar from "@/components/Navbar";
+// REMOVIDO: import Navbar from "@/components/Navbar"; 
+// (A Navbar já vem do RootLayout, não precisas de a importar aqui)
 
 export default function NotFound() {
   return (
     <div className="bg-black min-h-screen text-white flex flex-col">
-      <Navbar />
+      {/* Navbar removida para evitar duplicação e erro de build */}
       
       <main className="flex-1 flex flex-col items-center justify-center text-center px-6 relative overflow-hidden">
-        {/* Fundo com ruído ou efeito (opcional) */}
+        {/* Fundo com efeito */}
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-gray-900 via-black to-black -z-10" />
 
         <h1 className="text-9xl font-bold text-red-600 opacity-20 select-none animate-pulse">
