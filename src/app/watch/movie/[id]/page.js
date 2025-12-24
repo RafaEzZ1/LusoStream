@@ -3,19 +3,21 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client"; // <--- ATUALIZADO
+import { createClient } from "@/lib/supabase/client";
 import { getMovieEmbed } from "@/lib/embeds";
 import { markAsWatching, markAsFinished } from "@/lib/progress";
 import Link from "next/link";
 import ReportButton from "@/components/ReportButton";
 import { useAuthModal } from "@/context/AuthModalContext";
 
+// REMOVIDO: import Navbar from ... (Já está no layout)
+
 export const dynamic = "force-dynamic";
 
 export default function WatchMoviePage() {
   const { id } = useParams();
   const router = useRouter();
-  const supabase = createClient(); // <--- INSTÂNCIA
+  const supabase = createClient();
 
   const [url, setUrl] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -33,9 +35,12 @@ export default function WatchMoviePage() {
       setLoading(false);
 
       if (user && embed) {
-        markAsWatching(user, "movie", id);
-        const { data } = await supabase.from("user_progress").select("status").eq("user_id", user.id).eq("item_type", "movie").eq("item_id", id).maybeSingle();
-        if (data?.status === "finished") setIsFinished(true);
+        // Marca como assistindo
+        markAsWatching(id, "movie", 10); // 10% por defeito ao começar
+        
+        // Verifica se já viu
+        const { data } = await supabase.from("continue_watching").select("progress_percent").eq("user_id", user.id).eq("item_type", "movie").eq("item_id", id).maybeSingle();
+        if (data?.progress_percent === 100) setIsFinished(true);
       }
     }
     load();
@@ -48,10 +53,10 @@ export default function WatchMoviePage() {
     }
     
     if (!isFinished) {
-      await markAsFinished(user, "movie", id);
+      await markAsFinished(id, "movie");
       setIsFinished(true);
     } else {
-      await markAsWatching(user, "movie", id);
+      await markAsWatching(id, "movie", 10);
       setIsFinished(false);
     }
   }
@@ -60,9 +65,15 @@ export default function WatchMoviePage() {
   if (!url) return <div className="bg-black min-h-screen text-white flex flex-col items-center justify-center gap-4"><p>Indisponível.</p><Link href={`/movies/${id}`} className="bg-gray-800 px-4 py-2 rounded">Voltar</Link></div>;
 
   return (
-    <div className="bg-black min-h-screen flex flex-col">
-      <Link href={`/movies/${id}`} className="absolute top-4 left-4 z-50 bg-black/50 hover:bg-black/80 text-white px-4 py-2 rounded-full backdrop-blur-md border border-white/10">← Voltar</Link>
-      <div className="flex-1 w-full h-full relative"><iframe src={url} className="w-full h-full absolute inset-0 border-0" allowFullScreen /></div>
+    <div className="bg-black min-h-screen flex flex-col pt-20"> {/* Adicionado pt-20 para não ficar debaixo da navbar */}
+      <Link href={`/movies/${id}`} className="absolute top-24 left-4 z-40 bg-black/50 hover:bg-black/80 text-white px-4 py-2 rounded-full backdrop-blur-md border border-white/10 flex items-center gap-2">
+        <span>← Voltar</span>
+      </Link>
+      
+      <div className="flex-1 w-full h-[80vh] relative mt-4">
+        <iframe src={url} className="w-full h-full border-0" allowFullScreen />
+      </div>
+      
       <div className="bg-gray-900 border-t border-gray-800 p-4 flex justify-between items-center">
         <div className="flex flex-col gap-1">
            <span className="text-white font-medium opacity-80">A ver o filme...</span>

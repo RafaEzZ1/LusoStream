@@ -9,27 +9,38 @@ export default function Navbar() {
   const router = useRouter();
   const supabase = createClient();
   const [user, setUser] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false); // Estado para Admin
   const [isScrolled, setIsScrolled] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchText, setSearchText] = useState("");
   
-  // Refs para detetar cliques fora
   const dropdownRef = useRef(null);
   const searchRef = useRef(null);
 
-  // Detetar Scroll e User
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 0);
     window.addEventListener("scroll", handleScroll);
 
-    async function getUser() {
+    async function getUserData() {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
-    }
-    getUser();
 
-    // Listener para cliques fora (fecha dropdowns)
+      if (user) {
+        // Verificar se é Admin na tabela 'profiles'
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        
+        if (profile?.role === "admin") {
+          setIsAdmin(true);
+        }
+      }
+    }
+    getUserData();
+
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setShowDropdown(false);
@@ -49,6 +60,7 @@ export default function Navbar() {
   async function handleLogout() {
     await supabase.auth.signOut();
     setUser(null);
+    setIsAdmin(false);
     setShowDropdown(false);
     router.refresh();
     router.push("/auth");
@@ -63,11 +75,11 @@ export default function Navbar() {
   }
 
   return (
-    <nav className={`fixed top-0 w-full z-50 transition-all duration-500 ${isScrolled ? "bg-black/80 backdrop-blur-md shadow-lg border-b border-white/5" : "bg-gradient-to-b from-black/80 via-black/40 to-transparent"}`}>
+    <nav className={`fixed top-0 w-full z-50 transition-all duration-500 ${isScrolled ? "bg-black/90 backdrop-blur-md shadow-lg border-b border-white/5" : "bg-gradient-to-b from-black/80 via-black/40 to-transparent"}`}>
       <div className="max-w-7xl mx-auto px-4 md:px-8">
         <div className="flex items-center justify-between h-20">
           
-          {/* LADO ESQUERDO: Logo e Menu Principal */}
+          {/* LOGO */}
           <div className="flex items-center gap-8">
             <Link href="/" className="group relative">
               <h1 className="text-2xl md:text-3xl font-black text-white tracking-tighter cursor-pointer">
@@ -79,14 +91,22 @@ export default function Navbar() {
               <NavLink href="/">Início</NavLink>
               <NavLink href="/series">Séries</NavLink>
               <NavLink href="/movies">Filmes</NavLink>
-              <NavLink href="/suggestions">Pedidos</NavLink>
+              {/* Mudámos o nome para ser mais claro */}
+              <NavLink href="/suggestions">Fazer Pedido</NavLink>
+              
+              {/* Botão de Admin só aparece para Admins */}
+              {isAdmin && (
+                <Link href="/admin" className="text-red-500 hover:text-red-400 font-bold transition-colors">
+                  Painel Admin
+                </Link>
+              )}
             </div>
           </div>
 
-          {/* LADO DIREITO: Pesquisa e User */}
+          {/* DIREITA */}
           <div className="flex items-center gap-4 md:gap-6">
             
-            {/* Barra de Pesquisa Expansível */}
+            {/* Pesquisa */}
             <div ref={searchRef} className={`flex items-center transition-all duration-300 ${searchOpen ? "bg-black/50 border border-white/20 px-3 py-1.5 rounded-full w-48 md:w-64" : "w-8"}`}>
                <button onClick={() => setSearchOpen(!searchOpen)} className="text-gray-300 hover:text-white">
                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
@@ -96,14 +116,14 @@ export default function Navbar() {
                    type="text" 
                    value={searchText}
                    onChange={(e) => setSearchText(e.target.value)}
-                   placeholder="Títulos, atores..." 
+                   placeholder="Pesquisar..." 
                    className="bg-transparent border-none outline-none text-white text-sm w-full placeholder-gray-500"
                    autoFocus
                  />
                </form>
             </div>
 
-            {/* Avatar / Login */}
+            {/* Avatar / Dropdown */}
             {user ? (
               <div className="relative" ref={dropdownRef}>
                 <button onClick={() => setShowDropdown(!showDropdown)} className="flex items-center gap-2 group focus:outline-none">
@@ -117,16 +137,15 @@ export default function Navbar() {
                   <svg className={`w-3 h-3 text-white transition-transform duration-300 ${showDropdown ? "rotate-180" : ""}`} fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
                 </button>
 
-                {/* Dropdown Menu */}
                 <div className={`absolute right-0 mt-3 w-56 bg-black/90 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl py-2 transition-all duration-200 origin-top-right transform ${showDropdown ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-95 -translate-y-2 pointer-events-none"}`}>
                   <div className="px-4 py-3 border-b border-white/5 mb-2">
                     <p className="text-white font-bold text-sm truncate">{user.user_metadata?.username || "Membro"}</p>
-                    <p className="text-gray-500 text-xs truncate">{user.email}</p>
+                    {isAdmin && <span className="text-[10px] bg-red-600 px-1.5 py-0.5 rounded text-white font-bold uppercase tracking-wide">ADMIN</span>}
                   </div>
                   
                   <DropdownLink href="/account">Minha Conta</DropdownLink>
-                  <DropdownLink href="/suggestions">Meus Pedidos</DropdownLink>
-                  {/* Se quiseres link de admin, podes por aqui uma verificação */}
+                  <DropdownLink href="/suggestions">Fazer Pedido</DropdownLink>
+                  {isAdmin && <DropdownLink href="/admin">Painel de Admin</DropdownLink>}
                   
                   <div className="border-t border-white/5 mt-2 pt-2">
                     <button onClick={handleLogout} className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-white/5 hover:text-red-300 transition-colors">
@@ -147,7 +166,6 @@ export default function Navbar() {
   );
 }
 
-// Pequenos componentes auxiliares para limpar o código
 function NavLink({ href, children }) {
   return (
     <Link href={href} className="relative group py-2">
