@@ -1,39 +1,48 @@
-// src/middleware.js
-import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs';
-import { NextResponse } from 'next/server';
+import { createServerClient } from '@supabase/ssr'
+import { NextResponse } from 'next/server'
 
-export async function middleware(req) {
-  const res = NextResponse.next();
-  const supabase = createMiddlewareClient({ req, res });
+export async function middleware(request) {
+  let supabaseResponse = NextResponse.next({
+    request,
+  })
 
-  const url = req.nextUrl.clone();
-
-  // 1. Só verifica sessão em rotas PROTEGIDAS
-  if (url.pathname.startsWith('/admin') || url.pathname.startsWith('/account')) {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      url.pathname = '/auth';
-      return NextResponse.redirect(url);
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            request.cookies.set(name, value)
+          })
+          supabaseResponse = NextResponse.next({
+            request,
+          })
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
+          )
+        },
+      },
     }
+  )
+
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (request.nextUrl.pathname.startsWith('/admin') && !user) {
+    return NextResponse.redirect(new URL('/auth', request.url))
+  }
+  if (request.nextUrl.pathname.startsWith('/account') && !user) {
+    return NextResponse.redirect(new URL('/auth', request.url))
   }
 
-  // 2. Se já tiver sessão e for para /auth, manda para casa
-  if (url.pathname.startsWith('/auth')) {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session) {
-      url.pathname = '/';
-      return NextResponse.redirect(url);
-    }
-  }
-
-  return res;
+  return supabaseResponse
 }
 
-// Configuração para NÃO bloquear imagens nem filmes
 export const config = {
   matcher: [
-    '/admin/:path*', 
-    '/account/:path*', 
-    '/auth/:path*'
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
-};
+}

@@ -1,13 +1,11 @@
-// src/app/movies/[id]/page.js
 "use client";
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient"; 
+import { createClient } from "@/lib/supabase/client";
 import Navbar from "@/components/Navbar";
 import { useDraggableScroll } from "@/hooks/useDraggableScroll"; 
-// IMPORTANTE: Importar o Contexto
 import { useAuth } from "@/components/AuthProvider";
 
 const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
@@ -15,9 +13,8 @@ const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
 export default function MovieDetailsPage() {
   const { id } = useParams();
   const router = useRouter();
-  
-  // USA O USER GLOBAL (Nunca falha, porque vem do AuthProvider)
   const { user } = useAuth();
+  const supabase = createClient();
   
   const [movie, setMovie] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -29,7 +26,6 @@ export default function MovieDetailsPage() {
   const castRef = useRef(null);
   const { events: castEvents } = useDraggableScroll();
 
-  // 1. CARREGAR FILME
   useEffect(() => {
     if (!id) return;
     async function fetchMovie() {
@@ -45,7 +41,6 @@ export default function MovieDetailsPage() {
     fetchMovie();
   }, [id]);
 
-  // 2. VERIFICAR LISTA (Usa o user global e o NOVO cliente Supabase)
   useEffect(() => {
     if (user && id) {
       supabase.from("watchlists").select("id").eq("user_id", user.id).eq("item_id", id).eq("item_type", "movie").maybeSingle()

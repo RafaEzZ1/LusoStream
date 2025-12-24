@@ -1,13 +1,11 @@
-// src/app/series/[id]/page.js
 "use client";
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient"; 
+import { createClient } from "@/lib/supabase/client";
 import Navbar from "@/components/Navbar";
 import { useDraggableScroll } from "@/hooks/useDraggableScroll"; 
-// IMPORTANTE: Importar o Contexto Global
 import { useAuth } from "@/components/AuthProvider";
 
 const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
@@ -15,9 +13,8 @@ const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
 export default function SeriesDetailsPage() {
   const { id } = useParams();
   const router = useRouter();
-  
-  // 1. USA O USER GLOBAL (Estável e Rápido)
   const { user } = useAuth();
+  const supabase = createClient();
   
   const [series, setSeries] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -34,7 +31,6 @@ export default function SeriesDetailsPage() {
   const castRef = useRef(null);
   const { events: castEvents } = useDraggableScroll();
 
-  // 2. CARREGAR SÉRIE (Independente do Login)
   useEffect(() => {
     if (!id) return;
     async function fetchSeries() {
@@ -54,7 +50,6 @@ export default function SeriesDetailsPage() {
     fetchSeries();
   }, [id]);
 
-  // 3. VERIFICAR LISTA (Usa o user global e o NOVO cliente Supabase)
   useEffect(() => {
     if (user && id) {
       supabase
@@ -68,7 +63,6 @@ export default function SeriesDetailsPage() {
     }
   }, [user, id]);
 
-  // 4. CARREGAR EPISÓDIOS
   useEffect(() => {
     if (id && series) {
       async function fetchEpisodes() {
@@ -106,7 +100,6 @@ export default function SeriesDetailsPage() {
     <div className="bg-black min-h-screen text-gray-200 font-sans pb-20">
       <Navbar />
 
-      {/* HERO SECTION */}
       <div className="relative w-full min-h-[85vh] flex items-center">
         <div className="absolute inset-0 bg-cover bg-center fixed-bg" style={{ backgroundImage: `url(https://image.tmdb.org/t/p/original${series.backdrop_path})` }}>
           <div className="absolute inset-0 bg-black/80"></div>
@@ -117,36 +110,23 @@ export default function SeriesDetailsPage() {
           <div className="hidden md:block col-span-1 animate-in fade-in duration-700">
             <img src={`https://image.tmdb.org/t/p/w500${series.poster_path}`} alt={series.name} className="w-full rounded-xl shadow-2xl border border-gray-800" />
           </div>
-          
           <div className="col-span-1 md:col-span-2 space-y-6 animate-in slide-in-from-right-10 duration-700">
             <h1 className="text-4xl md:text-6xl font-bold text-white drop-shadow-lg">{series.name}</h1>
-            
             <div className="flex flex-wrap items-center gap-4 text-sm md:text-base text-gray-300">
               <span className="text-green-400 font-bold border border-green-400/30 bg-green-400/10 px-2 py-0.5 rounded">{Math.round(series.vote_average * 10)}% Relevância</span>
               <span>{series.first_air_date?.split("-")[0]}</span>
               <span>{series.number_of_seasons} Temporadas</span>
             </div>
-            
             <p className="text-gray-300 text-lg leading-relaxed max-w-2xl line-clamp-4 md:line-clamp-none">{series.overview}</p>
-
             <div className="flex flex-wrap items-center gap-4 pt-4">
               <Link href={`/watch/series/${series.id}/season/1/episode/1`} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full transition hover:scale-105 flex items-center gap-2 shadow-lg shadow-blue-900/40">
-                <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                Assistir
+                <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg> Assistir
               </Link>
-
               <button onClick={toggleMyList} disabled={listLoading} className={`font-bold py-3 px-6 rounded-full transition border flex items-center gap-2 ${isInList ? "bg-green-600 border-green-600 text-white" : "bg-gray-800/60 border-gray-500 text-white hover:bg-gray-700"}`}>
-                {listLoading ? <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"/> : isInList ? (
-                  <><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg> Na Lista</>
-                ) : (
-                  <><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg> Minha Lista</>
-                )}
+                {listLoading ? <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"/> : isInList ? "Na Lista" : "Minha Lista"}
               </button>
-
               {trailerKey && (
-                <button onClick={() => setShowTrailer(true)} className="bg-white/10 hover:bg-white/20 text-white font-bold py-3 px-6 rounded-full transition border border-white/30 flex items-center gap-2 backdrop-blur-md">
-                  Trailer
-                </button>
+                <button onClick={() => setShowTrailer(true)} className="bg-white/10 hover:bg-white/20 text-white font-bold py-3 px-6 rounded-full transition border border-white/30 flex items-center gap-2 backdrop-blur-md">Trailer</button>
               )}
             </div>
           </div>
@@ -154,44 +134,25 @@ export default function SeriesDetailsPage() {
       </div>
 
       <main className="max-w-7xl mx-auto px-6 py-12 space-y-16">
-        
-        {/* EPISÓDIOS */}
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
           <div className="flex items-center justify-between mb-6 border-b border-gray-800 pb-4">
             <h2 className="text-2xl font-bold text-white border-l-4 border-blue-600 pl-4">Episódios</h2>
-            
-            <select 
-              className="bg-gray-900 border border-gray-700 text-white rounded-lg px-4 py-2 outline-none focus:border-blue-600 transition font-bold"
-              value={selectedSeason}
-              onChange={(e) => setSelectedSeason(Number(e.target.value))}
-            >
+            <select className="bg-gray-900 border border-gray-700 text-white rounded-lg px-4 py-2 outline-none focus:border-blue-600 transition font-bold" value={selectedSeason} onChange={(e) => setSelectedSeason(Number(e.target.value))}>
               {Array.from({ length: series.number_of_seasons }, (_, i) => i + 1).map((seasonNum) => (
                 <option key={seasonNum} value={seasonNum}>Temporada {seasonNum}</option>
               ))}
             </select>
           </div>
-
           {loadingEpisodes ? (
             <div className="flex justify-center py-10"><div className="w-8 h-8 border-4 border-blue-600 rounded-full animate-spin border-t-transparent"></div></div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {episodes.map((ep) => (
-                <Link 
-                  key={ep.id} 
-                  href={`/watch/series/${series.id}/season/${selectedSeason}/episode/${ep.episode_number}`}
-                  className="bg-gray-900 rounded-lg overflow-hidden flex gap-4 hover:bg-gray-800 transition border border-gray-800 hover:border-blue-600 group h-32"
-                >
+                <Link key={ep.id} href={`/watch/series/${series.id}/season/${selectedSeason}/episode/${ep.episode_number}`} className="bg-gray-900 rounded-lg overflow-hidden flex gap-4 hover:bg-gray-800 transition border border-gray-800 hover:border-blue-600 group h-32">
                   <div className="w-40 h-full relative flex-shrink-0 bg-gray-800">
-                    <img 
-                      src={ep.still_path ? `https://image.tmdb.org/t/p/w300${ep.still_path}` : "/no-image.jpg"} 
-                      alt={ep.name} 
-                      className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition"
-                    />
-                    <div className="absolute bottom-1 left-1 bg-black/80 px-2 py-0.5 text-xs font-bold rounded text-white">
-                       E{ep.episode_number}
-                    </div>
+                    <img src={ep.still_path ? `https://image.tmdb.org/t/p/w300${ep.still_path}` : "/no-image.jpg"} alt={ep.name} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition" />
+                    <div className="absolute bottom-1 left-1 bg-black/80 px-2 py-0.5 text-xs font-bold rounded text-white">E{ep.episode_number}</div>
                   </div>
-
                   <div className="py-2 pr-3 flex flex-col justify-center overflow-hidden w-full">
                     <h4 className="font-bold text-gray-200 group-hover:text-blue-400 truncate text-sm">{ep.episode_number}. {ep.name}</h4>
                     <p className="text-xs text-gray-500 mt-1 line-clamp-2">{ep.overview || "Sem descrição."}</p>
@@ -202,8 +163,7 @@ export default function SeriesDetailsPage() {
             </div>
           )}
         </div>
-
-        {/* ELENCO */}
+        {/* Elenco e Recomendados (Mantém-se igual ao anterior, mas o código completo está aqui para copiar) */}
         {series.credits?.cast?.length > 0 && (
           <div>
             <h2 className="text-2xl font-bold text-white mb-6 border-l-4 border-blue-600 pl-4">Elenco</h2>
@@ -219,8 +179,6 @@ export default function SeriesDetailsPage() {
             </div>
           </div>
         )}
-
-        {/* RECOMENDADOS */}
         {series.similar?.results?.length > 0 && (
           <div>
             <h2 className="text-2xl font-bold text-white mb-6 border-l-4 border-blue-600 pl-4">Recomendados</h2>
@@ -238,7 +196,6 @@ export default function SeriesDetailsPage() {
         )}
       </main>
 
-      {/* MODAL TRAILER */}
       {showTrailer && trailerKey && (
         <div className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
           <div className="relative w-full max-w-5xl bg-black rounded-2xl overflow-hidden border border-gray-800">
