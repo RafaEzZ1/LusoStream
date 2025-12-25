@@ -13,11 +13,12 @@ export async function getMovieEmbed(tmdbId) {
   }
 }
 
-// Para Séries (Novo)
+// Para Séries (CORRIGIDO)
 export async function getEpisodeEmbed(tmdbId, season, episode) {
   try {
-    // ID único: "12345_s1e1"
-    const episodeId = `${tmdbId}_s${season}e${episode}`;
+    // ⚠️ O formato tem de bater certo com o Admin: "ID_S1_E1"
+    const episodeId = `${tmdbId}_S${season}_E${episode}`;
+    
     const docRef = doc(db, "embeds", episodeId);
     const docSnap = await getDoc(docRef);
     return docSnap.exists() ? docSnap.data().streamUrl : null;
