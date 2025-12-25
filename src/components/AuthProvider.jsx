@@ -21,7 +21,7 @@ export function AuthProvider({ children }) {
         const timeoutPromise = new Promise((resolve) => setTimeout(() => {
              console.warn("⚠️ [Auth] Demorou muito. A forçar abertura.");
              resolve({ data: { session: null }, error: "timeout" });
-        }, 1500));
+        }, 10000));
 
         const sessionPromise = supabase.auth.getSession();
 
