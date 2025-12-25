@@ -5,9 +5,9 @@ import {
   signInWithPopup, 
   signOut as firebaseSignOut,
   onAuthStateChanged,
-  createUserWithEmailAndPassword, // <--- Importante para o registo manual
-  updateProfile, // <--- Para atualizar o nome no Auth
-  signInWithEmailAndPassword // <--- Para o login
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  updateProfile
 } from "firebase/auth";
 import { 
   getFirestore, 
@@ -20,9 +20,9 @@ import {
   addDoc,
   collection,
   serverTimestamp,
-  query, 
-  where, 
-  getDocs 
+  query,
+  where,
+  getDocs
 } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -39,16 +39,16 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const googleProvider = new GoogleAuthProvider();
 
-// --- FUNÇÕES ---
+// --- 1. AUTH & UTILIZADORES ---
 
-// 1. Verificar se nome de utilizador já existe
+// Verificar se nome existe
 export async function checkUsernameExists(username) {
   const q = query(collection(db, "users"), where("name", "==", username));
   const snapshot = await getDocs(q);
-  return !snapshot.empty; // Retorna true se existir, false se estiver livre
+  return !snapshot.empty;
 }
 
-// 2. Criar Perfil (Atualizado para aceitar nome customizado)
+// Criar/Atualizar Perfil
 export async function createUserProfile(user, customName = null) {
   if (!user) return;
   const userRef = doc(db, "users", user.uid);
@@ -56,7 +56,6 @@ export async function createUserProfile(user, customName = null) {
 
   if (!userSnap.exists()) {
     const finalName = customName || user.displayName || user.email.split('@')[0];
-    
     await setDoc(userRef, {
       uid: user.uid,
       email: user.email,
@@ -67,6 +66,41 @@ export async function createUserProfile(user, customName = null) {
       watchlist: []
     });
   }
+}
+
+export async function getUserData(uid) {
+  const docRef = doc(db, "users", uid);
+  const docSnap = await getDoc(docRef);
+  return docSnap.exists() ? docSnap.data() : null;
+}
+
+// --- 2. WATCHLIST (Faltavam estas funções!) ---
+
+export async function addToWatchlist(uid, movieId) {
+  const userRef = doc(db, "users", uid);
+  await updateDoc(userRef, { watchlist: arrayUnion(movieId) });
+}
+
+export async function removeFromWatchlist(uid, movieId) {
+  const userRef = doc(db, "users", uid);
+  await updateDoc(userRef, { watchlist: arrayRemove(movieId) });
+}
+
+// --- 3. REPORTES & SUGESTÕES ---
+
+export async function createReport(data) {
+  await addDoc(collection(db, "reports"), {
+    ...data,
+    createdAt: serverTimestamp()
+  });
+}
+
+export async function createSuggestion(data) {
+  await addDoc(collection(db, "suggestions"), {
+    ...data,
+    status: 'pendente',
+    createdAt: serverTimestamp()
+  });
 }
 
 // Exportar tudo

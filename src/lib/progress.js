@@ -1,15 +1,11 @@
 import { db } from "@/lib/firebase";
 import { doc, setDoc, getDoc, collection, query, orderBy, limit, getDocs } from "firebase/firestore";
 
-// GUARDAR PROGRESSO (Chamado pelo player)
+// GUARDAR PROGRESSO (Save)
 export async function saveVideoProgress(userId, mediaId, seconds, duration, type, season = null, episode = null) {
   if (!userId || !mediaId) return;
 
   const percentage = Math.round((seconds / duration) * 100);
-  
-  // ID Único para guardar na BD
-  // Se for filme: "movie_123"
-  // Se for série: "tv_123" (Guardamos o progresso da série no geral)
   const docId = `${type}_${mediaId}`;
   
   try {
@@ -17,47 +13,51 @@ export async function saveVideoProgress(userId, mediaId, seconds, duration, type
     
     await setDoc(progressRef, {
       mediaId: String(mediaId),
-      mediaType: type === 'series' ? 'tv' : type, // Normaliza 'series' para 'tv'
+      mediaType: type === 'series' ? 'tv' : type,
       seconds,
       duration,
       percentage,
       season: season ? Number(season) : null,
       episode: episode ? Number(episode) : null,
-      updatedAt: new Date(), // Importante para ordenar
-      isFinished: percentage > 90 // Marca como visto se > 90%
+      updatedAt: new Date(),
+      isFinished: percentage > 90
     }, { merge: true });
-    
-    console.log("Progresso guardado:", percentage + "%");
   } catch (error) {
     console.error("Erro ao guardar progresso:", error);
   }
 }
 
-// LISTAR "CONTINUAR A VER" (Chamado pela Home)
+// LER PROGRESSO (Get - Faltava esta função!)
+export async function getVideoProgress(userId, mediaId, type) {
+  if (!userId || !mediaId) return null;
+  const docId = `${type}_${mediaId}`;
+  try {
+     const docRef = doc(db, "users", userId, "progress", docId);
+     const docSnap = await getDoc(docRef);
+     return docSnap.exists() ? docSnap.data() : null;
+  } catch(e) { return null; }
+}
+
+// LISTAR TUDO (Continue Watching)
 export async function listContinueWatching(userId) {
   if (!userId) return [];
-
   try {
     const q = query(
       collection(db, "users", userId, "progress"),
-      orderBy("updatedAt", "desc"), // Os mais recentes primeiro
+      orderBy("updatedAt", "desc"),
       limit(10)
     );
-
     const snapshot = await getDocs(q);
-    
-    // Filtra apenas os que NÃO estão acabados (< 90%)
     return snapshot.docs
       .map(doc => doc.data())
       .filter(item => item.percentage < 90); 
-      
   } catch (error) {
-    console.error("Erro ao listar continuar a ver:", error);
+    console.error("Erro lista:", error);
     return [];
   }
 }
 
-// MARCAR COMO VISTO MANUALMENTE
+// MARCAR VISTO
 export async function markAsFinished(userId, mediaId, type, season=null, episode=null) {
     await saveVideoProgress(userId, mediaId, 100, 100, type, season, episode);
 }
