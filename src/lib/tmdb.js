@@ -8,7 +8,6 @@ export async function getPopularMovies() {
   return data.results;
 }
 
-// ESTA É A FUNÇÃO QUE FALTAVA
 export async function searchMulti(query) {
   const res = await fetch(`${BASE_URL}/search/multi?api_key=${API_KEY}&language=pt-BR&query=${encodeURIComponent(query)}&page=1&include_adult=false`);
   if (!res.ok) throw new Error("Falha ao pesquisar no TMDb");
