@@ -3,11 +3,21 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/components/AuthProvider";
-import ContinueWatching from "@/components/ContinueWatching";
+import ContinueWatching from "@/components/ContinueWatching"; // Vamos criar este a seguir
 import MediaRow from "@/components/MediaRow";
 import { listContinueWatching } from "@/lib/progress";
 
 const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
+
+// Função para buscar imagem e nome ao TMDB
+async function fetchDetails(id, type) {
+  try {
+    const endpoint = type === 'tv' || type === 'series' ? 'tv' : 'movie';
+    const res = await fetch(`https://api.themoviedb.org/3/${endpoint}/${id}?api_key=${API_KEY}&language=pt-BR`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch(e) { return null; }
+}
 
 export default function HomeClient() {
   const { user, profile } = useAuth();
@@ -15,42 +25,45 @@ export default function HomeClient() {
   const [myList, setMyList] = useState([]); 
   const [featuredMovie, setFeaturedMovie] = useState(null);
 
-  // 1. Carregar Dados Iniciais
   useEffect(() => {
     async function loadContent() {
-      // Buscar filme de destaque aleatório
+      // 1. Banner Principal
       try {
-        const res = await fetch(`https://api.themoviedb.org/3/trending/movie/week?api_key=${API_KEY}&language=pt-BR`);
+        const res = await fetch(`https://api.themoviedb.org/3/trending/movie/day?api_key=${API_KEY}&language=pt-BR`);
         const data = await res.json();
-        const random = data.results[Math.floor(Math.random() * data.results.length)];
-        setFeaturedMovie(random);
+        if (data.results?.length) {
+          setFeaturedMovie(data.results[Math.floor(Math.random() * 5)]); // Escolhe um dos top 5
+        }
       } catch (e) { console.error(e); }
 
       if (user) {
-        // Carregar "Continuar a Ver"
-        const progressItems = await listContinueWatching(user.uid);
-        setContinueList(progressItems);
+        // 2. Carregar "Continuar a Ver"
+        try {
+          const progressItems = await listContinueWatching(user.uid);
+          
+          if (progressItems.length > 0) {
+            // Vai buscar as imagens ao TMDB para cada item
+            const enriched = await Promise.all(progressItems.map(async (item) => {
+              const details = await fetchDetails(item.mediaId, item.mediaType);
+              if (!details) return null;
+              return {
+                ...item, // Dados do progresso (percentagem, segundos)
+                ...details, // Dados visuais (imagem, titulo)
+                uniqueId: item.mediaId // Garantia de ID
+              };
+            }));
+            setContinueList(enriched.filter(i => i !== null));
+          }
+        } catch(e) { console.error("Erro home progress:", e); }
 
-        // Carregar Minha Lista (COM CORREÇÃO DE TIPO)
+        // 3. Carregar Minha Lista
         if (profile?.watchlist?.length > 0) {
           const enrichedList = await Promise.all(profile.watchlist.map(async (id) => {
-              try {
-                // Tenta Filme
-                let res = await fetch(`https://api.themoviedb.org/3/movie/${id}?api_key=${API_KEY}&language=pt-BR`);
-                if (res.ok) {
-                  const tmdb = await res.json();
-                  return { ...tmdb, item_type: 'movie' }; // <--- CARIMBO DE FILME
-                }
-                
-                // Tenta Série
-                res = await fetch(`https://api.themoviedb.org/3/tv/${id}?api_key=${API_KEY}&language=pt-BR`);
-                if (res.ok) {
-                  const tmdb = await res.json();
-                  return { ...tmdb, item_type: 'tv' }; // <--- CARIMBO DE SÉRIE
-                }
-                
-                return null;
-              } catch(e) { return null; }
+              const movie = await fetchDetails(id, 'movie');
+              if (movie) return { ...movie, item_type: 'movie' };
+              const show = await fetchDetails(id, 'tv');
+              if (show) return { ...show, item_type: 'tv' };
+              return null;
           }));
           setMyList(enrichedList.filter(i => i !== null));
         }
@@ -62,20 +75,19 @@ export default function HomeClient() {
   return (
     <div className="bg-black min-h-screen pb-20 overflow-x-hidden">
       
-      {/* --- HERO SECTION --- */}
-      <div className="relative h-[85vh] w-full -mt-20">
+      {/* Banner Hero */}
+      <div className="relative h-[80vh] w-full -mt-20">
         {featuredMovie && (
           <>
             <div className="absolute inset-0">
               <img 
                 src={`https://image.tmdb.org/t/p/original${featuredMovie.backdrop_path}`} 
-                className="w-full h-full object-cover opacity-70"
+                className="w-full h-full object-cover opacity-60"
                 alt={featuredMovie.title}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
               <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-transparent to-transparent" />
             </div>
-
             <div className="absolute bottom-0 left-0 p-8 md:p-16 w-full max-w-3xl z-10 space-y-4">
               <h1 className="text-4xl md:text-6xl font-bold text-white drop-shadow-xl">
                 {featuredMovie.title || featuredMovie.name}
@@ -84,19 +96,8 @@ export default function HomeClient() {
                 {featuredMovie.overview}
               </p>
               <div className="flex gap-4 pt-4">
-                <Link 
-                  href={`/movies/${featuredMovie.id}`} 
-                  className="bg-white text-black px-8 py-3 rounded-lg font-bold text-lg hover:bg-gray-200 transition flex items-center gap-2"
-                >
-                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                  Reproduzir
-                </Link>
-                <Link 
-                  href={`/movies/${featuredMovie.id}`} 
-                  className="bg-gray-500/50 text-white px-8 py-3 rounded-lg font-bold text-lg hover:bg-gray-500/70 backdrop-blur-sm transition flex items-center gap-2"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                  Mais Info
+                <Link href={`/movies/${featuredMovie.id}`} className="bg-white text-black px-8 py-3 rounded-lg font-bold hover:bg-gray-200 transition flex items-center gap-2">
+                   Reproduzir
                 </Link>
               </div>
             </div>
@@ -104,24 +105,17 @@ export default function HomeClient() {
         )}
       </div>
 
-      {/* --- LISTAS DE CONTEÚDO --- */}
-      <div className="relative z-20 px-4 md:px-12 space-y-8 -mt-16">
+      <div className="relative z-20 px-4 md:px-12 space-y-10 -mt-20">
         
+        {/* --- AQUI ESTÁ O NOVO COMPONENTE --- */}
         {continueList.length > 0 && (
           <ContinueWatching items={continueList} />
         )}
 
-        {/* A Minha Lista agora passa os dados corretos */}
-        {myList.length > 0 && (
-          <MediaRow title="📂 A Minha Lista" itemsProp={myList} />
-        )}
-
-        <MediaRow title="🔥 Filmes em Alta" endpoint="trending/movie/week?" type="movie" />
-        <MediaRow title="📺 Séries do Momento" endpoint="trending/tv/week?" type="tv" />
-        <MediaRow title="🎬 Ação Pura" endpoint="discover/movie?with_genres=28&sort_by=popularity.desc" type="movie" />
-        <MediaRow title="😂 Comédia" endpoint="discover/movie?with_genres=35&sort_by=popularity.desc" type="movie" />
-        <MediaRow title="🐉 Animação" endpoint="discover/movie?with_genres=16&sort_by=popularity.desc" type="movie" />
-        <MediaRow title="👻 Terror" endpoint="discover/movie?with_genres=27&sort_by=popularity.desc" type="movie" />
+        {myList.length > 0 && <MediaRow title="📂 A Minha Lista" itemsProp={myList} />}
+        <MediaRow title="🔥 Tendências" endpoint="trending/all/week?" type="movie" />
+        <MediaRow title="🎬 Filmes de Ação" endpoint="discover/movie?with_genres=28&sort_by=popularity.desc" type="movie" />
+        <MediaRow title="📺 Séries Populares" endpoint="trending/tv/week?" type="tv" />
       </div>
     </div>
   );
