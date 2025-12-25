@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@hcaptcha/react-hcaptcha": "^1.11.0",
-    "@tailwindcss/postcss": "^4.0.0",
+    "@tailwindcss/postcss": "^4.1.18",
     "@vercel/analytics": "^1.2.2",
     "firebase": "^12.7.0",
     "hls.js": "^1.5.8",
