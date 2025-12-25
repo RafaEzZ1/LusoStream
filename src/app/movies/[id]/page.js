@@ -6,7 +6,6 @@ import Image from "next/image";
 import DraggableScroll from "@/components/DraggableScroll";
 import TrailerButton from "@/components/TrailerButton";
 
-// A Chave Mestra
 const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
 
 async function getMovieData(id) {
@@ -14,13 +13,10 @@ async function getMovieData(id) {
     const baseUrl = 'https://api.themoviedb.org/3';
     const language = 'pt-BR';
 
-    // 1. Detalhes do Filme (inclui videos e elenco)
     const movieReq = fetch(
       `${baseUrl}/movie/${id}?api_key=${API_KEY}&language=${language}&append_to_response=credits,videos`,
       { next: { revalidate: 3600 } }
     );
-
-    // 2. Recomendações (buscamos à parte para ter controlo total)
     const recsReq = fetch(
       `${baseUrl}/movie/${id}/recommendations?api_key=${API_KEY}&language=${language}&page=1`
     );
@@ -59,13 +55,10 @@ export default async function MoviePage({ params }) {
   const hours = Math.floor(movie.runtime / 60);
   const minutes = movie.runtime % 60;
   const director = movie.credits?.crew?.find(c => c.job === "Director")?.name;
-  
-  // Encontrar o trailer do YouTube
   const trailer = movie.videos?.results?.find(v => v.type === "Trailer" && v.site === "YouTube");
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] pb-20 text-white">
-      {/* --- BANNER PRINCIPAL --- */}
       <div className="relative h-[70vh] w-full">
         <div className="absolute inset-0">
           <Image
@@ -99,9 +92,7 @@ export default async function MoviePage({ params }) {
               Ver Filme
             </Link>
 
-            {/* Botão Trailer (Pop-up) */}
             {trailer && <TrailerButton trailerKey={trailer.key} />}
-
             <WatchlistButton mediaId={movie.id} mediaType="movie" />
           </div>
 
@@ -112,12 +103,10 @@ export default async function MoviePage({ params }) {
       </div>
 
       <div className="max-w-7xl mx-auto px-6 mt-12 grid grid-cols-1 md:grid-cols-3 gap-12">
-        {/* Coluna Principal */}
         <div className="md:col-span-2">
           <h2 className="text-2xl font-bold mb-4">Sinopse</h2>
           <p className="text-gray-300 leading-relaxed text-lg mb-8">{movie.overview}</p>
           
-          {/* ELENCO (Arrastável) */}
           <h3 className="text-xl font-bold mb-4">Elenco Principal</h3>
           <DraggableScroll className="gap-4 pb-4">
             {movie.credits?.cast?.slice(0, 10).map(actor => (
@@ -140,7 +129,6 @@ export default async function MoviePage({ params }) {
             ))}
           </DraggableScroll>
           
-          {/* RECOMENDAÇÕES (Arrastáveis e integradas na página) */}
           {recommendations.length > 0 && (
             <div className="mt-12 pt-8 border-t border-white/10">
               <h3 className="text-xl font-bold mb-4 border-l-4 border-purple-500 pl-3">
@@ -151,7 +139,8 @@ export default async function MoviePage({ params }) {
                 {recommendations.map((item) => (
                   <Link 
                     key={item.id} 
-                    href={`/movies/${item.id}`} // Links internos para filmes
+                    href={`/movies/${item.id}`}
+                    onDragStart={(e) => e.preventDefault()} // <--- IMPEDE O BUG
                     className="flex-shrink-0 w-40 group relative rounded-lg overflow-hidden bg-gray-800 select-none"
                   >
                     <div className="relative aspect-[2/3] w-full">
@@ -176,16 +165,13 @@ export default async function MoviePage({ params }) {
           )}
         </div>
 
-        {/* Coluna Lateral (Informações Extra) */}
         <div className="bg-white/5 p-6 rounded-xl h-fit border border-white/10">
           <p className="text-gray-400 text-sm mb-1">Realizador</p>
           <p className="font-medium mb-4">{director || "N/A"}</p>
-          
           <p className="text-gray-400 text-sm mb-1">Orçamento</p>
           <p className="font-medium mb-4">
             {movie.budget > 0 ? `$${(movie.budget / 1000000).toFixed(1)}M` : "N/A"}
           </p>
-
           <p className="text-gray-400 text-sm mb-1">Estúdio</p>
           <p className="font-medium">{movie.production_companies?.[0]?.name || "N/A"}</p>
         </div>

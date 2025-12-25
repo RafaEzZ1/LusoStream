@@ -1,10 +1,9 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { FaStar, FaCalendar, FaClock } from 'react-icons/fa';
+import { FaStar, FaCalendar, FaClock, FaYoutube } from 'react-icons/fa';
 import DraggableScroll from "@/components/DraggableScroll";
-import TrailerButton from "@/components/TrailerButton"; // <--- Novo Import
+import TrailerButton from "@/components/TrailerButton";
 
-// A Chave Mestra
 const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
 
 async function getData(id, seasonNumber) {
@@ -12,8 +11,8 @@ async function getData(id, seasonNumber) {
   const language = 'pt-BR'; 
 
   try {
-    // Buscar detalhes + videos
-    const seriesReq = fetch(`${baseUrl}/tv/${id}?api_key=${API_KEY}&language=${language}&append_to_response=videos`);
+    // Buscar detalhes + videos + CREDITOS (Elenco)
+    const seriesReq = fetch(`${baseUrl}/tv/${id}?api_key=${API_KEY}&language=${language}&append_to_response=videos,credits`);
     const seasonReq = fetch(`${baseUrl}/tv/${id}/season/${seasonNumber}?api_key=${API_KEY}&language=${language}`);
     const recsReq = fetch(`${baseUrl}/tv/${id}/recommendations?api_key=${API_KEY}&language=${language}`);
 
@@ -33,7 +32,6 @@ async function getData(id, seasonNumber) {
 }
 
 export default async function SeriesPage({ params, searchParams }) {
-  // Next.js 15+ exige await nos params
   const { id } = await params;
   const sp = await searchParams;
   const currentSeason = sp.season ? Number(sp.season) : 1;
@@ -44,7 +42,6 @@ export default async function SeriesPage({ params, searchParams }) {
     return <div className="min-h-screen flex items-center justify-center text-white">Série não encontrada.</div>;
   }
 
-  // Encontrar o trailer do Youtube
   const trailer = series.videos?.results?.find(v => v.type === "Trailer" && v.site === "YouTube");
 
   return (
@@ -79,14 +76,13 @@ export default async function SeriesPage({ params, searchParams }) {
             {series.overview}
           </p>
 
-           {/* Botão Trailer (Agora com Pop-up!) */}
            {trailer && <TrailerButton trailerKey={trailer.key} />}
         </div>
       </div>
 
       <div className="container mx-auto px-6 md:px-12 mt-10">
         
-        {/* Seletor de Temporadas (Arrastável) */}
+        {/* Seletor de Temporadas */}
         <div className="mb-8">
           <h2 className="text-2xl font-bold mb-4 border-l-4 border-purple-600 pl-3">Temporadas</h2>
           <DraggableScroll className="gap-2 pb-2">
@@ -95,6 +91,7 @@ export default async function SeriesPage({ params, searchParams }) {
                 key={season.id} 
                 href={`/series/${id}?season=${season.season_number}`}
                 scroll={false} 
+                onDragStart={(e) => e.preventDefault()} // <--- IMPEDE O BUG DO ARRASTAR
                 className={`flex-none px-4 py-2 rounded-full text-sm font-medium transition-colors select-none ${
                   currentSeason === season.season_number 
                     ? 'bg-purple-600 text-white' 
@@ -107,8 +104,8 @@ export default async function SeriesPage({ params, searchParams }) {
           </DraggableScroll>
         </div>
 
-        {/* Episódios */}
-        <div className="mb-16">
+        {/* Lista de Episódios */}
+        <div className="mb-12">
           <h3 className="text-xl font-semibold mb-6 text-zinc-300">
             Episódios da {seasonData?.name || `Temporada ${currentSeason}`}
           </h3>
@@ -139,14 +136,43 @@ export default async function SeriesPage({ params, searchParams }) {
           </div>
         </div>
 
-        {/* RECOMENDAÇÕES (Arrastáveis!) */}
+        {/* --- ELENCO (NOVO!) --- */}
+        <div className="mb-12">
+          <h3 className="text-xl font-bold mb-4 text-white">Elenco Principal</h3>
+          <DraggableScroll className="gap-4 pb-4">
+            {series.credits?.cast?.slice(0, 10).map(actor => (
+              <div key={actor.id} className="flex-shrink-0 w-32 text-center select-none">
+                <div className="w-24 h-24 mx-auto rounded-full overflow-hidden mb-2 border border-white/10 relative">
+                  {actor.profile_path ? (
+                    <Image 
+                      src={`https://image.tmdb.org/t/p/w185${actor.profile_path}`} 
+                      alt={actor.name}
+                      fill
+                      className="object-cover pointer-events-none" // Previne drag na imagem
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gray-800" />
+                  )}
+                </div>
+                <p className="text-sm font-bold truncate">{actor.name}</p>
+                <p className="text-xs text-zinc-500 truncate">{actor.character}</p>
+              </div>
+            ))}
+          </DraggableScroll>
+        </div>
+
+        {/* Recomendações */}
         {recommendations && recommendations.length > 0 && (
-          <div className="pt-10 border-t border-zinc-800">
+          <div className="pt-8 border-t border-zinc-800">
             <h2 className="text-2xl font-bold mb-6 border-l-4 border-purple-600 pl-3">Recomendado para ti</h2>
-            
             <DraggableScroll className="gap-4 pb-4">
               {recommendations.map((rec) => (
-                <Link key={rec.id} href={rec.media_type === 'tv' ? `/series/${rec.id}` : `/movies/${rec.id}`} className="flex-none w-[160px] group select-none">
+                <Link 
+                  key={rec.id} 
+                  href={rec.media_type === 'tv' ? `/series/${rec.id}` : `/movies/${rec.id}`} 
+                  onDragStart={(e) => e.preventDefault()} // <--- IMPEDE O BUG
+                  className="flex-none w-[160px] group select-none"
+                >
                   <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-zinc-800 mb-2">
                     {rec.poster_path ? (
                       <Image
