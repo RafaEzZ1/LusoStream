@@ -6,7 +6,6 @@ import Link from "next/link";
 
 const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
 
-// Busca dados ao TMDB
 async function getMovie(id) {
   try {
     const res = await fetch(
@@ -21,7 +20,6 @@ async function getMovie(id) {
 }
 
 export async function generateMetadata({ params }) {
-  // ⚠️ Correção Next.js 15+: Aguardar params
   const { id } = await params;
   const movie = await getMovie(id);
   return {
@@ -31,7 +29,6 @@ export async function generateMetadata({ params }) {
 }
 
 export default async function MoviePage({ params }) {
-  // ⚠️ Correção Next.js 15+: Aguardar params
   const { id } = await params;
   const movie = await getMovie(id);
 
@@ -45,7 +42,6 @@ export default async function MoviePage({ params }) {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] pb-20">
-      {/* Hero / Backdrop */}
       <div className="relative h-[70vh] w-full">
         <div className="absolute inset-0">
           <img
@@ -58,7 +54,6 @@ export default async function MoviePage({ params }) {
 
         <div className="absolute bottom-0 left-0 w-full p-6 md:p-12 max-w-7xl mx-auto z-10">
           <h1 className="text-4xl md:text-6xl font-bold text-white mb-4 drop-shadow-xl">{movie.title}</h1>
-          
           <div className="flex flex-wrap gap-4 text-sm text-gray-300 mb-6 items-center">
             <span className="text-green-400 font-bold">{movie.vote_average.toFixed(1)} Classificação</span>
             <span>{movie.release_date?.split("-")[0]}</span>
@@ -76,10 +71,8 @@ export default async function MoviePage({ params }) {
               <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
               Ver Filme
             </Link>
-
             <WatchlistButton mediaId={movie.id} mediaType="movie" />
           </div>
-
           <div className="mt-8 max-w-md">
              <MovieProgressClient mediaId={movie.id} />
           </div>
@@ -108,17 +101,15 @@ export default async function MoviePage({ params }) {
             ))}
           </div>
           
-          {/* Se tiveres o componente Recommendations, descomenta a linha abaixo */}
-          {/* <Recommendations type="movie" id={movie.id} /> */}
+          {/* Recomendações ativadas aqui 👇 */}
+          <Recommendations type="movie" id={movie.id} />
         </div>
 
         <div className="bg-white/5 p-6 rounded-xl h-fit border border-white/10">
           <p className="text-gray-400 text-sm mb-1">Realizador</p>
           <p className="font-medium mb-4">{director || "N/A"}</p>
-          
           <p className="text-gray-400 text-sm mb-1">Orçamento</p>
           <p className="font-medium mb-4">${(movie.budget / 1000000).toFixed(1)}M</p>
-
           <p className="text-gray-400 text-sm mb-1">Estúdio</p>
           <p className="font-medium">{movie.production_companies?.[0]?.name || "N/A"}</p>
         </div>
