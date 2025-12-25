@@ -1,146 +1,174 @@
-import WatchlistButton from "@/components/WatchlistButton";
-import Link from "next/link";
-import Recommendations from "@/components/Recommendations"; 
+import Image from 'next/image';
+import Link from 'next/link';
+import { FaStar, FaCalendar, FaClock } from 'react-icons/fa'; // Certifica-te que tens o react-icons instalado
 
-const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
+// Função para ir buscar os dados
+async function getData(id, seasonNumber) {
+  const apiKey = process.env.TMDB_API_KEY;
+  const baseUrl = 'https://api.themoviedb.org/3';
+  const language = 'pt-PT';
 
-// Buscar dados principais da série
-async function getSeries(id) {
-  try {
-    const res = await fetch(
-      `https://api.themoviedb.org/3/tv/${id}?api_key=${API_KEY}&language=pt-BR&append_to_response=credits`,
-      { next: { revalidate: 3600 } }
-    );
-    if (!res.ok) return null;
-    return res.json();
-  } catch (error) {
-    return null;
+  // 1. Detalhes da Série (para saber quantas temporadas existem)
+  const seriesReq = fetch(`${baseUrl}/tv/${id}?api_key=${apiKey}&language=${language}`);
+  
+  // 2. Episódios da Temporada selecionada
+  const seasonReq = fetch(`${baseUrl}/tv/${id}/season/${seasonNumber}?api_key=${apiKey}&language=${language}`);
+  
+  // 3. Recomendações
+  const recsReq = fetch(`${baseUrl}/tv/${id}/recommendations?api_key=${apiKey}&language=${language}`);
+
+  // Fazemos os pedidos todos ao mesmo tempo para ser mais rápido
+  const [seriesRes, seasonRes, recsRes] = await Promise.all([seriesReq, seasonReq, recsReq]);
+
+  const series = await seriesRes.json();
+  const seasonData = await seasonRes.json();
+  const recommendations = await recsRes.json();
+
+  return { series, seasonData, recommendations: recommendations.results || [] };
+}
+
+export default async function SeriesPage({ params, searchParams }) {
+  // Em Next.js 15/16, params e searchParams são Promises e têm de levar await
+  const { id } = await params;
+  const sp = await searchParams;
+  const currentSeason = sp.season ? Number(sp.season) : 1;
+
+  const { series, seasonData, recommendations } = await getData(id, currentSeason);
+
+  // Se der erro ou não encontrar
+  if (!series || series.success === false) {
+    return <div className="text-center mt-20 text-white">Série não encontrada.</div>;
   }
-}
-
-// Buscar episódios da Temporada 1
-async function getSeason(id, seasonNumber) {
-    try {
-        const res = await fetch(`https://api.themoviedb.org/3/tv/${id}/season/${seasonNumber}?api_key=${API_KEY}&language=pt-BR`);
-        return res.json();
-    } catch(e) { return null; }
-}
-
-export async function generateMetadata({ params }) {
-  const { id } = await params;
-  const series = await getSeries(id);
-  return {
-    title: series ? `${series.name} - LusoStream` : "Série não encontrada",
-  };
-}
-
-export default async function SeriesPage({ params }) {
-  // ⚠️ Aguardar params (Obrigatório no Next.js 15+)
-  const { id } = await params;
-  
-  const series = await getSeries(id);
-  
-  if (!series) return <div className="min-h-screen flex items-center justify-center text-white">Série não encontrada.</div>;
-
-  const season1 = await getSeason(id, 1);
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] pb-20">
-      {/* Hero / Capa Gigante */}
-      <div className="relative h-[60vh] w-full">
+    <div className="min-h-screen pb-20 bg-black text-white">
+      {/* --- BANNER PRINCIPAL --- */}
+      <div className="relative w-full h-[60vh] md:h-[70vh]">
         <div className="absolute inset-0">
-          <img
+          <Image
             src={`https://image.tmdb.org/t/p/original${series.backdrop_path}`}
             alt={series.name}
-            className="w-full h-full object-cover opacity-60"
+            fill
+            className="object-cover opacity-40"
+            priority
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/40 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
         </div>
-
-        <div className="absolute bottom-0 left-0 w-full p-6 md:p-12 max-w-7xl mx-auto z-10">
-          <h1 className="text-4xl md:text-6xl font-bold text-white mb-4 drop-shadow-lg">{series.name}</h1>
+        
+        <div className="absolute bottom-0 left-0 w-full p-6 md:p-12 container mx-auto">
+          <h1 className="text-4xl md:text-6xl font-bold mb-4">{series.name}</h1>
           
-          <div className="flex flex-wrap gap-4 text-sm text-gray-300 mb-6 items-center">
-             <span className="text-green-400 font-bold">{series.vote_average.toFixed(1)} Classificação</span>
-             <span>{series.first_air_date?.split("-")[0]}</span>
-             <span>{series.number_of_seasons} Temporadas</span>
+          <div className="flex flex-wrap items-center gap-6 text-sm md:text-base text-zinc-300 mb-6">
+            <span className="flex items-center text-yellow-400 font-bold gap-1">
+              <FaStar /> {Math.round(series.vote_average * 10) / 10}
+            </span>
+            <span className="flex items-center gap-1">
+              <FaCalendar /> {series.first_air_date?.split('-')[0]}
+            </span>
+            <span className="flex items-center gap-1">
+              <FaClock /> {series.episode_run_time?.[0]} min
+            </span>
+            <span className="bg-zinc-800 px-2 py-1 rounded text-xs uppercase">
+              {series.genres?.map(g => g.name).slice(0, 2).join(', ')}
+            </span>
           </div>
 
-          <div className="flex gap-4 mb-6">
-            <Link 
-              href={`/watch/series/${series.id}/season/1/episode/1`}
-              className="bg-white text-black px-8 py-3 rounded-lg font-bold text-lg hover:bg-gray-200 transition shadow-lg shadow-white/10"
-            >
-              Começar a Ver
-            </Link>
-            <WatchlistButton mediaId={series.id} mediaType="tv" />
-          </div>
+          <p className="max-w-3xl text-lg text-zinc-300 line-clamp-3 md:line-clamp-4">
+            {series.overview}
+          </p>
         </div>
       </div>
 
-      {/* Conteúdo Principal */}
-      <div className="max-w-7xl mx-auto px-6 mt-8">
+      <div className="container mx-auto px-6 md:px-12 mt-10">
         
-        {/* Sinopse */}
-        <p className="text-gray-300 text-lg mb-12 max-w-3xl leading-relaxed">{series.overview}</p>
-
-        {/* --- LISTA DE EPISÓDIOS (T1) --- */}
-        <h2 className="text-2xl font-bold text-white mb-6 border-l-4 border-purple-500 pl-3">Episódios (Temporada 1)</h2>
-        <div className="space-y-4 max-w-4xl mb-12">
-            {season1?.episodes?.map((ep) => (
-                <Link 
-                    key={ep.id} 
-                    href={`/watch/series/${series.id}/season/1/episode/${ep.episode_number}`}
-                    className="flex flex-col md:flex-row gap-4 bg-white/5 border border-white/10 p-4 rounded-xl hover:bg-white/10 transition group"
-                >
-                    <div className="w-full md:w-48 aspect-video flex-shrink-0 rounded-lg overflow-hidden relative bg-gray-900">
-                         {ep.still_path ? (
-                            <img src={`https://image.tmdb.org/t/p/w300${ep.still_path}`} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
-                         ) : (
-                            <div className="w-full h-full flex items-center justify-center text-xs text-gray-500">Sem Imagem</div>
-                         )}
-                         <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
-                            <svg className="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                         </div>
-                    </div>
-                    <div className="flex-1">
-                        <div className="flex justify-between items-start">
-                            <h3 className="font-bold text-white mb-1">{ep.episode_number}. {ep.name}</h3>
-                            <span className="text-xs text-gray-400">{ep.air_date && new Date(ep.air_date).toLocaleDateString()}</span>
-                        </div>
-                        <p className="text-sm text-gray-400 line-clamp-2 mt-2">{ep.overview || "Sem descrição disponível."}</p>
-                    </div>
-                </Link>
+        {/* --- SELETOR DE TEMPORADAS --- */}
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold mb-4 border-l-4 border-purple-600 pl-3">Temporadas</h2>
+          <div className="flex flex-wrap gap-2">
+            {series.seasons?.filter(s => s.season_number > 0).map((season) => (
+              <Link 
+                key={season.id} 
+                href={`/series/${id}?season=${season.season_number}`}
+                scroll={false} // Mantém a posição do scroll ao clicar
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                  currentSeason === season.season_number 
+                    ? 'bg-purple-600 text-white' 
+                    : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
+                }`}
+              >
+                {season.name}
+              </Link>
             ))}
+          </div>
         </div>
 
-        {/* --- ELENCO (Com Scroll Horizontal) --- */}
-        {series.credits?.cast?.length > 0 && (
-          <div className="mt-12 mb-12">
-            <h2 className="text-2xl font-bold text-white mb-6">Elenco Principal</h2>
-            <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar">
-              {series.credits.cast.slice(0, 15).map((actor) => (
-                <div key={actor.id} className="flex-shrink-0 w-32 text-center group">
-                  <div className="w-24 h-24 mx-auto rounded-full overflow-hidden mb-3 border-2 border-white/10 group-hover:border-purple-500 transition bg-gray-800">
-                    {actor.profile_path ? (
-                      <img src={`https://image.tmdb.org/t/p/w185${actor.profile_path}`} className="w-full h-full object-cover" />
+        {/* --- LISTA DE EPISÓDIOS --- */}
+        <div className="mb-16">
+          <h3 className="text-xl font-semibold mb-6 text-zinc-300">
+            Episódios da {seasonData.name || `Temporada ${currentSeason}`}
+          </h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {seasonData.episodes?.map((ep) => (
+              <div key={ep.id} className="bg-zinc-900 rounded-lg overflow-hidden group hover:ring-2 hover:ring-purple-600 transition">
+                <div className="relative aspect-video w-full bg-zinc-800">
+                  {ep.still_path ? (
+                    <Image
+                      src={`https://image.tmdb.org/t/p/w500${ep.still_path}`}
+                      alt={ep.name}
+                      fill
+                      className="object-cover group-hover:scale-105 transition duration-500"
+                    />
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-zinc-600">Sem Imagem</div>
+                  )}
+                  <div className="absolute top-2 right-2 bg-black/70 px-2 py-1 text-xs rounded">
+                    {ep.runtime}m
+                  </div>
+                </div>
+                
+                <div className="p-4">
+                  <div className="flex justify-between items-start mb-2">
+                    <h4 className="font-bold text-sm truncate text-white w-full" title={ep.name}>
+                      {ep.episode_number}. {ep.name}
+                    </h4>
+                  </div>
+                  <p className="text-xs text-zinc-500 line-clamp-3">
+                    {ep.overview || "Sem descrição disponível."}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* --- RECOMENDAÇÕES --- */}
+        {recommendations.length > 0 && (
+          <div className="pt-10 border-t border-zinc-800">
+            <h2 className="text-2xl font-bold mb-6 border-l-4 border-purple-600 pl-3">Recomendado para ti</h2>
+            <div className="flex overflow-x-auto space-x-4 pb-4 no-scrollbar">
+              {recommendations.map((rec) => (
+                <Link key={rec.id} href={rec.media_type === 'tv' ? `/series/${rec.id}` : `/filme/${rec.id}`} className="flex-none w-[160px] group">
+                  <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-zinc-800 mb-2">
+                    {rec.poster_path ? (
+                      <Image
+                        src={`https://image.tmdb.org/t/p/w500${rec.poster_path}`}
+                        alt={rec.name || rec.title}
+                        fill
+                        className="object-cover group-hover:scale-110 transition duration-300"
+                      />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-xl text-gray-500 font-bold">
-                        {actor.name.charAt(0)}
-                      </div>
+                      <div className="h-full flex items-center justify-center text-xs">Sem Capa</div>
                     )}
                   </div>
-                  <p className="text-sm font-bold text-white truncate px-1">{actor.name}</p>
-                  <p className="text-xs text-gray-400 truncate px-1">{actor.character}</p>
-                </div>
+                  <p className="text-sm font-medium text-zinc-300 truncate group-hover:text-purple-400 transition">
+                    {rec.name || rec.title}
+                  </p>
+                </Link>
               ))}
             </div>
           </div>
         )}
-
-        {/* --- RECOMENDAÇÕES --- */}
-        <Recommendations type="tv" id={series.id} />
-        
       </div>
     </div>
   );

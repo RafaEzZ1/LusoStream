@@ -22,3 +22,14 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Esconder a barra de scroll em Chrome, Safari e Opera */
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
+
+/* Esconder a barra de scroll em IE, Edge e Firefox */
+.scrollbar-hide {
+    -ms-overflow-style: none;  /* IE e Edge */
+    scrollbar-width: none;  /* Firefox */
+}
