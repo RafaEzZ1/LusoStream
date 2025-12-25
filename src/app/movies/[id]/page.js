@@ -2,7 +2,9 @@ import { getMovieEmbed } from "@/lib/embeds";
 import WatchlistButton from "@/components/WatchlistButton";
 import MovieProgressClient from "./MovieProgressClient";
 import Recommendations from "@/components/Recommendations";
+import DraggableScroll from "@/components/DraggableScroll"; // <--- NOVO IMPORT
 import Link from "next/link";
+import { FaPlay, FaYoutube } from "react-icons/fa"; // <--- ÍCONES NOVOS
 
 const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
 
@@ -39,6 +41,9 @@ export default async function MoviePage({ params }) {
   const hours = Math.floor(movie.runtime / 60);
   const minutes = movie.runtime % 60;
   const director = movie.credits?.crew?.find(c => c.job === "Director")?.name;
+  
+  // Encontrar o trailer do YouTube
+  const trailer = movie.videos?.results?.find(v => v.type === "Trailer" && v.site === "YouTube");
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] pb-20">
@@ -54,6 +59,7 @@ export default async function MoviePage({ params }) {
 
         <div className="absolute bottom-0 left-0 w-full p-6 md:p-12 max-w-7xl mx-auto z-10">
           <h1 className="text-4xl md:text-6xl font-bold text-white mb-4 drop-shadow-xl">{movie.title}</h1>
+          
           <div className="flex flex-wrap gap-4 text-sm text-gray-300 mb-6 items-center">
             <span className="text-green-400 font-bold">{movie.vote_average.toFixed(1)} Classificação</span>
             <span>{movie.release_date?.split("-")[0]}</span>
@@ -68,9 +74,20 @@ export default async function MoviePage({ params }) {
               href={`/watch/movie/${movie.id}`}
               className="bg-white text-black px-8 py-3 rounded-lg font-bold text-lg hover:bg-gray-200 transition flex items-center gap-2 shadow-lg shadow-white/10"
             >
-              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-              Ver Filme
+              <FaPlay /> Ver Filme
             </Link>
+
+            {trailer && (
+              <a 
+                href={`https://www.youtube.com/watch?v=${trailer.key}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-red-600 text-white px-6 py-3 rounded-lg font-bold text-lg hover:bg-red-700 transition flex items-center gap-2 shadow-lg"
+              >
+                <FaYoutube /> Trailer
+              </a>
+            )}
+
             <WatchlistButton mediaId={movie.id} mediaType="movie" />
           </div>
           <div className="mt-8 max-w-md">
@@ -85,12 +102,14 @@ export default async function MoviePage({ params }) {
           <p className="text-gray-300 leading-relaxed text-lg mb-8">{movie.overview}</p>
           
           <h3 className="text-xl font-bold mb-4">Elenco Principal</h3>
-          <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar">
-            {movie.credits?.cast?.slice(0, 8).map(actor => (
-              <div key={actor.id} className="flex-shrink-0 w-32 text-center">
+          
+          {/* USANDO O NOVO COMPONENTE DE ARRASTAR */}
+          <DraggableScroll className="gap-4 pb-4">
+            {movie.credits?.cast?.slice(0, 10).map(actor => (
+              <div key={actor.id} className="flex-shrink-0 w-32 text-center select-none">
                 <div className="w-24 h-24 mx-auto rounded-full overflow-hidden mb-2 border border-white/10">
                   {actor.profile_path ? (
-                    <img src={`https://image.tmdb.org/t/p/w185${actor.profile_path}`} className="w-full h-full object-cover" />
+                    <img src={`https://image.tmdb.org/t/p/w185${actor.profile_path}`} className="w-full h-full object-cover pointer-events-none" />
                   ) : (
                     <div className="w-full h-full bg-gray-800" />
                   )}
@@ -99,9 +118,8 @@ export default async function MoviePage({ params }) {
                 <p className="text-xs text-gray-500 truncate">{actor.character}</p>
               </div>
             ))}
-          </div>
+          </DraggableScroll>
           
-          {/* Recomendações ativadas aqui 👇 */}
           <Recommendations type="movie" id={movie.id} />
         </div>
 

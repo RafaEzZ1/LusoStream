@@ -1,8 +1,9 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { FaStar, FaCalendar, FaClock } from 'react-icons/fa';
+import { FaStar, FaCalendar, FaClock, FaYoutube } from 'react-icons/fa';
+import DraggableScroll from "@/components/DraggableScroll"; // <--- NOVO IMPORT
 
-// A chave que funciona
+// CHAVE FIXA PARA GARANTIR QUE AS IMAGENS CARREGAM
 const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
 
 async function getData(id, seasonNumber) {
@@ -10,7 +11,7 @@ async function getData(id, seasonNumber) {
   const language = 'pt-BR'; 
 
   try {
-    const seriesReq = fetch(`${baseUrl}/tv/${id}?api_key=${API_KEY}&language=${language}`);
+    const seriesReq = fetch(`${baseUrl}/tv/${id}?api_key=${API_KEY}&language=${language}&append_to_response=videos`);
     const seasonReq = fetch(`${baseUrl}/tv/${id}/season/${seasonNumber}?api_key=${API_KEY}&language=${language}`);
     const recsReq = fetch(`${baseUrl}/tv/${id}/recommendations?api_key=${API_KEY}&language=${language}`);
 
@@ -40,6 +41,9 @@ export default async function SeriesPage({ params, searchParams }) {
     return <div className="min-h-screen flex items-center justify-center text-white">Série não encontrada.</div>;
   }
 
+  // Encontrar o trailer
+  const trailer = series.videos?.results?.find(v => v.type === "Trailer" && v.site === "YouTube");
+
   return (
     <div className="min-h-screen pb-20 bg-black text-white">
       {/* Banner Principal */}
@@ -68,9 +72,21 @@ export default async function SeriesPage({ params, searchParams }) {
               {series.genres?.map(g => g.name).slice(0, 2).join(', ')}
             </span>
           </div>
-          <p className="max-w-3xl text-lg text-zinc-300 line-clamp-3 md:line-clamp-4">
+          <p className="max-w-3xl text-lg text-zinc-300 line-clamp-3 md:line-clamp-4 mb-6">
             {series.overview}
           </p>
+
+           {/* Botão Trailer */}
+           {trailer && (
+              <a 
+                href={`https://www.youtube.com/watch?v=${trailer.key}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg font-bold transition"
+              >
+                <FaYoutube /> Ver Trailer
+              </a>
+            )}
         </div>
       </div>
 
@@ -78,13 +94,13 @@ export default async function SeriesPage({ params, searchParams }) {
         {/* Seletor de Temporadas */}
         <div className="mb-8">
           <h2 className="text-2xl font-bold mb-4 border-l-4 border-purple-600 pl-3">Temporadas</h2>
-          <div className="flex flex-wrap gap-2">
+          <DraggableScroll className="gap-2 pb-2">
             {series.seasons?.filter(s => s.season_number > 0).map((season) => (
               <Link 
                 key={season.id} 
                 href={`/series/${id}?season=${season.season_number}`}
                 scroll={false} 
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                className={`flex-none px-4 py-2 rounded-full text-sm font-medium transition-colors select-none ${
                   currentSeason === season.season_number 
                     ? 'bg-purple-600 text-white' 
                     : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
@@ -93,7 +109,7 @@ export default async function SeriesPage({ params, searchParams }) {
                 {season.name}
               </Link>
             ))}
-          </div>
+          </DraggableScroll>
         </div>
 
         {/* Episódios */}
@@ -128,20 +144,21 @@ export default async function SeriesPage({ params, searchParams }) {
           </div>
         </div>
 
-        {/* RECOMENDAÇÕES (Corrigido para usar classes certas) */}
+        {/* RECOMENDAÇÕES (Agora arrastáveis!) */}
         {recommendations && recommendations.length > 0 && (
           <div className="pt-10 border-t border-zinc-800">
             <h2 className="text-2xl font-bold mb-6 border-l-4 border-purple-600 pl-3">Recomendado para ti</h2>
-            <div className="flex overflow-x-auto space-x-4 pb-4 no-scrollbar">
+            
+            <DraggableScroll className="gap-4 pb-4">
               {recommendations.map((rec) => (
-                <Link key={rec.id} href={rec.media_type === 'tv' ? `/series/${rec.id}` : `/movies/${rec.id}`} className="flex-none w-[160px] group">
+                <Link key={rec.id} href={rec.media_type === 'tv' ? `/series/${rec.id}` : `/movies/${rec.id}`} className="flex-none w-[160px] group select-none">
                   <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-zinc-800 mb-2">
                     {rec.poster_path ? (
                       <Image
                         src={`https://image.tmdb.org/t/p/w500${rec.poster_path}`}
                         alt={rec.name || rec.title}
                         fill
-                        className="object-cover group-hover:scale-110 transition duration-300"
+                        className="object-cover group-hover:scale-110 transition duration-300 pointer-events-none"
                       />
                     ) : (
                       <div className="h-full flex items-center justify-center text-xs">Sem Capa</div>
@@ -152,7 +169,7 @@ export default async function SeriesPage({ params, searchParams }) {
                   </p>
                 </Link>
               ))}
-            </div>
+            </DraggableScroll>
           </div>
         )}
       </div>
