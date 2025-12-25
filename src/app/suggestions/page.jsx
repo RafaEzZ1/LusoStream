@@ -1,5 +1,4 @@
 // src/app/suggestions/page.jsx
-import Navbar from "@/components/Navbar";
 import SuggestionsClient from "./SuggestionsClient";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +11,6 @@ export const metadata = {
 export default function SuggestionsPage() {
   return (
     <div className="bg-black min-h-screen text-white font-sans">
-      <Navbar />
       
       {/* Fundo com gradiente subtil */}
       <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-red-900/20 via-black to-black pointer-events-none" />

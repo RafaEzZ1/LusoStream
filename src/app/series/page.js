@@ -3,7 +3,6 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import Navbar from "@/components/Navbar";
 import { useDraggableScroll } from "@/hooks/useDraggableScroll";
 
 const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
@@ -72,7 +71,6 @@ export default function SeriesPage() {
 
   return (
     <div className="bg-black min-h-screen text-white font-sans">
-      <Navbar />
       
       <main className="pt-24 px-6 max-w-7xl mx-auto pb-20">
         
