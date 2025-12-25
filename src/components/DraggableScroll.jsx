@@ -20,7 +20,7 @@ export default function DraggableScroll({ children, className = "" }) {
     if (!isDragging) return;
     e.preventDefault();
     const x = e.pageX - ref.current.offsetLeft;
-    const walk = (x - startX) * 2; // Velocidade do scroll
+    const walk = (x - startX) * 1.5; // Ajusta a velocidade aqui
     ref.current.scrollLeft = scrollLeft - walk;
   };
 

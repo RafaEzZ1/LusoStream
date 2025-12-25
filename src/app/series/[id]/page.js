@@ -1,9 +1,10 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { FaStar, FaCalendar, FaClock, FaYoutube } from 'react-icons/fa';
-import DraggableScroll from "@/components/DraggableScroll"; // <--- NOVO IMPORT
+import { FaStar, FaCalendar, FaClock } from 'react-icons/fa';
+import DraggableScroll from "@/components/DraggableScroll";
+import TrailerButton from "@/components/TrailerButton"; // <--- Novo Import
 
-// CHAVE FIXA PARA GARANTIR QUE AS IMAGENS CARREGAM
+// A Chave Mestra
 const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
 
 async function getData(id, seasonNumber) {
@@ -11,6 +12,7 @@ async function getData(id, seasonNumber) {
   const language = 'pt-BR'; 
 
   try {
+    // Buscar detalhes + videos
     const seriesReq = fetch(`${baseUrl}/tv/${id}?api_key=${API_KEY}&language=${language}&append_to_response=videos`);
     const seasonReq = fetch(`${baseUrl}/tv/${id}/season/${seasonNumber}?api_key=${API_KEY}&language=${language}`);
     const recsReq = fetch(`${baseUrl}/tv/${id}/recommendations?api_key=${API_KEY}&language=${language}`);
@@ -31,6 +33,7 @@ async function getData(id, seasonNumber) {
 }
 
 export default async function SeriesPage({ params, searchParams }) {
+  // Next.js 15+ exige await nos params
   const { id } = await params;
   const sp = await searchParams;
   const currentSeason = sp.season ? Number(sp.season) : 1;
@@ -41,7 +44,7 @@ export default async function SeriesPage({ params, searchParams }) {
     return <div className="min-h-screen flex items-center justify-center text-white">Série não encontrada.</div>;
   }
 
-  // Encontrar o trailer
+  // Encontrar o trailer do Youtube
   const trailer = series.videos?.results?.find(v => v.type === "Trailer" && v.site === "YouTube");
 
   return (
@@ -76,22 +79,14 @@ export default async function SeriesPage({ params, searchParams }) {
             {series.overview}
           </p>
 
-           {/* Botão Trailer */}
-           {trailer && (
-              <a 
-                href={`https://www.youtube.com/watch?v=${trailer.key}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg font-bold transition"
-              >
-                <FaYoutube /> Ver Trailer
-              </a>
-            )}
+           {/* Botão Trailer (Agora com Pop-up!) */}
+           {trailer && <TrailerButton trailerKey={trailer.key} />}
         </div>
       </div>
 
       <div className="container mx-auto px-6 md:px-12 mt-10">
-        {/* Seletor de Temporadas */}
+        
+        {/* Seletor de Temporadas (Arrastável) */}
         <div className="mb-8">
           <h2 className="text-2xl font-bold mb-4 border-l-4 border-purple-600 pl-3">Temporadas</h2>
           <DraggableScroll className="gap-2 pb-2">
@@ -144,7 +139,7 @@ export default async function SeriesPage({ params, searchParams }) {
           </div>
         </div>
 
-        {/* RECOMENDAÇÕES (Agora arrastáveis!) */}
+        {/* RECOMENDAÇÕES (Arrastáveis!) */}
         {recommendations && recommendations.length > 0 && (
           <div className="pt-10 border-t border-zinc-800">
             <h2 className="text-2xl font-bold mb-6 border-l-4 border-purple-600 pl-3">Recomendado para ti</h2>
