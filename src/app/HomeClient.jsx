@@ -2,39 +2,47 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useAuth } from "@/components/AuthProvider"; // Usa o contexto Firebase
-import HeroSection from "@/components/HeroSection";
+import { useAuth } from "@/components/AuthProvider";
 import ContinueWatching from "@/components/ContinueWatching";
 import MediaRow from "@/components/MediaRow";
 import { listContinueWatching } from "@/lib/progress";
 
+// Se tiveres o componente Hero separado, importa-o. 
+// Se não, vou assumir que o Hero faz parte deste código ou usas uma imagem de destaque manual.
+// Para garantir que funciona, vou pôr aqui um Hero "in-line" simples e bonito.
+
 const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
 
 export default function HomeClient() {
-  const { user, profile } = useAuth(); // Perfil já traz a watchlist
+  const { user, profile } = useAuth();
   const [continueList, setContinueList] = useState([]);
   const [myList, setMyList] = useState([]); 
+  const [featuredMovie, setFeaturedMovie] = useState(null);
 
+  // 1. Carregar Dados Iniciais
   useEffect(() => {
     async function loadContent() {
+      // Buscar filme de destaque aleatório
+      try {
+        const res = await fetch(`https://api.themoviedb.org/3/trending/movie/week?api_key=${API_KEY}&language=pt-BR`);
+        const data = await res.json();
+        const random = data.results[Math.floor(Math.random() * data.results.length)];
+        setFeaturedMovie(random);
+      } catch (e) { console.error(e); }
+
       if (user) {
-        // 1. Carregar Continuar a Ver
+        // Carregar "Continuar a Ver"
         const progressItems = await listContinueWatching(user.uid);
         setContinueList(progressItems);
 
-        // 2. Carregar Minha Lista (baseada no array do perfil)
+        // Carregar Minha Lista
         if (profile?.watchlist?.length > 0) {
           const enrichedList = await Promise.all(profile.watchlist.map(async (id) => {
               try {
-                // Tenta buscar como filme primeiro
                 let res = await fetch(`https://api.themoviedb.org/3/movie/${id}?api_key=${API_KEY}&language=pt-BR`);
-                if (!res.ok) {
-                   // Se falhar, tenta como série
-                   res = await fetch(`https://api.themoviedb.org/3/tv/${id}?api_key=${API_KEY}&language=pt-BR`);
-                }
+                if (!res.ok) res = await fetch(`https://api.themoviedb.org/3/tv/${id}?api_key=${API_KEY}&language=pt-BR`);
                 const tmdb = await res.json();
-                if (!tmdb.id) return null;
-                return tmdb;
+                return tmdb.id ? tmdb : null;
               } catch(e) { return null; }
           }));
           setMyList(enrichedList.filter(i => i !== null));
@@ -45,14 +53,56 @@ export default function HomeClient() {
   }, [user, profile]);
 
   return (
-    <main className="pb-24 overflow-x-hidden bg-black">
-      <HeroSection />
+    <div className="bg-black min-h-screen pb-20 overflow-x-hidden">
+      
+      {/* --- HERO SECTION (Destaque) --- */}
+      {/* Nota: mt-[-80px] serve para a imagem subir e ficar atrás da Navbar transparente */}
+      <div className="relative h-[85vh] w-full -mt-20">
+        {featuredMovie && (
+          <>
+            <div className="absolute inset-0">
+              <img 
+                src={`https://image.tmdb.org/t/p/original${featuredMovie.backdrop_path}`} 
+                className="w-full h-full object-cover opacity-70"
+                alt={featuredMovie.title}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-transparent to-transparent" />
+            </div>
 
-      <div className="relative z-20 -mt-10 space-y-2">
+            <div className="absolute bottom-0 left-0 p-8 md:p-16 w-full max-w-3xl z-10 space-y-4">
+              <h1 className="text-4xl md:text-6xl font-bold text-white drop-shadow-xl">
+                {featuredMovie.title || featuredMovie.name}
+              </h1>
+              <p className="text-gray-200 text-lg line-clamp-3 drop-shadow-md">
+                {featuredMovie.overview}
+              </p>
+              <div className="flex gap-4 pt-4">
+                <Link 
+                  href={`/movies/${featuredMovie.id}`} 
+                  className="bg-white text-black px-8 py-3 rounded-lg font-bold text-lg hover:bg-gray-200 transition flex items-center gap-2"
+                >
+                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                  Reproduzir
+                </Link>
+                <Link 
+                  href={`/movies/${featuredMovie.id}`} 
+                  className="bg-gray-500/50 text-white px-8 py-3 rounded-lg font-bold text-lg hover:bg-gray-500/70 backdrop-blur-sm transition flex items-center gap-2"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  Mais Info
+                </Link>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* --- LISTAS DE CONTEÚDO --- */}
+      <div className="relative z-20 px-4 md:px-12 space-y-8 -mt-16">
+        
         {continueList.length > 0 && (
-          <div className="mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-             <ContinueWatching items={continueList} />
-          </div>
+          <ContinueWatching items={continueList} />
         )}
 
         {myList.length > 0 && (
@@ -61,32 +111,11 @@ export default function HomeClient() {
 
         <MediaRow title="🔥 Filmes em Alta" endpoint="trending/movie/week?" type="movie" />
         <MediaRow title="📺 Séries do Momento" endpoint="trending/tv/week?" type="tv" />
-        <MediaRow title="🎬 Ação & Aventura" endpoint="discover/movie?with_genres=28,12&sort_by=popularity.desc" type="movie" />
+        <MediaRow title="🎬 Ação Pura" endpoint="discover/movie?with_genres=28&sort_by=popularity.desc" type="movie" />
         <MediaRow title="😂 Comédia" endpoint="discover/movie?with_genres=35&sort_by=popularity.desc" type="movie" />
-        <MediaRow title="🐉 Animação & Anime" endpoint="discover/tv?with_genres=16&sort_by=popularity.desc" type="tv" />
-        
-        <div className="px-6 mt-16 mb-8 max-w-7xl mx-auto">
-          <h2 className="text-xl font-bold text-white mb-6 border-l-4 border-red-600 pl-4 flex items-center gap-2">
-            Não encontraste o que procuras?
-          </h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Link href="/movies" className="group relative h-40 rounded-xl overflow-hidden flex items-center justify-center border border-gray-800 hover:border-red-600 transition duration-300 shadow-lg hover:shadow-red-900/20">
-              <div className="absolute inset-0 bg-gradient-to-br from-red-900/40 to-black group-hover:from-red-800/60 transition"></div>
-              <div className="relative z-10 flex flex-col items-center gap-2">
-                <span className="text-xl font-bold text-white uppercase tracking-wider">Ver Filmes</span>
-              </div>
-            </Link>
-
-            <Link href="/series" className="group relative h-40 rounded-xl overflow-hidden flex items-center justify-center border border-gray-800 hover:border-blue-600 transition duration-300 shadow-lg hover:shadow-blue-900/20">
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-900/40 to-black group-hover:from-blue-800/60 transition"></div>
-              <div className="relative z-10 flex flex-col items-center gap-2">
-                <span className="text-xl font-bold text-white uppercase tracking-wider">Ver Séries</span>
-              </div>
-            </Link>
-          </div>
-        </div>
+        <MediaRow title="🐉 Animação" endpoint="discover/movie?with_genres=16&sort_by=popularity.desc" type="movie" />
+        <MediaRow title="👻 Terror" endpoint="discover/movie?with_genres=27&sort_by=popularity.desc" type="movie" />
       </div>
-    </main>
+    </div>
   );
 }
