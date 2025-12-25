@@ -1,32 +1,33 @@
 import { Inter } from "next/font/google";
-import "./globals.css"; // Isto carrega o estilo
+import "./globals.css";
 import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer"; 
 import { AuthProvider } from "@/components/AuthProvider";
 import { AuthModalProvider } from "@/context/AuthModalContext";
 import AuthModal from "@/components/AuthModal";
+import { Toaster } from 'react-hot-toast'; // <--- IMPORT NOVO
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
-  title: "LusoStream",
-  description: "Cinema Português Online",
+  title: "LusoStream - O Teu Cinema em Casa",
+  description: "Vê filmes e séries online com a melhor qualidade.",
 };
 
 export default function RootLayout({ children }) {
   return (
     <html lang="pt">
-      <body className={inter.className}>
+      <body className={`${inter.className} bg-black text-white antialiased`}>
         <AuthProvider>
           <AuthModalProvider>
-            <div className="flex flex-col min-h-screen bg-black text-white">
-              <Navbar />
-              <AuthModal />
-              <main className="flex-grow">
-                {children}
-              </main>
-              <Footer />
-            </div>
+            <Navbar />
+            {children}
+            <AuthModal />
+            <Toaster position="bottom-center" toastOptions={{ // <--- CONFIGURAÇÃO NOVA
+              style: {
+                background: '#333',
+                color: '#fff',
+              },
+            }} /> 
           </AuthModalProvider>
         </AuthProvider>
       </body>
