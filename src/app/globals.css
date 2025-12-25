@@ -4,50 +4,38 @@
 
 :root {
   --foreground-rgb: 255, 255, 255;
-  --background-start-rgb: 0, 0, 0;
-  --background-end-rgb: 0, 0, 0;
+  --background-start-rgb: 20, 20, 20; /* Preto suave Netflix */
+  --background-end-rgb: 0, 0, 0;      /* Preto total */
 }
 
 body {
   color: rgb(var(--foreground-rgb));
   background: linear-gradient(
       to bottom,
-      transparent,
+      rgb(var(--background-start-rgb)),
       rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+    );
   min-height: 100vh;
-  /* Garante que o scroll é suave */
-  scroll-behavior: smooth; 
+  overflow-x: hidden; /* Impede scroll lateral indesejado */
 }
 
-/* --- SCROLLBAR PERSONALIZADO (Para Elenco e Listas) --- */
-.custom-scrollbar {
-  scrollbar-width: thin; /* Firefox */
-  scrollbar-color: #333 #0a0a0a; /* Firefox */
-}
-
-/* Webkit (Chrome, Edge, Safari) */
-.custom-scrollbar::-webkit-scrollbar {
-  height: 8px; /* Altura da barra horizontal */
+/* Scrollbar Bonito e Fino */
+::-webkit-scrollbar {
   width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #0a0a0a;
+}
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
 }
 
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: #0a0a0a; /* Cor do fundo da calha */
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: #333; /* Cor da barra */
-  border-radius: 20px; /* Arredondado */
-  border: 2px solid #0a0a0a; /* Margem interna */
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background-color: #555; /* Cor ao passar o rato */
-}
-
-/* Utilitário para esconder scrollbar se necessário */
+/* Utilitário para esconder scrollbar */
 .scrollbar-hide::-webkit-scrollbar {
     display: none;
 }
