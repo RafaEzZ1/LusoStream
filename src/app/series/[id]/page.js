@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { FaStar, FaCalendar, FaYoutube } from 'react-icons/fa';
 import DraggableScroll from "@/components/DraggableScroll";
 import TrailerButton from "@/components/TrailerButton";
-import WatchlistButton from "@/components/WatchlistButton"; // <--- 1. Importámos o botão
+import WatchlistButton from "@/components/WatchlistButton";
 
 // Chave API
 const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
@@ -81,7 +81,7 @@ export default async function SeriesPage({ params, searchParams }) {
              {/* Botão Trailer */}
              {trailer && <TrailerButton trailerKey={trailer.key} />}
              
-             {/* 2. Botão Minha Lista (Já ligado ao Firebase) */}
+             {/* Botão Minha Lista */}
              <WatchlistButton mediaId={series.id} mediaType="tv" />
           </div>
         </div>
@@ -111,14 +111,19 @@ export default async function SeriesPage({ params, searchParams }) {
           </DraggableScroll>
         </div>
 
-        {/* Episódios */}
+        {/* LISTA DE EPISÓDIOS (AGORA SÃO LINKS!) */}
         <div className="mb-12">
           <h3 className="text-xl font-semibold mb-6 text-zinc-300">
             Episódios da {seasonData?.name || `Temporada ${currentSeason}`}
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {seasonData?.episodes?.map((ep) => (
-              <div key={ep.id} className="bg-zinc-900 rounded-lg overflow-hidden group hover:ring-2 hover:ring-purple-600 transition">
+              <Link 
+                key={ep.id} 
+                // 👇 AQUI ESTÁ A MUDANÇA MÁGICA: O LINK PARA O PLAYER
+                href={`/watch/series/${id}/season/${currentSeason}/episode/${ep.episode_number}`}
+                className="bg-zinc-900 rounded-lg overflow-hidden group hover:ring-2 hover:ring-purple-600 transition block cursor-pointer"
+              >
                 <div className="relative aspect-video w-full bg-zinc-800">
                   {ep.still_path ? (
                     <Image
@@ -130,6 +135,12 @@ export default async function SeriesPage({ params, searchParams }) {
                   ) : (
                     <div className="flex items-center justify-center h-full text-zinc-600">Sem Imagem</div>
                   )}
+                  {/* Ícone de Play sobreposto */}
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition bg-black/40">
+                    <div className="bg-purple-600 rounded-full p-3 shadow-lg transform scale-0 group-hover:scale-100 transition duration-300">
+                      <svg className="w-6 h-6 text-white ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                    </div>
+                  </div>
                   <div className="absolute top-2 right-2 bg-black/70 px-2 py-1 text-xs rounded">
                     {ep.runtime || '?'}m
                   </div>
@@ -138,7 +149,7 @@ export default async function SeriesPage({ params, searchParams }) {
                   <h4 className="font-bold text-sm truncate text-white w-full">{ep.episode_number}. {ep.name}</h4>
                   <p className="text-xs text-zinc-500 line-clamp-3 mt-1">{ep.overview || "Sem descrição."}</p>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </div>

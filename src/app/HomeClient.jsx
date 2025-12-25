@@ -7,10 +7,6 @@ import ContinueWatching from "@/components/ContinueWatching";
 import MediaRow from "@/components/MediaRow";
 import { listContinueWatching } from "@/lib/progress";
 
-// Se tiveres o componente Hero separado, importa-o. 
-// Se não, vou assumir que o Hero faz parte deste código ou usas uma imagem de destaque manual.
-// Para garantir que funciona, vou pôr aqui um Hero "in-line" simples e bonito.
-
 const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
 
 export default function HomeClient() {
@@ -35,14 +31,25 @@ export default function HomeClient() {
         const progressItems = await listContinueWatching(user.uid);
         setContinueList(progressItems);
 
-        // Carregar Minha Lista
+        // Carregar Minha Lista (COM CORREÇÃO DE TIPO)
         if (profile?.watchlist?.length > 0) {
           const enrichedList = await Promise.all(profile.watchlist.map(async (id) => {
               try {
+                // Tenta Filme
                 let res = await fetch(`https://api.themoviedb.org/3/movie/${id}?api_key=${API_KEY}&language=pt-BR`);
-                if (!res.ok) res = await fetch(`https://api.themoviedb.org/3/tv/${id}?api_key=${API_KEY}&language=pt-BR`);
-                const tmdb = await res.json();
-                return tmdb.id ? tmdb : null;
+                if (res.ok) {
+                  const tmdb = await res.json();
+                  return { ...tmdb, item_type: 'movie' }; // <--- CARIMBO DE FILME
+                }
+                
+                // Tenta Série
+                res = await fetch(`https://api.themoviedb.org/3/tv/${id}?api_key=${API_KEY}&language=pt-BR`);
+                if (res.ok) {
+                  const tmdb = await res.json();
+                  return { ...tmdb, item_type: 'tv' }; // <--- CARIMBO DE SÉRIE
+                }
+                
+                return null;
               } catch(e) { return null; }
           }));
           setMyList(enrichedList.filter(i => i !== null));
@@ -55,8 +62,7 @@ export default function HomeClient() {
   return (
     <div className="bg-black min-h-screen pb-20 overflow-x-hidden">
       
-      {/* --- HERO SECTION (Destaque) --- */}
-      {/* Nota: mt-[-80px] serve para a imagem subir e ficar atrás da Navbar transparente */}
+      {/* --- HERO SECTION --- */}
       <div className="relative h-[85vh] w-full -mt-20">
         {featuredMovie && (
           <>
@@ -105,6 +111,7 @@ export default function HomeClient() {
           <ContinueWatching items={continueList} />
         )}
 
+        {/* A Minha Lista agora passa os dados corretos */}
         {myList.length > 0 && (
           <MediaRow title="📂 A Minha Lista" itemsProp={myList} />
         )}

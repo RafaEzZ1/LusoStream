@@ -1,4 +1,3 @@
-// src/components/MediaRow.jsx
 "use client";
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
@@ -10,20 +9,17 @@ export default function MediaRow({ title, endpoint, type = "movie", itemsProp = 
   const [items, setItems] = useState([]);
   const rowRef = useRef(null);
   
-  // Tenta usar o hook de arrastar, se der erro usa valores vazios
   let draggable = { events: () => ({}), style: {} };
   try {
     draggable = useDraggableScroll();
-  } catch(e) { /* Hook pode não existir ainda */ }
+  } catch(e) {}
 
   useEffect(() => {
-    // 1. SE RECEBER UMA LISTA PRONTA (MINHA LISTA), USA-A IMEDIATAMENTE
     if (itemsProp && itemsProp.length > 0) {
         setItems(itemsProp);
         return;
     }
 
-    // 2. CASO CONTRÁRIO, VAI BUSCAR AO TMDB
     async function fetchData() {
       if (!endpoint) return; 
       try {
@@ -39,7 +35,6 @@ export default function MediaRow({ title, endpoint, type = "movie", itemsProp = 
     fetchData();
   }, [endpoint, title, itemsProp]);
 
-  // Se não houver itens, não mostra nada
   if (!items || items.length === 0) return null;
 
   return (
@@ -55,34 +50,47 @@ export default function MediaRow({ title, endpoint, type = "movie", itemsProp = 
         className="flex gap-4 overflow-x-auto no-scrollbar pb-4"
         style={{ ...(draggable.style || {}), WebkitOverflowScrolling: "touch" }}
       >
-        {items.map((item) => (
-          <Link
-            key={item.id}
-            // Verifica se é movie ou tv. Se vier da "Minha Lista", já traz o item_type correto.
-            href={(item.item_type === "movie" || type === "movie") ? `/movies/${item.id}` : `/series/${item.id}`}
-            className="flex-none w-[150px] md:w-[180px] transition duration-300 ease-in-out hover:scale-105 hover:z-10 group/card select-none"
-            draggable="false"
-          >
-            <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-gray-800 shadow-lg border border-gray-800 hover:border-gray-600">
-              <img
-                src={item.poster_path ? `https://image.tmdb.org/t/p/w342${item.poster_path}` : "/no-image.jpg"}
-                alt={item.title || item.name}
-                className="w-full h-full object-cover opacity-90 group-hover/card:opacity-100 transition pointer-events-none"
-                loading="lazy"
-              />
-              
-              <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-0 group-hover/card:opacity-100 transition-opacity flex flex-col justify-end p-3">
-                <span className="text-xs font-bold text-yellow-400 mb-1">★ {item.vote_average?.toFixed(1)}</span>
+        {items.map((item) => {
+          // LÓGICA DE LINK INTELIGENTE
+          // 1. Se o item disser explicitamente que é 'tv' ou 'movie', usa isso.
+          // 2. Se não disser nada, usa o tipo padrão da linha (prop 'type').
+          // 3. Fallback: Se tiver 'name' em vez de 'title', assume que é série.
+          const isSeries = 
+            item.item_type === 'tv' || 
+            item.media_type === 'tv' || 
+            (!item.item_type && !item.media_type && type === 'tv') ||
+            (!item.item_type && !item.media_type && !item.title && item.name); // Heurística de segurança
+
+          const linkHref = isSeries ? `/series/${item.id}` : `/movies/${item.id}`;
+
+          return (
+            <Link
+              key={item.id}
+              href={linkHref}
+              className="flex-none w-[150px] md:w-[180px] transition duration-300 ease-in-out hover:scale-105 hover:z-10 group/card select-none"
+              draggable="false"
+            >
+              <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-gray-800 shadow-lg border border-gray-800 hover:border-gray-600">
+                <img
+                  src={item.poster_path ? `https://image.tmdb.org/t/p/w342${item.poster_path}` : "/no-image.jpg"}
+                  alt={item.title || item.name}
+                  className="w-full h-full object-cover opacity-90 group-hover/card:opacity-100 transition pointer-events-none"
+                  loading="lazy"
+                />
+                
+                <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-0 group-hover/card:opacity-100 transition-opacity flex flex-col justify-end p-3">
+                  <span className="text-xs font-bold text-yellow-400 mb-1">★ {item.vote_average?.toFixed(1)}</span>
+                </div>
               </div>
-            </div>
-            
-            <div className="mt-2 px-1">
-              <h3 className="text-sm font-medium text-gray-200 truncate group-hover/card:text-white transition">
-                {item.title || item.name}
-              </h3>
-            </div>
-          </Link>
-        ))}
+              
+              <div className="mt-2 px-1">
+                <h3 className="text-sm font-medium text-gray-200 truncate group-hover/card:text-white transition">
+                  {item.title || item.name}
+                </h3>
+              </div>
+            </Link>
+          );
+        })}
       </div>
     </section>
   );
