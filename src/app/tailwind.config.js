@@ -1,11 +1,7 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
-    "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/context/**/*.{js,ts,jsx,tsx,mdx}", // Adicionámos isto
-    "./src/lib/**/*.{js,ts,jsx,tsx,mdx}",      // E isto
+    "./src/**/*.{js,ts,jsx,tsx,mdx}", // 👈 Isto apanha TUDO dentro de src (app, components, lib, etc)
   ],
   theme: {
     extend: {

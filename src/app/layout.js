@@ -10,7 +10,7 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
   title: "LusoStream",
-  description: "Cinema Português Online",
+  description: "O melhor do cinema em português.",
 };
 
 export default function RootLayout({ children }) {
@@ -19,15 +19,15 @@ export default function RootLayout({ children }) {
       <body className={`${inter.className} bg-black text-white min-h-screen flex flex-col`}>
         <AuthProvider>
           <AuthModalProvider>
-
+            
             <Navbar />
             <AuthModal /> 
-
-            {/* O main grow garante que o footer fica sempre em baixo */}
+            
+            {/* O flex-grow empurra o footer para baixo se a página for pequena */}
             <main className="flex-grow">
               {children}
             </main>
-
+            
             <Footer />
 
           </AuthModalProvider>

@@ -4,8 +4,8 @@
 
 :root {
   --foreground-rgb: 255, 255, 255;
-  --background-start-rgb: 20, 20, 20; /* Preto suave Netflix */
-  --background-end-rgb: 0, 0, 0;      /* Preto total */
+  --background-start-rgb: 20, 20, 20;
+  --background-end-rgb: 0, 0, 0;
 }
 
 body {
@@ -16,10 +16,10 @@ body {
       rgb(var(--background-end-rgb))
     );
   min-height: 100vh;
-  overflow-x: hidden; /* Impede scroll lateral indesejado */
+  overflow-x: hidden;
 }
 
-/* Scrollbar Bonito e Fino */
+/* Scrollbar Personalizado (Fino e Escuro) */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
