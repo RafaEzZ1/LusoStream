@@ -1,16 +1,21 @@
 "use client";
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { useAuth } from "@/components/AuthProvider"; // Contexto Firebase
+import { useAuth } from "@/components/AuthProvider"; 
 import { useAuthModal } from "@/context/AuthModalContext";
+import { useRouter } from "next/navigation"; // Importante para a pesquisa
 import Logo from "./Logo";
-import NotificationBell from "./NotificationBell"; // O sininho que criámos
+import NotificationBell from "./NotificationBell";
 
 export default function Navbar() {
-  const { user, profile, isAdmin } = useAuth(); // profile traz o avatar e role
+  const { user, isAdmin } = useAuth(); // Profile não é estritamente necessário aqui se usarmos user.photoURL
   const { openModal } = useAuthModal();
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  
+  // Estado para a pesquisa
+  const [searchValue, setSearchValue] = useState("");
+  const router = useRouter();
 
   // Efeito de scroll para escurecer a navbar
   useEffect(() => {
@@ -18,6 +23,15 @@ export default function Navbar() {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  // Função de Pesquisa
+  const handleSearch = (e) => {
+    e.preventDefault();
+    if (searchValue.trim()) {
+      router.push(`/search?q=${encodeURIComponent(searchValue)}`);
+      setMenuOpen(false); // Fecha menu mobile se estiver aberto
+    }
+  };
 
   return (
     <nav className={`fixed top-0 w-full z-50 transition-all duration-300 ${scrolled ? "bg-black/90 backdrop-blur-md shadow-lg" : "bg-gradient-to-b from-black/80 to-transparent"}`}>
@@ -38,8 +52,22 @@ export default function Navbar() {
 
           {/* Lado Direito: Pesquisa, Admin, Avatar */}
           <div className="flex items-center gap-4 md:gap-6">
-            <Link href="/search" className="text-gray-300 hover:text-white">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+            
+            {/* BARRA DE PESQUISA (Desktop) */}
+            <form onSubmit={handleSearch} className="hidden md:flex items-center bg-white/10 rounded-full px-3 py-1 border border-white/5 focus-within:border-white/30 transition">
+               <svg className="w-4 h-4 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+               <input 
+                 type="text" 
+                 placeholder="Pesquisar..." 
+                 className="bg-transparent border-none outline-none text-sm text-white w-24 focus:w-48 transition-all placeholder-gray-400"
+                 value={searchValue}
+                 onChange={(e) => setSearchValue(e.target.value)}
+               />
+            </form>
+
+            {/* Lupa para Mobile (Link direto para search vazio) */}
+            <Link href="/search?q=" className="md:hidden text-gray-300">
+               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
             </Link>
 
             {/* Sininho de Notificações */}
@@ -83,8 +111,20 @@ export default function Navbar() {
 
       {/* Dropdown Mobile */}
       {menuOpen && (
-        <div className="md:hidden bg-[#121212] border-t border-white/10 p-4 absolute w-full left-0 animate-in slide-in-from-top-5">
+        <div className="md:hidden bg-[#121212] border-t border-white/10 p-4 absolute w-full left-0 animate-in slide-in-from-top-5 shadow-2xl">
           <div className="flex flex-col gap-4 text-white font-medium text-lg">
+            {/* Barra de pesquisa mobile */}
+            <form onSubmit={handleSearch} className="flex items-center bg-white/5 rounded-lg px-3 py-2 mb-2">
+               <input 
+                 type="text" 
+                 placeholder="Pesquisar filme ou série..." 
+                 className="bg-transparent border-none outline-none text-white w-full"
+                 value={searchValue}
+                 onChange={(e) => setSearchValue(e.target.value)}
+               />
+               <button type="submit">🔍</button>
+            </form>
+
             <Link href="/" onClick={() => setMenuOpen(false)}>Início</Link>
             <Link href="/movies" onClick={() => setMenuOpen(false)}>Filmes</Link>
             <Link href="/series" onClick={() => setMenuOpen(false)}>Séries</Link>

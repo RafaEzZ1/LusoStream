@@ -1,68 +1,26 @@
-// src/components/Footer.jsx
-"use client";
-
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import Logo from "@/components/Logo";
+import Logo from "./Logo";
 
 export default function Footer() {
-  const pathname = usePathname();
-
-  // Não mostrar footer no Admin ou Auth
-  if (pathname && (pathname.startsWith("/admin") || pathname.startsWith("/auth"))) {
-    return null;
-  }
-
-  const currentYear = new Date().getFullYear();
-
   return (
-    <footer className="bg-black border-t border-gray-800 pt-16 pb-8 text-gray-400 font-sans">
-      <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
-        
-        {/* Coluna 1: Logo e Sobre */}
-        <div className="space-y-4">
+    <footer className="bg-black border-t border-white/10 py-12 mt-20">
+      <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-8">
+        <div className="flex flex-col items-center md:items-start gap-4">
           <Logo />
-          <p className="text-sm leading-relaxed text-gray-500">
-            A tua plataforma de streaming favorita. Sem anúncios intrusivos, apenas cinema puro.
+          <p className="text-gray-500 text-sm max-w-xs text-center md:text-left">
+            O LusoStream não aloja nenhum conteúdo. Todos os links provêm de fontes externas.
           </p>
         </div>
-
-        {/* Coluna 2: Navegação */}
-        <div>
-          <h3 className="text-white font-bold mb-4 uppercase tracking-wider text-xs">Navegação</h3>
-          <ul className="space-y-2 text-sm">
-            <li><Link href="/movies" className="hover:text-red-500 transition">Filmes</Link></li>
-            <li><Link href="/series" className="hover:text-red-500 transition">Séries</Link></li>
-            {/* CORREÇÃO AQUI: Mudámos de '/animes' para '/series' para evitar o erro 404 */}
-            <li><Link href="/series" className="hover:text-red-500 transition">Animes</Link></li>
-            <li><Link href="/suggestions" className="hover:text-red-500 transition">Pedir Conteúdo</Link></li>
-          </ul>
+        
+        <div className="flex gap-8 text-sm text-gray-400">
+          <Link href="/dmca" className="hover:text-white transition">DMCA</Link>
+          <Link href="/terms" className="hover:text-white transition">Termos</Link>
+          <Link href="/privacy" className="hover:text-white transition">Privacidade</Link>
         </div>
 
-        {/* Coluna 3: Legal */}
-        <div>
-          <h3 className="text-white font-bold mb-4 uppercase tracking-wider text-xs">Legal</h3>
-          <ul className="space-y-2 text-sm">
-            <li><Link href="/terms" className="hover:text-red-500 transition">Termos de Uso</Link></li>
-            <li><span className="cursor-not-allowed opacity-50">Privacidade</span></li>
-            <li><span className="cursor-not-allowed opacity-50">DMCA</span></li>
-          </ul>
+        <div className="text-gray-600 text-xs">
+          © {new Date().getFullYear()} LusoStream
         </div>
-
-        {/* Coluna 4: Conta */}
-        <div>
-          <h3 className="text-white font-bold mb-4 uppercase tracking-wider text-xs">Conta</h3>
-          <ul className="space-y-2 text-sm">
-            <li><Link href="/auth" className="hover:text-red-500 transition">Entrar / Registar</Link></li>
-            <li><Link href="/account" className="hover:text-red-500 transition">Minha Lista</Link></li>
-            <li><Link href="/account" className="hover:text-red-500 transition">Definições</Link></li>
-          </ul>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-6 border-t border-gray-900 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-gray-600">
-        <p>© {currentYear} LusoStream. Todos os direitos reservados.</p>
-        <p>Feito com ❤️ para a comunidade.</p>
       </div>
     </footer>
   );

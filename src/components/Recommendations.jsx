@@ -1,4 +1,3 @@
-// src/components/Recommendations.jsx
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -9,60 +8,40 @@ export default function Recommendations({ type, id }) {
   const [items, setItems] = useState([]);
 
   useEffect(() => {
-    async function fetchData() {
+    async function fetchRecs() {
       try {
-        // Busca filmes/séries similares ao atual
-        const res = await fetch(
-          `https://api.themoviedb.org/3/${type}/${id}/recommendations?api_key=${API_KEY}&language=pt-BR&page=1`
-        );
+        const res = await fetch(`https://api.themoviedb.org/3/${type}/${id}/recommendations?api_key=${API_KEY}&language=pt-BR&page=1`);
         const data = await res.json();
-        // Vamos mostrar apenas os primeiros 6
-        setItems((data.results || []).slice(0, 6));
-      } catch (e) {
-        console.error("Erro recomendações:", e);
-      }
+        setItems(data.results || []);
+      } catch (e) { console.error(e); }
     }
-    if (id) fetchData();
+    if (id) fetchRecs();
   }, [type, id]);
 
   if (items.length === 0) return null;
 
   return (
     <div className="mt-12">
-      <h3 className="text-xl font-bold text-white mb-4 border-l-4 border-red-600 pl-3">
-        Recomendados para ti
+      <h3 className="text-xl font-bold text-white mb-4 border-l-4 border-purple-500 pl-3">
+        Também poderás gostar
       </h3>
       
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
-        {items.map((item) => (
-          <Link
-            key={item.id}
+      {/* Scroll Container */}
+      <div className="flex gap-4 overflow-x-auto pb-6 custom-scrollbar scroll-smooth">
+        {items.slice(0, 10).map((item) => (
+          <Link 
+            key={item.id} 
             href={type === "movie" ? `/movies/${item.id}` : `/series/${item.id}`}
-            className="group relative bg-gray-900 rounded-lg overflow-hidden transition hover:scale-105 hover:z-10 shadow-lg"
+            className="flex-shrink-0 w-40 group relative rounded-lg overflow-hidden bg-gray-800"
           >
-            {/* Poster */}
-            <div className="aspect-[2/3] relative">
-              <img
-                src={item.poster_path ? `https://image.tmdb.org/t/p/w342${item.poster_path}` : "/no-image.jpg"}
-                alt={item.title || item.name}
-                className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition"
-              />
-              
-              {/* Overlay com info */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-2">
-                <span className="text-xs font-bold text-yellow-400">★ {item.vote_average?.toFixed(1)}</span>
-              </div>
-            </div>
-
-            {/* Título */}
-            <div className="p-2">
-              <h4 className="text-sm font-semibold text-gray-200 truncate group-hover:text-white">
-                {item.title || item.name}
-              </h4>
-              <p className="text-xs text-gray-500">
-                {(item.release_date || item.first_air_date || "").split("-")[0]}
-              </p>
-            </div>
+             {item.poster_path ? (
+               <img src={`https://image.tmdb.org/t/p/w342${item.poster_path}`} className="w-full aspect-[2/3] object-cover group-hover:scale-110 transition duration-500" />
+             ) : (
+               <div className="w-full aspect-[2/3] flex items-center justify-center text-xs text-gray-500">Sem Capa</div>
+             )}
+             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-center p-2">
+               <span className="text-xs font-bold text-white">{item.title || item.name}</span>
+             </div>
           </Link>
         ))}
       </div>
