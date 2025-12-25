@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@hcaptcha/react-hcaptcha": "^1.11.0",
+    "@headlessui/react": "^2.2.9",
     "@tailwindcss/postcss": "^4.1.18",
     "@vercel/analytics": "^1.2.2",
     "autoprefixer": "^10.4.23",
