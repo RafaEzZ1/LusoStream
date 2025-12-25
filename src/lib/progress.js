@@ -1,68 +1,63 @@
 import { db } from "@/lib/firebase";
 import { doc, setDoc, getDoc, collection, query, orderBy, limit, getDocs } from "firebase/firestore";
 
-// Salvar progresso
-export async function saveVideoProgress(userId, mediaId, currentTime, duration, type = "movie", season = null, episode = null) {
+// GUARDAR PROGRESSO (Chamado pelo player)
+export async function saveVideoProgress(userId, mediaId, seconds, duration, type, season = null, episode = null) {
   if (!userId || !mediaId) return;
 
-  // ID do documento: "movie_123" ou "series_123_s1e1"
-  const docId = type === "movie" ? `movie_${mediaId}` : `series_${mediaId}_s${season}e${episode}`;
-  const percentage = duration > 0 ? (currentTime / duration) * 100 : 0;
-
+  const percentage = Math.round((seconds / duration) * 100);
+  
+  // ID Único para guardar na BD
+  // Se for filme: "movie_123"
+  // Se for série: "tv_123" (Guardamos o progresso da série no geral)
+  const docId = `${type}_${mediaId}`;
+  
   try {
-    await setDoc(doc(db, "users", userId, "progress", docId), {
+    const progressRef = doc(db, "users", userId, "progress", docId);
+    
+    await setDoc(progressRef, {
       mediaId: String(mediaId),
-      type,
-      season,
-      episode,
-      currentTime,
+      mediaType: type === 'series' ? 'tv' : type, // Normaliza 'series' para 'tv'
+      seconds,
       duration,
       percentage,
-      updatedAt: new Date(),
-      finished: percentage > 90
+      season: season ? Number(season) : null,
+      episode: episode ? Number(episode) : null,
+      updatedAt: new Date(), // Importante para ordenar
+      isFinished: percentage > 90 // Marca como visto se > 90%
     }, { merge: true });
+    
+    console.log("Progresso guardado:", percentage + "%");
   } catch (error) {
-    console.error("Erro ao salvar progresso:", error);
+    console.error("Erro ao guardar progresso:", error);
   }
 }
 
-// Marcar como visto (Botão)
-export async function markAsFinished(userId, mediaId, type = "movie", season = null, episode = null) {
-  const docId = type === "movie" ? `movie_${mediaId}` : `series_${mediaId}_s${season}e${episode}`;
-  try {
-    await setDoc(doc(db, "users", userId, "progress", docId), {
-      mediaId: String(mediaId),
-      type,
-      season,
-      episode,
-      percentage: 100,
-      finished: true,
-      updatedAt: new Date()
-    }, { merge: true });
-  } catch (e) { console.error(e); }
-}
-
-// Listar "Continuar a Ver" para a Home
+// LISTAR "CONTINUAR A VER" (Chamado pela Home)
 export async function listContinueWatching(userId) {
+  if (!userId) return [];
+
   try {
-    const q = query(collection(db, "users", userId, "progress"), orderBy("updatedAt", "desc"), limit(10));
+    const q = query(
+      collection(db, "users", userId, "progress"),
+      orderBy("updatedAt", "desc"), // Os mais recentes primeiro
+      limit(10)
+    );
+
     const snapshot = await getDocs(q);
     
-    // Retorna apenas os que não acabaram (<90%)
+    // Filtra apenas os que NÃO estão acabados (< 90%)
     return snapshot.docs
       .map(doc => doc.data())
-      .filter(item => item.percentage < 90 && item.percentage > 5);
+      .filter(item => item.percentage < 90); 
+      
   } catch (error) {
-    console.error("Erro listar progresso:", error);
+    console.error("Erro ao listar continuar a ver:", error);
     return [];
   }
 }
 
-// Obter progresso único
-export async function getVideoProgress(userId, mediaId, type="movie", season=null, episode=null) {
-  const docId = type === "movie" ? `movie_${mediaId}` : `series_${mediaId}_s${season}e${episode}`;
-  try {
-    const snap = await getDoc(doc(db, "users", userId, "progress", docId));
-    return snap.exists() ? snap.data().currentTime : 0;
-  } catch (e) { return 0; }
+// MARCAR COMO VISTO MANUALMENTE
+export async function markAsFinished(userId, mediaId, type, season=null, episode=null) {
+    await saveVideoProgress(userId, mediaId, 100, 100, type, season, episode);
 }
