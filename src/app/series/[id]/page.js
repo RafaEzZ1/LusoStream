@@ -1,7 +1,6 @@
-// src/app/series/[id]/page.js
 import WatchlistButton from "@/components/WatchlistButton";
 import Link from "next/link";
-import Recommendations from "@/components/Recommendations";
+// import Recommendations from "@/components/Recommendations"; // Descomenta se tiveres
 
 const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
 
@@ -18,7 +17,6 @@ async function getSeries(id) {
   }
 }
 
-// Buscar episódios de uma temporada (por defeito T1)
 async function getSeason(id, seasonNumber) {
     try {
         const res = await fetch(`https://api.themoviedb.org/3/tv/${id}/season/${seasonNumber}?api_key=${API_KEY}&language=pt-BR`);
@@ -27,19 +25,20 @@ async function getSeason(id, seasonNumber) {
 }
 
 export async function generateMetadata({ params }) {
-  const series = await getSeries(params.id);
+  const { id } = await params; // ⚠️ Correção Next.js 15+
+  const series = await getSeries(id);
   return {
     title: series ? `${series.name} - LusoStream` : "Série não encontrada",
   };
 }
 
 export default async function SeriesPage({ params }) {
-  const series = await getSeries(params.id);
-  // Por defeito mostra a temporada 1. Num mundo ideal, isto seria interativo com estado, 
-  // mas para manter simples no Server Component, mostramos a T1.
-  const season1 = await getSeason(params.id, 1);
+  const { id } = await params; // ⚠️ Correção Next.js 15+
+  const series = await getSeries(id);
+  
+  if (!series) return <div className="min-h-screen flex items-center justify-center text-white">Série não encontrada.</div>;
 
-  if (!series) return <div className="text-white">Série não encontrada.</div>;
+  const season1 = await getSeason(id, 1);
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] pb-20">
@@ -71,7 +70,6 @@ export default async function SeriesPage({ params }) {
       <div className="max-w-7xl mx-auto px-6 mt-8">
         <p className="text-gray-300 text-lg mb-12 max-w-3xl">{series.overview}</p>
 
-        {/* Lista de Episódios (Temporada 1) */}
         <h2 className="text-2xl font-bold text-white mb-6">Episódios (Temporada 1)</h2>
         <div className="space-y-4 max-w-4xl">
             {season1?.episodes?.map((ep) => (
@@ -86,9 +84,6 @@ export default async function SeriesPage({ params }) {
                          ) : (
                             <div className="w-full h-full bg-gray-800 flex items-center justify-center text-xs text-gray-500">Sem Imagem</div>
                          )}
-                         <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
-                            <svg className="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                         </div>
                     </div>
                     <div className="flex-1">
                         <div className="flex justify-between items-start">
@@ -100,8 +95,7 @@ export default async function SeriesPage({ params }) {
                 </Link>
             ))}
         </div>
-
-        <Recommendations type="tv" id={series.id} />
+        {/* <Recommendations type="tv" id={series.id} /> */}
       </div>
     </div>
   );

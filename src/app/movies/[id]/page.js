@@ -1,18 +1,17 @@
-// src/app/movies/[id]/page.js
-import { getMovieEmbed } from "@/lib/embeds"; // Para verificar se temos o filme
+import { getMovieEmbed } from "@/lib/embeds";
 import WatchlistButton from "@/components/WatchlistButton";
-import MovieProgressClient from "./MovieProgressClient"; // Para mostrar barra de progresso
-import Recommendations from "@/components/Recommendations"; // Se tiveres este componente
+import MovieProgressClient from "./MovieProgressClient";
+import Recommendations from "@/components/Recommendations";
 import Link from "next/link";
 
 const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
 
-// Busca dados ao TMDB (Server-Side Fetching para SEO)
+// Busca dados ao TMDB
 async function getMovie(id) {
   try {
     const res = await fetch(
       `https://api.themoviedb.org/3/movie/${id}?api_key=${API_KEY}&language=pt-BR&append_to_response=credits,videos`,
-      { next: { revalidate: 3600 } } // Cache de 1 hora
+      { next: { revalidate: 3600 } }
     );
     if (!res.ok) return null;
     return res.json();
@@ -22,7 +21,9 @@ async function getMovie(id) {
 }
 
 export async function generateMetadata({ params }) {
-  const movie = await getMovie(params.id);
+  // ⚠️ Correção Next.js 15+: Aguardar params
+  const { id } = await params;
+  const movie = await getMovie(id);
   return {
     title: movie ? `${movie.title} - LusoStream` : "Filme não encontrado",
     description: movie?.overview || "Ver filmes online no LusoStream",
@@ -30,17 +31,14 @@ export async function generateMetadata({ params }) {
 }
 
 export default async function MoviePage({ params }) {
-  const movie = await getMovie(params.id);
-  
-  // Verifica no Firebase se temos link para este filme (Server Action simulada ou Client check)
-  // Como 'embeds' é client-side no Firebase SDK, vamos assumir que o botão "Ver Filme" leva sempre à página de watch
-  // e lá é que diz "Indisponível" se não existir.
+  // ⚠️ Correção Next.js 15+: Aguardar params
+  const { id } = await params;
+  const movie = await getMovie(id);
 
   if (!movie) {
-    return <div className="min-h-screen flex items-center justify-center text-white">Filme não encontrado.</div>;
+    return <div className="min-h-screen flex items-center justify-center text-white">Filme não encontrado (ID: {id}).</div>;
   }
 
-  // Formatar duração
   const hours = Math.floor(movie.runtime / 60);
   const minutes = movie.runtime % 60;
   const director = movie.credits?.crew?.find(c => c.job === "Director")?.name;
@@ -63,15 +61,14 @@ export default async function MoviePage({ params }) {
           
           <div className="flex flex-wrap gap-4 text-sm text-gray-300 mb-6 items-center">
             <span className="text-green-400 font-bold">{movie.vote_average.toFixed(1)} Classificação</span>
-            <span>{movie.release_date.split("-")[0]}</span>
+            <span>{movie.release_date?.split("-")[0]}</span>
             <span>{hours}h {minutes}m</span>
-            {movie.genres.map(g => (
+            {movie.genres?.map(g => (
               <span key={g.id} className="border border-white/20 px-2 py-0.5 rounded text-xs">{g.name}</span>
             ))}
           </div>
 
           <div className="flex flex-wrap gap-4">
-            {/* Botão Ver Agora */}
             <Link 
               href={`/watch/movie/${movie.id}`}
               className="bg-white text-black px-8 py-3 rounded-lg font-bold text-lg hover:bg-gray-200 transition flex items-center gap-2 shadow-lg shadow-white/10"
@@ -80,18 +77,15 @@ export default async function MoviePage({ params }) {
               Ver Filme
             </Link>
 
-            {/* Botão Watchlist (Client Component) */}
             <WatchlistButton mediaId={movie.id} mediaType="movie" />
           </div>
 
-          {/* Barra de Progresso (Se o user já começou a ver) */}
           <div className="mt-8 max-w-md">
              <MovieProgressClient mediaId={movie.id} />
           </div>
         </div>
       </div>
 
-      {/* Detalhes & Elenco */}
       <div className="max-w-7xl mx-auto px-6 mt-12 grid grid-cols-1 md:grid-cols-3 gap-12 text-white">
         <div className="md:col-span-2">
           <h2 className="text-2xl font-bold mb-4">Sinopse</h2>
@@ -113,9 +107,9 @@ export default async function MoviePage({ params }) {
               </div>
             ))}
           </div>
-
-          {/* Recomendações */}
-          <Recommendations type="movie" id={movie.id} />
+          
+          {/* Se tiveres o componente Recommendations, descomenta a linha abaixo */}
+          {/* <Recommendations type="movie" id={movie.id} /> */}
         </div>
 
         <div className="bg-white/5 p-6 rounded-xl h-fit border border-white/10">
