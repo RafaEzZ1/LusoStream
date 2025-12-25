@@ -4,15 +4,13 @@ import { Dialog, Transition } from "@headlessui/react";
 import { useAuthModal } from "@/context/AuthModalContext";
 import { 
   auth, 
-  googleProvider, 
-  signInWithPopup, 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword,
   updateProfile,
   createUserProfile,
   checkUsernameExists 
 } from "@/lib/firebase";
-import { FaGoogle, FaTimes } from "react-icons/fa";
+import { FaTimes } from "react-icons/fa";
 import toast from 'react-hot-toast';
 
 export default function AuthModal() {
@@ -66,17 +64,6 @@ export default function AuthModal() {
     }
   };
 
-  const handleGoogleLogin = async () => {
-    try {
-      const result = await signInWithPopup(auth, googleProvider);
-      await createUserProfile(result.user);
-      toast.success("Login com Google efetuado!");
-      closeModal();
-    } catch (error) {
-      toast.error("Erro no Login Google.");
-    }
-  };
-
   return (
     <Transition appear show={isOpen} as={Fragment}>
       <Dialog as="div" className="relative z-50" onClose={closeModal}>
@@ -121,7 +108,7 @@ export default function AuthModal() {
                       <input
                         type="text"
                         className="w-full bg-black border border-zinc-700 rounded-lg p-3 text-white focus:border-purple-500 outline-none"
-                        placeholder="Ex: RafaelStream"
+                        placeholder="Ex: Tuga123"
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
                         required
@@ -162,20 +149,7 @@ export default function AuthModal() {
                   </button>
                 </form>
 
-                <div className="mt-6 flex items-center gap-4">
-                  <div className="h-px bg-zinc-800 flex-1" />
-                  <span className="text-xs text-gray-500">OU</span>
-                  <div className="h-px bg-zinc-800 flex-1" />
-                </div>
-
-                <button
-                  onClick={handleGoogleLogin}
-                  className="mt-6 w-full bg-white text-black font-bold py-3 rounded-lg flex items-center justify-center gap-2 hover:bg-gray-200 transition"
-                >
-                  <FaGoogle /> Continuar com Google
-                </button>
-
-                <p className="mt-4 text-center text-sm text-gray-400">
+                <p className="mt-6 text-center text-sm text-gray-400">
                   {isLogin ? "Não tens conta?" : "Já tens conta?"}
                   <button
                     onClick={() => setIsLogin(!isLogin)}
