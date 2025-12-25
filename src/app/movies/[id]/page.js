@@ -107,6 +107,7 @@ export default async function MoviePage({ params }) {
           <h2 className="text-2xl font-bold mb-4">Sinopse</h2>
           <p className="text-gray-300 leading-relaxed text-lg mb-8">{movie.overview}</p>
           
+          {/* Elenco */}
           <h3 className="text-xl font-bold mb-4">Elenco Principal</h3>
           <DraggableScroll className="gap-4 pb-4">
             {movie.credits?.cast?.slice(0, 10).map(actor => (
@@ -129,6 +130,7 @@ export default async function MoviePage({ params }) {
             ))}
           </DraggableScroll>
           
+          {/* Recomendações */}
           {recommendations.length > 0 && (
             <div className="mt-12 pt-8 border-t border-white/10">
               <h3 className="text-xl font-bold mb-4 border-l-4 border-purple-500 pl-3">
@@ -140,7 +142,7 @@ export default async function MoviePage({ params }) {
                   <Link 
                     key={item.id} 
                     href={`/movies/${item.id}`}
-                    onDragStart={(e) => e.preventDefault()} // <--- IMPEDE O BUG
+                    draggable={false} // <--- CORREÇÃO AQUI
                     className="flex-shrink-0 w-40 group relative rounded-lg overflow-hidden bg-gray-800 select-none"
                   >
                     <div className="relative aspect-[2/3] w-full">

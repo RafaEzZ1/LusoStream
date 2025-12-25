@@ -1,9 +1,10 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { FaStar, FaCalendar, FaClock, FaYoutube } from 'react-icons/fa';
+import { FaStar, FaCalendar, FaYoutube } from 'react-icons/fa';
 import DraggableScroll from "@/components/DraggableScroll";
 import TrailerButton from "@/components/TrailerButton";
 
+// Chave API
 const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
 
 async function getData(id, seasonNumber) {
@@ -11,7 +12,6 @@ async function getData(id, seasonNumber) {
   const language = 'pt-BR'; 
 
   try {
-    // Buscar detalhes + videos + CREDITOS (Elenco)
     const seriesReq = fetch(`${baseUrl}/tv/${id}?api_key=${API_KEY}&language=${language}&append_to_response=videos,credits`);
     const seasonReq = fetch(`${baseUrl}/tv/${id}/season/${seasonNumber}?api_key=${API_KEY}&language=${language}`);
     const recsReq = fetch(`${baseUrl}/tv/${id}/recommendations?api_key=${API_KEY}&language=${language}`);
@@ -91,7 +91,7 @@ export default async function SeriesPage({ params, searchParams }) {
                 key={season.id} 
                 href={`/series/${id}?season=${season.season_number}`}
                 scroll={false} 
-                onDragStart={(e) => e.preventDefault()} // <--- IMPEDE O BUG DO ARRASTAR
+                draggable={false} // <--- CORREÇÃO AQUI (removemos a função)
                 className={`flex-none px-4 py-2 rounded-full text-sm font-medium transition-colors select-none ${
                   currentSeason === season.season_number 
                     ? 'bg-purple-600 text-white' 
@@ -104,7 +104,7 @@ export default async function SeriesPage({ params, searchParams }) {
           </DraggableScroll>
         </div>
 
-        {/* Lista de Episódios */}
+        {/* Episódios */}
         <div className="mb-12">
           <h3 className="text-xl font-semibold mb-6 text-zinc-300">
             Episódios da {seasonData?.name || `Temporada ${currentSeason}`}
@@ -136,7 +136,7 @@ export default async function SeriesPage({ params, searchParams }) {
           </div>
         </div>
 
-        {/* --- ELENCO (NOVO!) --- */}
+        {/* Elenco Principal */}
         <div className="mb-12">
           <h3 className="text-xl font-bold mb-4 text-white">Elenco Principal</h3>
           <DraggableScroll className="gap-4 pb-4">
@@ -148,7 +148,7 @@ export default async function SeriesPage({ params, searchParams }) {
                       src={`https://image.tmdb.org/t/p/w185${actor.profile_path}`} 
                       alt={actor.name}
                       fill
-                      className="object-cover pointer-events-none" // Previne drag na imagem
+                      className="object-cover pointer-events-none" 
                     />
                   ) : (
                     <div className="w-full h-full bg-gray-800" />
@@ -170,7 +170,7 @@ export default async function SeriesPage({ params, searchParams }) {
                 <Link 
                   key={rec.id} 
                   href={rec.media_type === 'tv' ? `/series/${rec.id}` : `/movies/${rec.id}`} 
-                  onDragStart={(e) => e.preventDefault()} // <--- IMPEDE O BUG
+                  draggable={false} // <--- CORREÇÃO AQUI
                   className="flex-none w-[160px] group select-none"
                 >
                   <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-zinc-800 mb-2">
