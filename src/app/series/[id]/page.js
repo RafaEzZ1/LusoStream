@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { FaStar, FaCalendar, FaYoutube } from 'react-icons/fa';
 import DraggableScroll from "@/components/DraggableScroll";
 import TrailerButton from "@/components/TrailerButton";
+import WatchlistButton from "@/components/WatchlistButton"; // <--- 1. Importámos o botão
 
 // Chave API
 const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
@@ -76,7 +77,13 @@ export default async function SeriesPage({ params, searchParams }) {
             {series.overview}
           </p>
 
-           {trailer && <TrailerButton trailerKey={trailer.key} />}
+          <div className="flex flex-wrap gap-4">
+             {/* Botão Trailer */}
+             {trailer && <TrailerButton trailerKey={trailer.key} />}
+             
+             {/* 2. Botão Minha Lista (Já ligado ao Firebase) */}
+             <WatchlistButton mediaId={series.id} mediaType="tv" />
+          </div>
         </div>
       </div>
 
@@ -91,7 +98,7 @@ export default async function SeriesPage({ params, searchParams }) {
                 key={season.id} 
                 href={`/series/${id}?season=${season.season_number}`}
                 scroll={false} 
-                draggable={false} // <--- CORREÇÃO AQUI (removemos a função)
+                draggable={false}
                 className={`flex-none px-4 py-2 rounded-full text-sm font-medium transition-colors select-none ${
                   currentSeason === season.season_number 
                     ? 'bg-purple-600 text-white' 
@@ -170,7 +177,7 @@ export default async function SeriesPage({ params, searchParams }) {
                 <Link 
                   key={rec.id} 
                   href={rec.media_type === 'tv' ? `/series/${rec.id}` : `/movies/${rec.id}`} 
-                  draggable={false} // <--- CORREÇÃO AQUI
+                  draggable={false}
                   className="flex-none w-[160px] group select-none"
                 >
                   <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-zinc-800 mb-2">
