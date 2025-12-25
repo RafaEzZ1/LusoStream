@@ -1,30 +1,34 @@
-// ESTA LINHA É O SEGREDO. OBRIGA O SITE A SER DINÂMICO E IGNORA O ERRO DE BUILD.
-export const dynamic = "force-dynamic"; 
-
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { AuthProvider } from "@/components/AuthProvider";
 import Navbar from "@/components/Navbar";
-// Se tiveres um Footer, importa-o aqui também
-// import Footer from "@/components/Footer";
+import { AuthProvider } from "@/components/AuthProvider";
+import { AuthModalProvider } from "@/context/AuthModalContext";
+import AuthModal from "@/components/AuthModal";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
   title: "LusoStream",
-  description: "O melhor do cinema em português",
+  description: "O melhor do cinema em português.",
 };
 
 export default function RootLayout({ children }) {
   return (
     <html lang="pt">
-      <body className={inter.className}>
+      <body className={`${inter.className} bg-black text-white`}>
+        {/* 1. O AuthProvider dá acesso ao Utilizador (Firebase) */}
         <AuthProvider>
-          <Navbar />
-          <main className="min-h-screen bg-black text-white">
+          {/* 2. O AuthModalProvider dá acesso ao Pop-up de Login */}
+          <AuthModalProvider>
+            
+            <Navbar />
+            
+            {/* O Modal fica aqui "escondido" à espera de ser chamado */}
+            <AuthModal /> 
+            
             {children}
-          </main>
-          {/* <Footer /> */}
+            
+          </AuthModalProvider>
         </AuthProvider>
       </body>
     </html>

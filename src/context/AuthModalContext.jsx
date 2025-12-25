@@ -1,8 +1,5 @@
-// src/context/AuthModalContext.js
 "use client";
-
 import { createContext, useContext, useState } from "react";
-import AuthModal from "@/components/AuthModal"; // Vamos criar este a seguir
 
 const AuthModalContext = createContext();
 
@@ -15,10 +12,14 @@ export function AuthModalProvider({ children }) {
   return (
     <AuthModalContext.Provider value={{ isOpen, openModal, closeModal }}>
       {children}
-      {/* O Modal fica aqui, invisível até alguém chamar o openModal */}
-      {isOpen && <AuthModal onClose={closeModal} />}
     </AuthModalContext.Provider>
   );
 }
 
-export const useAuthModal = () => useContext(AuthModalContext);
+export const useAuthModal = () => {
+  const context = useContext(AuthModalContext);
+  if (!context) {
+    throw new Error("useAuthModal deve ser usado dentro de um AuthModalProvider");
+  }
+  return context;
+};
