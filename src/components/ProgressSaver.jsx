@@ -1,30 +1,22 @@
 "use client";
+import { useEffect } from "react";
+import { useAuth } from "@/components/AuthProvider";
+import { saveVideoProgress } from "@/lib/progress";
 
-import { useEffect, useRef } from "react";
-import { setSeriesProgress } from "@/lib/progress";
-
-/**
- * Props:
- * - id, title, season, episode
- * - getPosition: () => seconds
- * - getDuration: () => seconds
- */
-export default function ProgressSaver({ id, title, season, episode, getPosition, getDuration }) {
-  const intervalRef = useRef(null);
+export default function ProgressSaver({ mediaId, currentTime, duration }) {
+  const { user } = useAuth();
 
   useEffect(() => {
-    intervalRef.current = setInterval(() => {
-      try {
-        const pos = typeof getPosition === "function" ? getPosition() : 0;
-        const dur = typeof getDuration === "function" ? getDuration() : 0;
-        setSeriesProgress(id, { title, season, episode, positionSeconds: Math.floor(pos), durationSeconds: Math.floor(dur) });
-      } catch (e) {
-        console.error(e);
-      }
+    // Só guarda se tivermos utilizador e o vídeo estiver a andar
+    if (!user || !mediaId || currentTime <= 5) return;
+
+    // Grava a cada 5 segundos ou quando o componente desmontar
+    const timeout = setTimeout(() => {
+      saveVideoProgress(user.uid, mediaId, currentTime, duration);
     }, 5000);
 
-    return () => clearInterval(intervalRef.current);
-  }, [id, title, season, episode, getPosition, getDuration]);
+    return () => clearTimeout(timeout);
+  }, [user, mediaId, currentTime, duration]);
 
-  return null;
+  return null; // Componente invisível
 }

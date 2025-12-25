@@ -1,101 +1,68 @@
-import { createClient } from "@/lib/supabase/client";
+import { db } from "@/lib/firebase";
+import { doc, setDoc, getDoc, collection, query, orderBy, limit, getDocs } from "firebase/firestore";
 
-const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
+// Salvar progresso
+export async function saveVideoProgress(userId, mediaId, currentTime, duration, type = "movie", season = null, episode = null) {
+  if (!userId || !mediaId) return;
 
-// Esta função já existia, mantemos igual
-export async function listContinueWatching(limit = 10) {
-  const supabase = createClient();
-  
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return [];
+  // ID do documento: "movie_123" ou "series_123_s1e1"
+  const docId = type === "movie" ? `movie_${mediaId}` : `series_${mediaId}_s${season}e${episode}`;
+  const percentage = duration > 0 ? (currentTime / duration) * 100 : 0;
 
-  const { data: progressRows } = await supabase
-    .from("continue_watching")
-    .select("*")
-    .eq("user_id", user.id)
-    .order("updated_at", { ascending: false })
-    .limit(limit);
-
-  if (!progressRows || progressRows.length === 0) return [];
-
-  const enriched = await Promise.all(
-    progressRows.map(async (row) => {
-      try {
-        const apiType = row.item_type === "movie" ? "movie" : "tv";
-        const res = await fetch(
-          `https://api.themoviedb.org/3/${apiType}/${row.item_id}?api_key=${API_KEY}&language=pt-BR`
-        );
-        const tmdb = await res.json();
-        
-        if (!tmdb.id) return null;
-
-        return {
-          ...tmdb,
-          item_type: row.item_type,
-          progress_percent: row.progress_percent,
-          season_number: row.season_number,
-          episode_number: row.episode_number,
-        };
-      } catch (e) {
-        return null;
-      }
-    })
-  );
-
-  return enriched.filter((item) => item !== null);
-}
-
-// --- NOVAS FUNÇÕES ADICIONADAS (Isto corrige o erro de build) ---
-
-export async function markAsWatching(id, type, percent, season = null, episode = null) {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) return;
-
-  const updateData = {
-    user_id: user.id,
-    item_id: id,
-    item_type: type, // 'movie' ou 'series'
-    progress_percent: percent,
-    updated_at: new Date().toISOString(),
-  };
-
-  // Só adiciona temporada/episódio se existirem (para séries)
-  if (season) updateData.season_number = season;
-  if (episode) updateData.episode_number = episode;
-
-  // Tenta atualizar ou criar um novo registo
-  const { error } = await supabase
-    .from("continue_watching")
-    .upsert(updateData, { onConflict: "user_id, item_id, item_type" });
-
-  if (error) {
+  try {
+    await setDoc(doc(db, "users", userId, "progress", docId), {
+      mediaId: String(mediaId),
+      type,
+      season,
+      episode,
+      currentTime,
+      duration,
+      percentage,
+      updatedAt: new Date(),
+      finished: percentage > 90
+    }, { merge: true });
+  } catch (error) {
     console.error("Erro ao salvar progresso:", error);
   }
 }
 
-export async function markAsFinished(id, type, season = null, episode = null) {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+// Marcar como visto (Botão)
+export async function markAsFinished(userId, mediaId, type = "movie", season = null, episode = null) {
+  const docId = type === "movie" ? `movie_${mediaId}` : `series_${mediaId}_s${season}e${episode}`;
+  try {
+    await setDoc(doc(db, "users", userId, "progress", docId), {
+      mediaId: String(mediaId),
+      type,
+      season,
+      episode,
+      percentage: 100,
+      finished: true,
+      updatedAt: new Date()
+    }, { merge: true });
+  } catch (e) { console.error(e); }
+}
 
-  if (!user) return;
-
-  // Quando termina, podemos remover da lista de "continuar a ver" 
-  // OU marcar como 100%. Aqui vou remover para limpar a lista da home.
-  const query = supabase
-    .from("continue_watching")
-    .delete()
-    .eq("user_id", user.id)
-    .eq("item_id", id)
-    .eq("item_type", type);
-
-  if (season) query.eq("season_number", season);
-  if (episode) query.eq("episode_number", episode);
-
-  const { error } = await query;
-
-  if (error) {
-    console.error("Erro ao marcar como terminado:", error);
+// Listar "Continuar a Ver" para a Home
+export async function listContinueWatching(userId) {
+  try {
+    const q = query(collection(db, "users", userId, "progress"), orderBy("updatedAt", "desc"), limit(10));
+    const snapshot = await getDocs(q);
+    
+    // Retorna apenas os que não acabaram (<90%)
+    return snapshot.docs
+      .map(doc => doc.data())
+      .filter(item => item.percentage < 90 && item.percentage > 5);
+  } catch (error) {
+    console.error("Erro listar progresso:", error);
+    return [];
   }
+}
+
+// Obter progresso único
+export async function getVideoProgress(userId, mediaId, type="movie", season=null, episode=null) {
+  const docId = type === "movie" ? `movie_${mediaId}` : `series_${mediaId}_s${season}e${episode}`;
+  try {
+    const snap = await getDoc(doc(db, "users", userId, "progress", docId));
+    return snap.exists() ? snap.data().currentTime : 0;
+  } catch (e) { return 0; }
 }

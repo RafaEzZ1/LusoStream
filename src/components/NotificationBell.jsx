@@ -1,182 +1,66 @@
-// src/components/NotificationBell.jsx
 "use client";
-
-import { useState, useEffect, useRef } from 'react';
-import { createClient } from '@/lib/supabase/client'; // <--- ATUALIZADO
-import { Bell, X, CheckCircle, MessageSquare, AlertCircle, BellOff } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { db } from "@/lib/firebase";
+import { collection, query, orderBy, limit, onSnapshot } from "firebase/firestore";
 
 export default function NotificationBell() {
-  const [notifications, setNotifications] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const menuRef = useRef(null);
-  const [userId, setUserId] = useState(null);
-  
-  const supabase = createClient(); // <--- INSTÂNCIA
+  const [notifications, setNotifications] = useState([]);
+  const [hasNew, setHasNew] = useState(false);
 
   useEffect(() => {
-    let mounted = true;
-
-    const setupNotifications = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+    // Escuta a coleção 'announcements' em TEMPO REAL
+    const q = query(collection(db, "announcements"), orderBy("createdAt", "desc"), limit(5));
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        // Converte o Timestamp do Firebase para Date JS
+        createdAt: doc.data().createdAt?.toDate() || new Date()
+      }));
       
-      if (mounted) setUserId(user.id);
+      setNotifications(data);
+      
+      // Se houver notificações recentes (menos de 24h), marca o sininho
+      if (data.length > 0) {
+        const lastNotif = data[0].createdAt;
+        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        if (lastNotif > oneDayAgo) setHasNew(true);
+      }
+    });
 
-      await fetchNotifications(user.id);
-
-      const channel = supabase
-        .channel('realtime-notifications')
-        .on(
-          'postgres_changes',
-          { event: 'INSERT', schema: 'public', table: 'notifications' },
-          (payload) => {
-            const newNotif = payload.new;
-            if (newNotif.user_id === null || newNotif.user_id === user.id) {
-              setNotifications(prev => [newNotif, ...prev]);
-              setUnreadCount(prev => prev + 1);
-            }
-          }
-        )
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    };
-
-    setupNotifications();
-
-    const handleClickOutside = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) setIsOpen(false);
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-
-    return () => {
-      mounted = false;
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
+    return () => unsubscribe();
   }, []);
 
-  const fetchNotifications = async (uid) => {
-    const { data, error } = await supabase
-      .from('notifications')
-      .select(`*, notification_actions!left(is_dismissed)`)
-      .or(`user_id.eq.${uid},user_id.is.null`)
-      .order('created_at', { ascending: false })
-      .limit(50);
-
-    if (!error && data) {
-      const active = data.filter(n => 
-        !n.notification_actions || 
-        n.notification_actions.length === 0 || 
-        !n.notification_actions[0].is_dismissed
-      );
-      setNotifications(active);
-      setUnreadCount(active.length);
-    }
-  };
-
-  const handleDismiss = async (notificationId) => {
-    setNotifications(prev => prev.filter(n => n.id !== notificationId));
-    setUnreadCount(prev => Math.max(0, prev - 1));
-
-    if (userId) {
-      await supabase
-        .from('notification_actions')
-        .upsert({ user_id: userId, notification_id: notificationId, is_dismissed: true }, { onConflict: 'user_id, notification_id' });
-    }
-  };
-
-  const handleClearAll = async () => {
-    const notificationsToClear = [...notifications];
-    setNotifications([]);
-    setUnreadCount(0);
-
-    if (!userId) return;
-
-    const updates = notificationsToClear.map(n => ({
-      user_id: userId,
-      notification_id: n.id,
-      is_dismissed: true
-    }));
-
-    if (updates.length > 0) {
-      await supabase
-        .from('notification_actions')
-        .upsert(updates, { onConflict: 'user_id, notification_id' });
-    }
-  };
-
-  const getIcon = (type) => {
-    switch(type) {
-      case 'report': return <CheckCircle size={14} className="text-green-500" />;
-      case 'suggestion': return <MessageSquare size={14} className="text-blue-500" />;
-      case 'announcement': return <AlertCircle size={14} className="text-red-500" />;
-      default: return <AlertCircle size={14} className="text-gray-400" />;
-    }
-  };
-
   return (
-    <div className="relative" ref={menuRef}>
-      <button onClick={() => setIsOpen(!isOpen)} className="relative p-2 text-gray-400 hover:text-white transition-all">
-        <Bell size={22} />
-        {unreadCount > 0 && (
-          <span className="absolute top-1 right-1 flex h-4 w-4">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-4 w-4 bg-red-600 items-center justify-center text-[10px] font-bold text-white shadow-sm">
-              {unreadCount}
-            </span>
-          </span>
-        )}
+    <div className="relative">
+      <button 
+        onClick={() => { setIsOpen(!isOpen); setHasNew(false); }}
+        className="relative p-2 text-gray-300 hover:text-white transition"
+      >
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
+        {hasNew && <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-[#0a0a0a]"></span>}
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-3 w-80 rounded-xl bg-[#121212] border border-white/10 shadow-2xl z-50 overflow-hidden ring-1 ring-black ring-opacity-5">
-          <div className="p-4 border-b border-white/10 bg-white/5 flex justify-between items-center">
-            <span className="text-sm font-semibold text-white">Notificações</span>
-            {notifications.length > 0 ? (
-              <button onClick={handleClearAll} className="text-[10px] text-gray-400 hover:text-red-400 hover:underline transition-colors font-medium">
-                Limpar Tudo
-              </button>
-            ) : (
-              <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded text-gray-400 uppercase">0</span>
-            )}
+        <div className="absolute right-0 mt-2 w-80 bg-[#121212] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50">
+          <div className="p-3 border-b border-white/10 bg-white/5">
+            <h3 className="font-bold text-white text-sm">Novidades LusoStream</h3>
           </div>
-          
-          <div className="max-h-[380px] overflow-y-auto custom-scrollbar">
-            {notifications.length > 0 ? (
-              notifications.map((n) => (
-                <div key={n.id} className="p-4 border-b border-white/5 hover:bg-white/5 transition-colors group flex gap-3 relative">
-                   {n.image_url ? (
-                    <img src={n.image_url} alt="Capa" className="w-10 h-14 object-cover rounded bg-white/10 shadow-sm" />
-                  ) : (
-                    <div className="w-10 h-10 rounded bg-white/5 flex items-center justify-center shrink-0">
-                      {getIcon(n.type)}
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0 pr-4">
-                    <div className="flex justify-between items-start">
-                      <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-tight">{n.title || 'Aviso'}</h4>
-                    </div>
-                    <p className="text-xs text-gray-200 mt-1 line-clamp-3 leading-relaxed">{n.message}</p>
-                    <span className="text-[9px] text-gray-600 mt-2 block italic">{new Date(n.created_at).toLocaleDateString()}</span>
-                  </div>
-                  <button onClick={(e) => { e.stopPropagation(); handleDismiss(n.id); }} className="absolute top-3 right-3 text-gray-600 hover:text-white transition-opacity sm:opacity-0 group-hover:opacity-100 p-1">
-                    <X size={14} />
-                  </button>
+          <div className="max-h-64 overflow-y-auto">
+            {notifications.length === 0 ? (
+              <div className="p-4 text-center text-gray-500 text-sm">Sem novidades.</div>
+            ) : (
+              notifications.map((notif) => (
+                <div key={notif.id} className="p-4 border-b border-white/5 hover:bg-white/5 transition">
+                  <p className="text-white text-sm font-medium">{notif.title}</p>
+                  <p className="text-gray-400 text-xs mt-1">{notif.message}</p>
+                  <span className="text-[10px] text-gray-600 mt-2 block">
+                    {notif.createdAt.toLocaleDateString()}
+                  </span>
                 </div>
               ))
-            ) : (
-              <div className="flex flex-col items-center justify-center h-64 text-center px-6">
-                <div className="bg-white/5 p-4 rounded-full mb-3 ring-1 ring-white/10">
-                  <BellOff size={24} className="text-gray-500" />
-                </div>
-                <p className="text-sm text-gray-200 font-medium">Tudo limpo!</p>
-                <p className="text-xs text-gray-500 mt-1 max-w-[200px] leading-relaxed">
-                  Vais receber avisos aqui quando houver novidades sobre os teus filmes.
-                </p>
-              </div>
             )}
           </div>
         </div>

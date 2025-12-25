@@ -1,65 +1,72 @@
-// src/app/admin/reports/AdminReportsClient.jsx
 "use client";
-
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client"; // <--- NOVO IMPORT
+import AdminClient from "../AdminClient";
+import { db } from "@/lib/firebase";
+import { collection, getDocs, deleteDoc, doc, updateDoc } from "firebase/firestore";
 
 export default function AdminReportsClient() {
-  const supabase = createClient();
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  async function fetchReports() {
-    setLoading(true);
-    const { data } = await supabase
-      .from("reports")
-      .select("*")
-      .order("created_at", { ascending: false });
-    setReports(data || []);
-    setLoading(false);
-  }
-
+  // Carregar Reports
   useEffect(() => {
+    async function fetchReports() {
+      try {
+        const querySnapshot = await getDocs(collection(db, "reports"));
+        const data = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        setReports(data);
+      } catch (error) {
+        console.error("Erro ao buscar reports:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
     fetchReports();
   }, []);
 
-  async function updateStatus(id, newStatus) {
-    await supabase.from("reports").update({ status: newStatus }).eq("id", id);
-    fetchReports();
-  }
+  // Apagar Report (Resolvido)
+  const handleResolve = async (id) => {
+    if(!confirm("Marcar como resolvido e apagar?")) return;
+    try {
+      await deleteDoc(doc(db, "reports", id));
+      setReports(reports.filter(r => r.id !== id));
+    } catch (error) {
+      alert("Erro ao apagar");
+    }
+  };
 
   return (
-    <div className="text-white">
-      <h1 className="text-3xl font-bold mb-6 text-red-600">Reportes de Erros</h1>
+    <AdminClient>
+      <h1 className="text-3xl font-bold text-white mb-8">Reports de Utilizadores</h1>
       
       {loading ? (
-        <p>A carregar...</p>
+        <p className="text-white">A carregar...</p>
+      ) : reports.length === 0 ? (
+        <div className="p-12 bg-white/5 rounded-xl border border-white/10 text-center text-gray-400">
+          Nenhum report pendente. Bom trabalho! 🌟
+        </div>
       ) : (
-        <div className="grid gap-4">
+        <div className="space-y-4">
           {reports.map((report) => (
-            <div key={report.id} className="bg-gray-900 p-4 rounded-xl border border-gray-800 flex flex-col md:flex-row justify-between gap-4">
-               <div>
-                  <div className="font-bold text-lg text-red-400">{report.type}</div>
-                  <p className="text-gray-300 mt-1">{report.description}</p>
-                  <div className="text-xs text-gray-500 mt-2">
-                    Item ID: {report.item_id} | Tipo: {report.item_type}
-                  </div>
-               </div>
-               <div className="flex items-center gap-2">
-                 <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${report.status === 'pending' ? 'bg-yellow-900 text-yellow-200' : 'bg-green-900 text-green-200'}`}>
-                    {report.status}
-                 </span>
-                 {report.status === 'pending' && (
-                   <button onClick={() => updateStatus(report.id, 'resolved')} className="bg-green-600 hover:bg-green-700 px-3 py-1 rounded text-xs font-bold">
-                     Resolver
-                   </button>
-                 )}
-               </div>
+            <div key={report.id} className="bg-black/40 border border-white/10 p-6 rounded-xl flex justify-between items-center">
+              <div>
+                <h3 className="text-white font-bold">{report.mediaTitle || "Conteúdo Desconhecido"}</h3>
+                <p className="text-gray-400 text-sm mt-1">Motivo: <span className="text-white">{report.reason}</span></p>
+                <p className="text-gray-500 text-xs mt-2">Reportado por: {report.userEmail || "Anónimo"}</p>
+              </div>
+              <button 
+                onClick={() => handleResolve(report.id)}
+                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition"
+              >
+                Resolver
+              </button>
             </div>
           ))}
-          {reports.length === 0 && <p className="text-gray-500">Sem reportes pendentes.</p>}
         </div>
       )}
-    </div>
+    </AdminClient>
   );
 }

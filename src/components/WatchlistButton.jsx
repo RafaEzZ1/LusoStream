@@ -1,92 +1,62 @@
-// src/components/WatchlistButton.jsx
 "use client";
-
-import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client"; // <--- ATUALIZADO
+import { useState, useEffect } from "react";
+import { useAuth } from "@/components/AuthProvider"; // Usa o contexto novo
 import { useAuthModal } from "@/context/AuthModalContext";
+import { addToWatchlist, removeFromWatchlist } from "@/lib/firebase"; // Funções novas
 
-export default function WatchlistButton({ itemId, itemType }) {
-  const [isInList, setIsInList] = useState(false);
-  const [loading, setLoading] = useState(true);
-  
+export default function WatchlistButton({ mediaId, mediaType = "movie" }) {
+  const { user, profile } = useAuth(); // O profile já traz a watchlist!
   const { openModal } = useAuthModal();
-  const supabase = createClient(); // <--- INSTÂNCIA
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    checkStatus();
-  }, [itemId, itemType]);
+  // Verifica se está na lista (o profile.watchlist é um array de IDs)
+  const isInWatchlist = profile?.watchlist?.includes(String(mediaId));
 
-  async function checkStatus() {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      setLoading(false);
+  const handleToggle = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!user) {
+      openModal();
       return;
     }
-    const { data } = await supabase
-      .from("watchlists")
-      .select("id")
-      .eq("user_id", session.user.id)
-      .eq("item_type", itemType)
-      .eq("item_id", itemId)
-      .maybeSingle();
-    
-    setIsInList(!!data);
-    setLoading(false);
-  }
 
-  async function toggleList() {
     setLoading(true);
-    const { data: { session } } = await supabase.auth.getSession();
-
-    if (!session) {
+    try {
+      if (isInWatchlist) {
+        await removeFromWatchlist(user.uid, String(mediaId));
+      } else {
+        await addToWatchlist(user.uid, String(mediaId));
+      }
+      // Não precisamos de atualizar estado local complexo, 
+      // o AuthProvider atualiza automaticamente via WebSockets!
+    } catch (error) {
+      console.error("Erro watchlist:", error);
+    } finally {
       setLoading(false);
-      openModal(); 
-      return;
     }
-
-    const userId = session.user.id;
-
-    if (isInList) {
-      await supabase
-        .from("watchlists")
-        .delete()
-        .eq("user_id", userId)
-        .eq("item_type", itemType)
-        .eq("item_id", itemId);
-      setIsInList(false);
-    } else {
-      await supabase
-        .from("watchlists")
-        .insert({ user_id: userId, item_type: itemType, item_id: itemId });
-      setIsInList(true);
-    }
-    setLoading(false);
-  }
-
-  const IconPlus = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>;
-  const IconCheck = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>;
+  };
 
   return (
     <button
-      onClick={toggleList}
+      onClick={handleToggle}
       disabled={loading}
-      className={`
-        flex items-center gap-2 px-5 py-2.5 rounded font-bold transition transform hover:scale-105
-        ${isInList 
-          ? "bg-gray-800 text-green-400 border border-green-500/30 hover:bg-gray-700" 
-          : "bg-gray-800 text-white border border-gray-700 hover:bg-gray-700 hover:border-gray-500"}
-      `}
+      className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
+        isInWatchlist
+          ? "bg-white text-black hover:bg-gray-200"
+          : "bg-white/10 text-white hover:bg-white/20 backdrop-blur-md"
+      }`}
     >
       {loading ? (
-        <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-      ) : isInList ? (
+        <span className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+      ) : isInWatchlist ? (
         <>
-          <IconCheck />
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
           <span>Na Lista</span>
         </>
       ) : (
         <>
-          <IconPlus />
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
           <span>Minha Lista</span>
         </>
       )}

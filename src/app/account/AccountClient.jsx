@@ -1,132 +1,72 @@
-// src/app/account/AccountClient.jsx
 "use client";
-
-import { useEffect, useState } from "react";
+import { useAuth } from "@/components/AuthProvider";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client"; // <--- Novo Import
-
-const AVATARS = [
-  { id: "ghost", icon: "👻", color: "bg-purple-600" },
-  { id: "alien", icon: "👽", color: "bg-green-600" },
-  { id: "robot", icon: "🤖", color: "bg-blue-600" },
-  { id: "demon", icon: "😈", color: "bg-red-600" },
-  { id: "ninja", icon: "🥷", color: "bg-gray-700" },
-  { id: "cat", icon: "😼", color: "bg-yellow-600" },
-  { id: "cool", icon: "😎", color: "bg-orange-600" },
-  { id: "king", icon: "👑", color: "bg-amber-500" },
-];
+import { useEffect } from "react";
+import MediaRow from "@/components/MediaRow"; // Assume que tens este componente
+// Se precisares de buscar detalhes dos filmes da watchlist, terás de usar a API do TMDB aqui
+// Mas para já, vamos focar no básico.
 
 export default function AccountClient() {
+  const { user, profile, signOut, loading } = useAuth();
   const router = useRouter();
-  const supabase = createClient(); // Criar instância
-
-  const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState(null);
-  const [username, setUsername] = useState("");
-  const [selectedAvatar, setSelectedAvatar] = useState("ghost");
-  const [msg, setMsg] = useState(null);
 
   useEffect(() => {
-    async function loadData() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        router.push("/auth");
-        return;
-      }
-      setUser(user);
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (profile) {
-        setUsername(profile.username || "");
-        if (profile.avatar_url && AVATARS.find(a => a.id === profile.avatar_url)) {
-          setSelectedAvatar(profile.avatar_url);
-        }
-      }
-      setLoading(false);
+    if (!loading && !user) {
+      router.push("/");
     }
-    loadData();
-  }, [router]);
+  }, [user, loading, router]);
 
-  async function handleUpdate() {
-    setMsg(null);
-    if (!username.trim()) return;
-
-    const updates = {
-      user_id: user.id,
-      username,
-      avatar_url: selectedAvatar,
-      updated_at: new Date().toISOString(),
-    };
-
-    const { error } = await supabase.from("profiles").upsert(updates);
-    if (error) setMsg({ type: "error", text: "Erro ao atualizar." });
-    else {
-      setMsg({ type: "ok", text: "Perfil atualizado! 🎉" });
-      router.refresh();
-    }
-  }
-
-  if (loading) return <div className="text-white p-10">A carregar...</div>;
+  if (loading || !user) return null;
 
   return (
-    <div className="max-w-2xl mx-auto bg-gray-900/50 border border-gray-800 rounded-2xl p-8 backdrop-blur-sm">
-      <h2 className="text-2xl font-bold mb-6 text-white border-l-4 border-red-600 pl-4">A Minha Conta</h2>
-
-      {msg && (
-        <div className={`mb-6 p-3 rounded ${msg.type === "error" ? "bg-red-900/50 text-red-200" : "bg-green-900/50 text-green-200"}`}>
-          {msg.text}
+    <div className="min-h-screen bg-[#0a0a0a] pt-24 px-4 md:px-8">
+      <div className="max-w-6xl mx-auto">
+        {/* Cabeçalho do Perfil */}
+        <div className="flex flex-col md:flex-row items-center gap-6 mb-12">
+          <div className="w-24 h-24 rounded-full bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center text-3xl font-bold text-white">
+            {profile?.name?.[0]?.toUpperCase() || user.email[0].toUpperCase()}
+          </div>
+          <div className="text-center md:text-left">
+            <h1 className="text-3xl font-bold text-white mb-2">
+              {profile?.name || "Membro LusoStream"}
+            </h1>
+            <p className="text-gray-400 mb-4">{user.email}</p>
+            <div className="flex gap-3 justify-center md:justify-start">
+               {profile?.role === 'admin' && (
+                 <span className="bg-red-500/20 text-red-400 px-3 py-1 rounded-full text-xs font-bold border border-red-500/30">
+                   ADMIN
+                 </span>
+               )}
+               <button 
+                 onClick={signOut}
+                 className="px-4 py-1 rounded-full border border-white/20 text-sm hover:bg-white/10 transition"
+               >
+                 Terminar Sessão
+               </button>
+            </div>
+          </div>
         </div>
-      )}
 
-      {/* 1. Escolher Avatar */}
-      <div className="mb-8">
-        <label className="block text-gray-400 text-sm font-bold mb-3">Escolhe o teu Avatar</label>
-        <div className="grid grid-cols-4 sm:grid-cols-8 gap-3">
-          {AVATARS.map((av) => (
-            <button
-              key={av.id}
-              onClick={() => setSelectedAvatar(av.id)}
-              className={`
-                aspect-square rounded-full flex items-center justify-center text-2xl transition transform hover:scale-110
-                ${av.color}
-                ${selectedAvatar === av.id ? "ring-4 ring-white scale-110 shadow-lg shadow-white/20" : "opacity-70 hover:opacity-100"}
-              `}
-            >
-              {av.icon}
-            </button>
-          ))}
+        {/* Watchlist Section */}
+        <div className="space-y-6">
+          <h2 className="text-2xl font-bold text-white border-l-4 border-purple-500 pl-4">
+            A Minha Lista ({profile?.watchlist?.length || 0})
+          </h2>
+          
+          {profile?.watchlist?.length > 0 ? (
+            <div className="p-4 bg-white/5 rounded-xl border border-white/10">
+              <p className="text-gray-400">
+                Tens {profile.watchlist.length} filmes/séries na lista. 
+                (Nota: A visualização da lista precisa de ser ligada ao TMDB, faremos isso no próximo passo).
+              </p>
+            </div>
+          ) : (
+            <div className="text-center py-12 bg-white/5 rounded-xl border border-white/5">
+              <p className="text-gray-400">Ainda não adicionaste nada à tua lista.</p>
+            </div>
+          )}
         </div>
       </div>
-
-      {/* 2. Nome de Utilizador */}
-      <div className="mb-8">
-        <label className="block text-gray-400 text-sm font-bold mb-2">Nome de Utilizador</label>
-        <input
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          className="w-full bg-black border border-gray-700 rounded-xl p-3 text-white focus:border-red-600 outline-none transition"
-        />
-      </div>
-
-      {/* 3. Email (Apenas leitura) */}
-      <div className="mb-8 opacity-50">
-        <label className="block text-gray-500 text-sm font-bold mb-2">Email</label>
-        <div className="w-full bg-black/50 border border-gray-800 rounded-xl p-3 text-gray-400 cursor-not-allowed">
-          {user.email}
-        </div>
-      </div>
-
-      <button
-        onClick={handleUpdate}
-        className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl transition shadow-lg shadow-red-900/20"
-      >
-        Guardar Alterações
-      </button>
     </div>
   );
 }

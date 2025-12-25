@@ -1,90 +1,88 @@
-// src/components/ReportButton.jsx
 "use client";
-
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client"; // <--- ATUALIZADO
+import { db } from "@/lib/firebase";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { useAuth } from "@/components/AuthProvider";
 import { useAuthModal } from "@/context/AuthModalContext";
 
-export default function ReportButton({ itemId, itemType, season, episode }) {
+export default function ReportButton({ mediaId, mediaTitle }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [desc, setDesc] = useState("");
-  const [sending, setSending] = useState(false);
-  
+  const [reason, setReason] = useState("");
+  const [loading, setLoading] = useState(false);
+  const { user } = useAuth();
   const { openModal } = useAuthModal();
-  const supabase = createClient(); // <--- INSTÂNCIA
 
-  async function handleOpen() {
-    const { data: { session } } = await supabase.auth.getSession();
+  const handleReport = async (e) => {
+    e.preventDefault();
     
-    if (!session) {
+    if (!user) {
+      setIsOpen(false);
       openModal();
       return;
     }
-    
-    setIsOpen(true);
-  }
 
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setSending(true);
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session) {
-        setSending(false);
-        return;
-    }
-
-    const { error } = await supabase.from("reports").insert({
-      user_id: session.user.id,
-      item_id: Number(itemId),
-      item_type: itemType,
-      season: season || null,
-      episode: episode || null,
-      description: desc,
-      status: "pending"
-    });
-
-    setSending(false);
-    if (error) alert("Erro ao enviar report.");
-    else {
-      alert("Recebido! Vamos verificar.");
+    setLoading(true);
+    try {
+      await addDoc(collection(db, "reports"), {
+        mediaId: String(mediaId),
+        mediaTitle: mediaTitle || "Desconhecido",
+        reason,
+        userId: user.uid,
+        userEmail: user.email,
+        createdAt: serverTimestamp(),
+        status: "pending"
+      });
+      alert("Obrigado! O report foi enviado e será analisado.");
       setIsOpen(false);
-      setDesc("");
+      setReason("");
+    } catch (error) {
+      console.error("Erro ao reportar:", error);
+      alert("Erro ao enviar report.");
+    } finally {
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <>
       <button 
-        onClick={handleOpen}
-        className="flex items-center gap-2 text-xs text-gray-500 hover:text-red-500 transition mt-2"
+        onClick={() => setIsOpen(true)}
+        className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition border border-red-500/20 backdrop-blur-md"
       >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-8a2 2 0 012-2h14a2 2 0 012 2v8M3 21h18M5 11l7-7 7 7M5 11v8M19 11v8" /></svg>
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
         <span>Reportar Erro</span>
       </button>
 
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-gray-900 border border-gray-800 p-6 rounded-xl w-full max-w-md shadow-2xl">
-            <h3 className="text-lg font-bold mb-2 text-white">Reportar Problema</h3>
-            <p className="text-sm text-gray-400 mb-4">O que se passa com este vídeo?</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-[#121212] border border-white/10 p-6 rounded-xl w-full max-w-sm">
+            <h3 className="text-xl font-bold text-white mb-4">Reportar Problema</h3>
+            <p className="text-sm text-gray-400 mb-4">O que se passa com "{mediaTitle}"?</p>
             
-            <form onSubmit={handleSubmit}>
-              <textarea 
-                className="w-full bg-black border border-gray-700 rounded p-3 text-sm text-white mb-4 outline-none focus:border-red-600"
-                rows={3}
-                placeholder="Ex: O áudio está desfasado / O link não funciona..."
-                value={desc}
-                onChange={e => setDesc(e.target.value)}
-                required
-              />
-              <div className="flex justify-end gap-3">
-                <button type="button" onClick={() => setIsOpen(false)} className="text-sm text-gray-400 hover:text-white px-3 py-2">Cancelar</button>
-                <button type="submit" disabled={sending} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm font-bold">
-                  {sending ? "A enviar..." : "Enviar Report"}
-                </button>
-              </div>
-            </form>
+            <textarea
+              className="w-full bg-black/50 border border-white/10 rounded-lg p-3 text-white outline-none focus:border-red-500 mb-4 h-32 resize-none"
+              placeholder="Ex: O link está offline, legendas erradas..."
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+            />
+
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setIsOpen(false)}
+                className="flex-1 px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white transition"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={handleReport}
+                disabled={!reason.trim() || loading}
+                className="flex-1 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold transition disabled:opacity-50"
+              >
+                {loading ? "A enviar..." : "Enviar Report"}
+              </button>
+            </div>
           </div>
         </div>
       )}

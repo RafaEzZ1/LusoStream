@@ -1,25 +1,17 @@
-// src/components/AccessDenied.jsx
 import Link from "next/link";
 
 export default function AccessDenied() {
   return (
-    <div className="min-h-screen bg-black flex flex-col items-center justify-center text-center p-6 animate-in fade-in zoom-in duration-500">
-      <div className="text-8xl mb-6 animate-bounce">🧙‍♂️</div>
-      
-      <h1 className="text-5xl font-bold text-red-600 mb-2 tracking-tighter">
-        YOU SHALL NOT PASS!
-      </h1>
-      
-      <p className="text-xl text-gray-300 mb-8 max-w-md mx-auto">
-        Alto lá, viajante! Esta área é restrita aos Feiticeiros Supremos (Admins). 
-        Parece que não tens a varinha mágica certa.
+    <div className="min-h-screen flex flex-col items-center justify-center bg-black text-white p-4">
+      <h1 className="text-4xl font-bold text-red-500 mb-4">Acesso Negado</h1>
+      <p className="text-gray-400 mb-8 text-center max-w-md">
+        Não tens permissão para ver esta página. Esta área é restrita a administradores.
       </p>
-      
       <Link 
-        href="/" 
-        className="bg-white text-black px-8 py-3 rounded-full font-bold hover:scale-105 hover:bg-gray-200 transition shadow-lg shadow-white/20"
+        href="/"
+        className="px-6 py-3 bg-white text-black font-bold rounded-lg hover:bg-gray-200 transition"
       >
-        🏃 Fugir para o Início
+        Voltar ao Início
       </Link>
     </div>
   );
