@@ -1,10 +1,11 @@
 "use client";
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
-import { collection, query, where, orderBy, onSnapshot } from "firebase/firestore";
+import { collection, query, where, orderBy, onSnapshot, doc, deleteDoc } from "firebase/firestore"; // Import deleteDoc adicionado
 import { useAuth } from "@/components/AuthProvider";
 import { FaBell } from "react-icons/fa";
 import Image from "next/image";
+import toast from "react-hot-toast"; // Import toast adicionado
 
 export default function NotificationBell() {
   const { user, profile } = useAuth();
@@ -23,35 +24,28 @@ export default function NotificationBell() {
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      // Filtra para o user específico ou globais
+      // Filtra para o user específico ou globais (sem userId)
       setNotifications(data.filter(n => !n.userId || n.userId === user.uid));
     });
-    const clearAllNotifications = async () => {
-  if (!user || notifications.length === 0) return;
-  if (!confirm("Queres apagar todas as notificações?")) return;
-
-  try {
-    const deletePromises = notifications.map(n => deleteDoc(doc(db, "notifications", n.id)));
-    await Promise.all(deletePromises);
-    setOpen(false);
-    toast.success("Notificações limpas!");
-  } catch (error) {
-    toast.error("Erro ao apagar notificações.");
-  }
-};
-
-// No JSX (dentro do menu dropdown das notificações), adiciona o botão:
-{notifications.length > 0 && (
-  <button 
-    onClick={clearAllNotifications}
-    className="w-full py-2 text-[10px] text-red-500 font-bold hover:bg-red-500/10 transition border-t border-white/5"
-  >
-    LIMPAR TODAS AS NOTIFICAÇÕES
-  </button>
-)}
 
     return () => unsubscribe();
   }, [user, profile]);
+
+  // FUNÇÃO CORRIGIDA: Fora do useEffect para ser acessível pelo clique
+  const clearAllNotifications = async () => {
+    if (!user || notifications.length === 0) return;
+    if (!confirm("Queres apagar todas as notificações?")) return;
+
+    try {
+      const deletePromises = notifications.map(n => deleteDoc(doc(db, "notifications", n.id)));
+      await Promise.all(deletePromises);
+      setOpen(false);
+      toast.success("Notificações limpas!");
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro ao apagar notificações.");
+    }
+  };
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -68,21 +62,41 @@ export default function NotificationBell() {
 
       {open && (
         <div className="absolute right-0 mt-4 w-80 bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl z-[100] overflow-hidden animate-in fade-in zoom-in duration-200">
-          <div className="p-4 border-b border-white/5 font-bold text-xs uppercase tracking-widest text-zinc-500">Notificações</div>
+          <div className="p-4 border-b border-white/5 font-bold text-xs uppercase tracking-widest text-zinc-500 flex justify-between items-center">
+            <span>Notificações</span>
+          </div>
+
           <div className="max-h-[400px] overflow-y-auto">
-            {notifications.length > 0 ? notifications.map(n => (
-              <div key={n.id} className="p-4 border-b border-white/5 hover:bg-white/5 flex gap-4 items-start transition">
-                {n.movieImage && (
-                  <div className="relative w-10 h-14 flex-shrink-0">
-                    <Image src={`https://image.tmdb.org/t/p/w200${n.movieImage}`} fill className="object-cover rounded shadow-lg" alt="poster" />
+            {notifications.length > 0 ? (
+              <>
+                {notifications.map(n => (
+                  <div key={n.id} className="p-4 border-b border-white/5 hover:bg-white/5 flex gap-4 items-start transition">
+                    {n.movieImage && (
+                      <div className="relative w-10 h-14 flex-shrink-0">
+                        <Image 
+                          src={`https://image.tmdb.org/t/p/w200${n.movieImage}`} 
+                          fill 
+                          className="object-cover rounded shadow-lg" 
+                          alt="poster" 
+                        />
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-xs font-bold text-white mb-1">{n.title}</p>
+                      <p className="text-[10px] text-zinc-500 leading-relaxed">{n.message}</p>
+                    </div>
                   </div>
-                )}
-                <div>
-                  <p className="text-xs font-bold text-white mb-1">{n.title}</p>
-                  <p className="text-[10px] text-zinc-500 leading-relaxed">{n.message}</p>
-                </div>
-              </div>
-            )) : (
+                ))}
+                
+                {/* BOTÃO ADICIONADO NO LOCAL CORRETO */}
+                <button 
+                  onClick={clearAllNotifications}
+                  className="w-full py-3 text-[10px] text-red-500 font-black hover:bg-red-500/10 transition border-t border-white/5 uppercase tracking-tighter"
+                >
+                  Limpar Todas as Notificações
+                </button>
+              </>
+            ) : (
               <div className="p-10 text-center text-zinc-600 text-xs italic">Sem notificações novas.</div>
             )}
           </div>
