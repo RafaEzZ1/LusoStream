@@ -3,19 +3,20 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
+import ProgressTracker from "@/components/ProgressTracker";
+import PlayerControls from "@/components/PlayerControls";
+import ReportButton from "@/components/ReportButton";
+import VideoPlayer from "@/components/VideoPlayer"; // O novo player
 import Navbar from "@/components/Navbar";
-import VideoPlayer from "@/components/VideoPlayer";
-import ProgressSaver from "@/components/ProgressSaver";
 
-export default function WatchSeriesPage() {
+export default function WatchEpisodePage() {
   const { id, season, episode } = useParams();
-  const [episodeData, setEpisodeData] = useState(null);
+  const [epData, setEpData] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function getEpisode() {
       try {
-        // Busca baseada no ID da série, temporada e episódio
         const q = query(
           collection(db, "content"), 
           where("tmdbId", "==", id),
@@ -23,48 +24,56 @@ export default function WatchSeriesPage() {
           where("episode", "==", episode)
         );
         const snapshot = await getDocs(q);
-        if (!snapshot.empty) {
-          setEpisodeData(snapshot.docs[0].data());
-        }
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
-      }
+        if (!snapshot.empty) setEpData(snapshot.docs[0].data());
+      } catch (e) { console.error(e); } 
+      finally { setLoading(false); }
     }
     getEpisode();
   }, [id, season, episode]);
 
-  if (loading) return <div className="min-h-screen bg-black" />;
+  const nextEp = Number(episode) + 1;
+
+  if (loading) return <div className="min-h-screen bg-[#050505]" />;
+  if (!epData) return <div className="p-20 text-center text-white">Episódio indisponível.</div>;
 
   return (
-    <div className="min-h-screen bg-[#050505]">
+    <div className="min-h-screen bg-[#050505] text-white">
       <Navbar />
-      <main className="pt-24 pb-12 px-4 md:px-8 max-w-7xl mx-auto">
-        {episodeData ? (
-          <div className="space-y-8">
-            <h1 className="text-2xl md:text-3xl font-black text-white italic tracking-tighter uppercase">
-              {episodeData.title} - T{season}:E{episode}
-            </h1>
-            
-            <VideoPlayer 
-              server1={episodeData.server1 || episodeData.embedUrl} 
-              server2={episodeData.server2} 
-            />
 
-            <ProgressSaver 
-              mediaId={id} 
-              mediaType="tv" 
-              season={season} 
-              episode={episode} 
+      {/* Container do Player */}
+      <div className="relative w-full pt-20 md:pt-24 bg-black shadow-2xl px-4 md:px-0">
+         <div className="max-w-7xl mx-auto">
+            <VideoPlayer 
+              server1={epData.server1 || epData.embedUrl} 
+              server2={epData.server2} 
             />
+         </div>
+      </div>
+
+      <div className="p-5 md:p-10 max-w-5xl mx-auto space-y-6">
+        <div className="flex justify-between items-center">
+          <div className="flex flex-col">
+            <span className="text-purple-500 font-bold text-xs uppercase tracking-widest">
+              {epData.title || `Série ID: ${id}`}
+            </span>
+            <h1 className="text-xl font-black uppercase tracking-tight">
+              T{season} • EP{episode}
+            </h1>
           </div>
-        ) : (
-          <div className="text-center py-20 text-zinc-500 italic">
-            Este episódio ainda não foi adicionado.
-          </div>
-        )}
-      </main>
+          <ReportButton mediaId={id} mediaTitle={`Série ${id} S${season}E${episode}`} />
+        </div>
+
+        {/* Os teus controlos originais */}
+        <PlayerControls 
+          mediaId={id} type="tv" 
+          season={season} episode={episode}
+          backLink={`/series/${id}`}
+          nextEpisodeLink={`/watch/series/${id}/season/${season}/episode/${nextEp}`}
+        />
+      </div>
+
+      {/* O teu tracker original */}
+      <ProgressTracker mediaId={id} type="tv" season={season} episode={episode} duration={2700} />
     </div>
   );
 }
