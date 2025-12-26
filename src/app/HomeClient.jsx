@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image"; // Importado para otimização
 import { useAuth } from "@/components/AuthProvider";
 import ContinueWatching from "@/components/ContinueWatching";
 import MediaRow from "@/components/MediaRow";
@@ -10,10 +11,8 @@ import { FaPlay, FaInfoCircle, FaFilm, FaTv } from "react-icons/fa";
 
 const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
 
-// Função auxiliar para buscar detalhes corrigida para lidar com prefixos
 async function fetchDetails(itemFullId, defaultType) {
   try {
-    // 1. Separar o prefixo (tv_ ou movie_) do ID real
     const parts = String(itemFullId).split("_");
     const type = parts.length > 1 ? parts[0] : defaultType;
     const id = parts.length > 1 ? parts[1] : parts[0];
@@ -24,7 +23,7 @@ async function fetchDetails(itemFullId, defaultType) {
     if (!res.ok) return null;
     const data = await res.json();
     
-    return { ...data, media_type: endpoint }; // Garante que o tipo vai para o MediaRow
+    return { ...data, media_type: endpoint };
   } catch(e) { return null; }
 }
 
@@ -40,7 +39,6 @@ export default function HomeClient() {
     if (month === 11 || month === 0) setIsChristmas(true);
 
     async function loadContent() {
-      // 1. Destaque
       try {
         const res = await fetch(`https://api.themoviedb.org/3/trending/movie/day?api_key=${API_KEY}&language=pt-BR`);
         const data = await res.json();
@@ -50,7 +48,6 @@ export default function HomeClient() {
       } catch (e) { console.error(e); }
 
       if (user) {
-        // 2. Continuar a Ver
         try {
           const progressItems = await listContinueWatching(user.uid);
           if (progressItems.length > 0) {
@@ -63,15 +60,13 @@ export default function HomeClient() {
           }
         } catch(e) { console.error("Erro home progress:", e); }
 
-        // 3. CARREGAR MINHA LISTA (CORRIGIDO)
         if (profile?.watchlist?.length > 0) {
           const enrichedList = await Promise.all(profile.watchlist.map(async (fullId) => {
-            // A função fetchDetails agora sabe se é tv ou movie pelo ID
             return await fetchDetails(fullId, 'movie');
           }));
           setMyList(enrichedList.filter(i => i !== null));
         } else {
-          setMyList([]); // Limpa a lista se o perfil estiver vazio
+          setMyList([]);
         }
       }
     }
@@ -79,24 +74,25 @@ export default function HomeClient() {
   }, [user, profile]);
 
   return (
-    <div className="bg-black min-h-screen pb-20 overflow-x-hidden font-sans">
+    <div className="bg-black min-h-screen pb-20 overflow-x-hidden font-sans text-white">
       
-      {/* --- HERO SECTION --- */}
       <div className="relative h-[85vh] w-full -mt-24">
         {featuredMovie && (
           <>
             <div className="absolute inset-0 z-0">
-              <img 
+              <Image 
                 src={`https://image.tmdb.org/t/p/original${featuredMovie.backdrop_path}`} 
-                className="w-full h-full object-cover opacity-60"
-                alt={featuredMovie.title}
+                alt={featuredMovie.title || featuredMovie.name}
+                fill
+                priority={true} // CARREGAMENTO ULTRA RÁPIDO
+                className="object-cover opacity-60"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/20 to-transparent" />
               <div className="absolute inset-0 bg-gradient-to-r from-[#0a0a0a]/90 via-transparent to-transparent" />
             </div>
 
             <div className="absolute bottom-0 left-0 p-6 md:p-16 w-full max-w-3xl z-10 flex flex-col justify-end h-full pb-24 md:pb-32">
-              <h1 className="text-4xl md:text-6xl font-extrabold text-white drop-shadow-2xl mb-4 leading-tight">
+              <h1 className="text-4xl md:text-6xl font-extrabold drop-shadow-2xl mb-4 leading-tight">
                 {featuredMovie.title || featuredMovie.name}
               </h1>
               <p className="text-gray-200 text-lg line-clamp-3 drop-shadow-md mb-8 max-w-2xl">
@@ -122,14 +118,10 @@ export default function HomeClient() {
         )}
       </div>
 
-      {/* --- LISTAS DE CONTEÚDO --- */}
       <div className="relative z-20 px-4 md:px-12 space-y-2 -mt-12 bg-gradient-to-t from-black via-black to-transparent pt-10">
         
-        {continueList.length > 0 && (
-          <ContinueWatching items={continueList} />
-        )}
+        {continueList.length > 0 && <ContinueWatching items={continueList} />}
 
-        {/* 2. Minha Lista - Título atualizado para combinar com o estilo */}
         {myList.length > 0 && <MediaRow title="📂 A Minha Lista" itemsProp={myList} />}
 
         {isChristmas && (
@@ -145,12 +137,8 @@ export default function HomeClient() {
         <MediaRow title="🎬 Ação Pura" endpoint="discover/movie?with_genres=28&sort_by=popularity.desc" type="movie" />
         <MediaRow title="😂 Comédia" endpoint="discover/movie?with_genres=35&sort_by=popularity.desc" type="movie" />
         
-        {/* --- BOTÕES FINAIS --- */}
         <div className="py-20 flex flex-col md:flex-row gap-6 justify-center items-center border-t border-white/5 mt-12">
-          <Link 
-            href="/movies"
-            className="group w-full md:w-auto bg-zinc-900 border border-zinc-800 p-8 rounded-2xl hover:bg-zinc-800 hover:border-purple-500 transition-all duration-300 flex flex-col items-center text-center gap-4 min-w-[300px]"
-          >
+          <Link href="/movies" className="group w-full md:w-auto bg-zinc-900 border border-zinc-800 p-8 rounded-2xl hover:bg-zinc-800 hover:border-purple-500 transition-all duration-300 flex flex-col items-center text-center gap-4 min-w-[300px]">
             <div className="bg-purple-600/20 p-4 rounded-full group-hover:bg-purple-600 transition duration-300">
               <FaFilm className="text-3xl text-purple-500 group-hover:text-white" />
             </div>
@@ -160,10 +148,7 @@ export default function HomeClient() {
             </div>
           </Link>
 
-          <Link 
-            href="/series"
-            className="group w-full md:w-auto bg-zinc-900 border border-zinc-800 p-8 rounded-2xl hover:bg-zinc-800 hover:border-blue-500 transition-all duration-300 flex flex-col items-center text-center gap-4 min-w-[300px]"
-          >
+          <Link href="/series" className="group w-full md:w-auto bg-zinc-900 border border-zinc-800 p-8 rounded-2xl hover:bg-zinc-800 hover:border-blue-500 transition-all duration-300 flex flex-col items-center text-center gap-4 min-w-[300px]">
             <div className="bg-blue-600/20 p-4 rounded-full group-hover:bg-blue-600 transition duration-300">
               <FaTv className="text-3xl text-blue-500 group-hover:text-white" />
             </div>
