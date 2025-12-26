@@ -18,17 +18,19 @@ export default function PlayerControls({
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
-  // Função para Marcar como Visto
+  // Função para Marcar como Visto e remover do "Continuar a Ver"
   const handleMarkAsWatched = async () => {
     if (!user) return toast.error("Precisas de estar logado.");
     
     setLoading(true);
     try {
-      // Marca como 100% visto (o que o remove da lista de continuar a ver)
       await markAsFinished(user.uid, mediaId, type, season, episode);
       toast.success("Marcado como visto!");
-      router.refresh(); // Atualiza a página
-      router.push("/"); // Volta à Home
+      // Pequeno delay para o toast ser lido antes de redirecionar
+      setTimeout(() => {
+        router.push("/");
+        router.refresh();
+      }, 1000);
     } catch (error) {
       console.error(error);
       toast.error("Erro ao marcar.");
@@ -38,33 +40,33 @@ export default function PlayerControls({
   };
 
   return (
-    <div className="absolute top-4 left-4 z-50 flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+    <div className="w-full grid grid-cols-2 md:flex md:flex-row gap-3">
       
-      {/* Botão Voltar */}
-      <a 
-        href={backLink}
-        className="bg-black/60 hover:bg-purple-600 text-white px-4 py-2 rounded-lg backdrop-blur-md transition flex items-center gap-2 font-bold text-sm"
+      {/* Botão Voltar - Adaptado para Mobile */}
+      <button 
+        onClick={() => router.push(backLink)}
+        className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-3 rounded-xl transition flex items-center justify-center gap-2 font-bold text-sm active:scale-95"
       >
-        <FaArrowLeft /> Voltar
-      </a>
+        <FaArrowLeft className="text-xs" /> Voltar
+      </button>
 
       {/* Botão Marcar como Visto */}
       <button 
         onClick={handleMarkAsWatched}
         disabled={loading}
-        className="bg-black/60 hover:bg-green-600 text-white px-4 py-2 rounded-lg backdrop-blur-md transition flex items-center gap-2 font-bold text-sm"
+        className="flex-1 bg-zinc-800 hover:bg-green-600 text-white px-4 py-3 rounded-xl transition flex items-center justify-center gap-2 font-bold text-sm active:scale-95 disabled:opacity-50"
       >
-        <FaCheck /> {loading ? "A marcar..." : "Já Vi"}
+        <FaCheck className="text-xs" /> {loading ? "..." : "Já Vi"}
       </button>
 
-      {/* Botão Próximo Episódio (Só aparece se passares o link) */}
+      {/* Botão Próximo Episódio - Ocupa a largura toda no Mobile se existir */}
       {nextEpisodeLink && (
-        <a 
-          href={nextEpisodeLink}
-          className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg backdrop-blur-md transition flex items-center gap-2 font-bold text-sm shadow-lg shadow-purple-900/50"
+        <button 
+          onClick={() => router.push(nextEpisodeLink)}
+          className="col-span-2 md:flex-1 bg-purple-600 hover:bg-purple-500 text-white px-4 py-3 rounded-xl transition flex items-center justify-center gap-2 font-bold text-sm active:scale-95 shadow-lg shadow-purple-900/20"
         >
-          Próximo <FaStepForward />
-        </a>
+          Próximo <FaStepForward className="text-xs" />
+        </button>
       )}
     </div>
   );
