@@ -1,20 +1,20 @@
 "use client";
 import { useState } from "react";
-import { db } from "@/lib/firebase"; //
-import { collection, addDoc, serverTimestamp } from "firebase/firestore"; //
-import { useAuth } from "@/components/AuthProvider"; //
+import { db } from "@/lib/firebase";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { useAuth } from "@/components/AuthProvider";
 import toast from "react-hot-toast";
-import { FaLightbulb, FaPaperPlane, FaMagic } from "react-icons/fa";
+import { FaMagic, FaPaperPlane, FaBug, FaFilm, FaTools } from "react-icons/fa";
 
 export default function SuggestionsClient() {
-  const { user } = useAuth(); //
+  const { user } = useAuth();
   const [suggestion, setSuggestion] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!suggestion.trim()) return toast.error("Escreve algo primeiro!");
-    if (!user) return toast.error("Precisas de estar logado!");
+    if (!suggestion.trim()) return toast.error("Escreve a tua ideia primeiro!");
+    if (!user) return toast.error("Faz login para enviar!");
 
     setLoading(true);
     try {
@@ -22,49 +22,45 @@ export default function SuggestionsClient() {
         userId: user.uid,
         userEmail: user.email,
         text: suggestion,
-        timestamp: serverTimestamp(),
+        status: "pending", // Estado inicial para o Admin ver
+        createdAt: serverTimestamp(),
       });
-      toast.success("Sugestão enviada! Obrigado por ajudares o LusoStream.");
+      toast.success("Mensagem enviada! Obrigado por ajudares o LusoStream.");
       setSuggestion("");
     } catch (error) {
-      toast.error("Erro ao enviar. Tenta mais tarde.");
+      toast.error("Erro ao enviar.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] pt-32 pb-20 px-4 flex flex-col items-center relative overflow-hidden">
-      {/* Efeito de Brilho de Fundo */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-purple-600/10 blur-[120px] rounded-full" />
-
-      <div className="max-w-2xl w-full relative z-10 animate-in fade-in slide-in-from-bottom-10 duration-1000">
-        <div className="text-center mb-10">
-          <div className="inline-flex p-3 rounded-2xl bg-purple-600/10 border border-purple-500/20 mb-4">
-            <FaMagic className="text-purple-500 text-2xl animate-pulse" />
+    <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center p-6 relative">
+      <div className="absolute top-0 w-full h-64 bg-purple-600/10 blur-[100px] pointer-events-none" />
+      
+      <div className="max-w-2xl w-full z-10 animate-in fade-in slide-in-from-bottom-10 duration-700">
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-black mb-4">Central de <span className="text-purple-500">Feedback</span></h1>
+          <div className="flex justify-center gap-6 text-zinc-500 text-sm mb-6">
+            <span className="flex items-center gap-2"><FaFilm/> Pedir Filmes</span>
+            <span className="flex items-center gap-2"><FaBug/> Reportar Bug</span>
+            <span className="flex items-center gap-2"><FaTools/> Sugerir Funções</span>
           </div>
-          <h1 className="text-4xl md:text-5xl font-black text-white mb-4 tracking-tighter">
-            O Teu Filme, <span className="text-purple-500 font-extrabold italic">A Tua Regra.</span>
-          </h1>
-          <p className="text-zinc-400 text-lg">
-            Falta algum conteúdo? Tens ideias para melhorar? Diz-nos o que queres ver.
-          </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-white/5 border border-white/10 backdrop-blur-xl p-8 rounded-[2.5rem] shadow-2xl">
+        <form onSubmit={handleSubmit} className="bg-zinc-900/40 backdrop-blur-md border border-white/5 p-8 rounded-[2.5rem]">
           <textarea
             value={suggestion}
             onChange={(e) => setSuggestion(e.target.value)}
-            placeholder="Que filme ou série queres ver no LusoStream?"
-            className="w-full bg-black/40 border border-zinc-800 rounded-2xl p-6 text-white min-h-[180px] focus:ring-2 focus:ring-purple-600 outline-none transition-all placeholder:text-zinc-600 resize-none"
+            placeholder="Diz-nos o que tens em mente... (ex: 'O player X está lento' ou 'Adicionem a série Y')"
+            className="w-full bg-black/50 border border-zinc-800 rounded-2xl p-6 text-white min-h-[200px] focus:ring-2 focus:ring-purple-600 outline-none transition-all resize-none"
           />
-
           <button
             type="submit"
             disabled={loading}
-            className="w-full mt-6 bg-purple-600 hover:bg-purple-500 disabled:bg-purple-800 text-white font-black py-4 rounded-2xl transition-all active:scale-[0.97] flex items-center justify-center gap-3 shadow-lg shadow-purple-900/40"
+            className="w-full mt-6 bg-purple-600 hover:bg-purple-500 py-4 rounded-2xl font-bold flex items-center justify-center gap-3 active:scale-95 transition-transform"
           >
-            {loading ? "A ENVIAR..." : <><FaPaperPlane /> ENVIAR AGORA</>}
+            {loading ? "A enviar..." : <><FaPaperPlane /> Enviar para a Equipa</>}
           </button>
         </form>
       </div>

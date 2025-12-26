@@ -11,12 +11,14 @@ export default function AdminSuggestionsClient() {
   useEffect(() => {
     async function fetchSuggestions() {
       try {
-        const q = query(collection(db, "suggestions"), orderBy("createdAt", "desc"));
+        // Mudamos para buscar todas sem erro de campo inexistente
+        const q = query(collection(db, "suggestions")); 
         const snapshot = await getDocs(q);
         const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-        setSuggestions(data);
+        // Ordenação manual se o createdAt falhar
+        setSuggestions(data.sort((a, b) => b.createdAt - a.createdAt));
       } catch (error) {
-        console.error(error);
+        console.error("Erro Admin:", error);
       } finally {
         setLoading(false);
       }
@@ -24,57 +26,43 @@ export default function AdminSuggestionsClient() {
     fetchSuggestions();
   }, []);
 
-  const handleStatus = async (id, newStatus) => {
+  const handleAction = async (id, status) => {
     try {
-      await updateDoc(doc(db, "suggestions", id), { status: newStatus });
-      setSuggestions(suggestions.map(s => s.id === id ? { ...s, status: newStatus } : s));
-    } catch (error) {
-      alert("Erro ao atualizar");
-    }
-  };
-
-  const handleDelete = async (id) => {
-    if(!confirm("Apagar pedido?")) return;
-    try {
-      await deleteDoc(doc(db, "suggestions", id));
-      setSuggestions(suggestions.filter(s => s.id !== id));
-    } catch (error) {
-      alert("Erro ao apagar");
-    }
+      await updateDoc(doc(db, "suggestions", id), { status });
+      setSuggestions(suggestions.map(s => s.id === id ? { ...s, status } : s));
+    } catch (e) { alert("Erro ao atualizar"); }
   };
 
   return (
     <AdminClient>
-      <h1 className="text-3xl font-bold text-white mb-8">Pedidos dos Utilizadores</h1>
-      
-      {loading ? <p className="text-white">A carregar...</p> : (
-        <div className="grid gap-4">
-          {suggestions.map((sug) => (
-            <div key={sug.id} className="bg-white/5 border border-white/10 p-4 rounded-xl flex flex-col md:flex-row justify-between items-center gap-4">
+      <h1 className="text-3xl font-bold mb-8">Feedback dos Users</h1>
+      <div className="grid gap-4">
+        {suggestions.length === 0 && <p className="text-zinc-500">Nenhuma sugestão encontrada.</p>}
+        {suggestions.map((sug) => (
+          <div key={sug.id} className="bg-zinc-900 border border-white/5 p-6 rounded-2xl">
+            <div className="flex justify-between items-start mb-4">
               <div>
-                <h3 className="text-lg font-bold text-white">{sug.title}</h3>
-                <div className="flex gap-2 mt-1">
-                  <span className="text-xs bg-white/10 px-2 py-1 rounded text-gray-300">{sug.type}</span>
-                  <span className={`text-xs px-2 py-1 rounded font-bold ${
-                    sug.status === 'completed' ? 'bg-green-500/20 text-green-400' : 
-                    sug.status === 'rejected' ? 'bg-red-500/20 text-red-400' : 
-                    'bg-yellow-500/20 text-yellow-400'
-                  }`}>
-                    {sug.status === 'pending' ? 'Pendente' : sug.status === 'completed' ? 'Adicionado' : 'Rejeitado'}
-                  </span>
-                </div>
-                <p className="text-gray-500 text-xs mt-2">Pedido por: {sug.userEmail}</p>
+                <span className="text-[10px] font-bold uppercase text-purple-500">{sug.userEmail}</span>
+                <p className="text-white mt-2 leading-relaxed">{sug.text}</p>
               </div>
-
-              <div className="flex gap-2">
-                <button onClick={() => handleStatus(sug.id, "completed")} className="p-2 bg-green-600/20 text-green-400 rounded hover:bg-green-600/40">✓</button>
-                <button onClick={() => handleStatus(sug.id, "rejected")} className="p-2 bg-red-600/20 text-red-400 rounded hover:bg-red-600/40">✕</button>
-                <button onClick={() => handleDelete(sug.id)} className="p-2 bg-gray-600/20 text-gray-400 rounded hover:bg-gray-600/40">🗑️</button>
-              </div>
+              <span className={`text-[10px] px-2 py-1 rounded font-bold uppercase ${
+                sug.status === 'done' ? 'bg-green-500/20 text-green-500' : 'bg-yellow-500/20 text-yellow-500'
+              }`}>
+                {sug.status === 'done' ? 'Resolvido' : 'Pendente'}
+              </span>
             </div>
-          ))}
-        </div>
-      )}
+            <div className="flex gap-2 border-t border-white/5 pt-4">
+              <button onClick={() => handleAction(sug.id, 'done')} className="text-xs bg-green-600/20 text-green-500 px-4 py-2 rounded-lg hover:bg-green-600/30">Marcar como Visto</button>
+              <button onClick={async () => {
+                if(confirm("Apagar?")) {
+                  await deleteDoc(doc(db, "suggestions", sug.id));
+                  setSuggestions(suggestions.filter(x => x.id !== sug.id));
+                }
+              }} className="text-xs bg-red-600/20 text-red-500 px-4 py-2 rounded-lg hover:bg-red-600/30">Eliminar</button>
+            </div>
+          </div>
+        ))}
+      </div>
     </AdminClient>
   );
 }
