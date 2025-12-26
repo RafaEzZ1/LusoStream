@@ -10,14 +10,21 @@ import { FaPlay, FaInfoCircle, FaFilm, FaTv } from "react-icons/fa";
 
 const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
 
-// Função auxiliar para buscar detalhes
-async function fetchDetails(id, type) {
+// Função auxiliar para buscar detalhes corrigida para lidar com prefixos
+async function fetchDetails(itemFullId, defaultType) {
   try {
-    // Normaliza: se for 'series' vira 'tv'
+    // 1. Separar o prefixo (tv_ ou movie_) do ID real
+    const parts = String(itemFullId).split("_");
+    const type = parts.length > 1 ? parts[0] : defaultType;
+    const id = parts.length > 1 ? parts[1] : parts[0];
+
     const endpoint = (type === 'tv' || type === 'series') ? 'tv' : 'movie';
     const res = await fetch(`https://api.themoviedb.org/3/${endpoint}/${id}?api_key=${API_KEY}&language=pt-BR`);
+    
     if (!res.ok) return null;
-    return await res.json();
+    const data = await res.json();
+    
+    return { ...data, media_type: endpoint }; // Garante que o tipo vai para o MediaRow
   } catch(e) { return null; }
 }
 
@@ -26,17 +33,14 @@ export default function HomeClient() {
   const [continueList, setContinueList] = useState([]);
   const [myList, setMyList] = useState([]); 
   const [featuredMovie, setFeaturedMovie] = useState(null);
-  
-  // Estado para categoria sazonal
   const [isChristmas, setIsChristmas] = useState(false);
 
   useEffect(() => {
-    // Verificar se é época de Natal (Mês 11 ou 12)
     const month = new Date().getMonth();
-    if (month === 11 || month === 0) setIsChristmas(true); // Dezembro (11) ou Janeiro (0)
+    if (month === 11 || month === 0) setIsChristmas(true);
 
     async function loadContent() {
-      // 1. Destaque (Aleatório dos Trending)
+      // 1. Destaque
       try {
         const res = await fetch(`https://api.themoviedb.org/3/trending/movie/day?api_key=${API_KEY}&language=pt-BR`);
         const data = await res.json();
@@ -46,34 +50,28 @@ export default function HomeClient() {
       } catch (e) { console.error(e); }
 
       if (user) {
-        // 2. Carregar "Continuar a Ver"
+        // 2. Continuar a Ver
         try {
           const progressItems = await listContinueWatching(user.uid);
-          
           if (progressItems.length > 0) {
             const enriched = await Promise.all(progressItems.map(async (item) => {
               const details = await fetchDetails(item.mediaId, item.mediaType);
               if (!details) return null;
-              return {
-                ...item,
-                ...details, 
-                uniqueId: item.mediaId 
-              };
+              return { ...item, ...details, uniqueId: item.mediaId };
             }));
             setContinueList(enriched.filter(i => i !== null));
           }
         } catch(e) { console.error("Erro home progress:", e); }
 
-        // 3. Carregar Minha Lista
+        // 3. CARREGAR MINHA LISTA (CORRIGIDO)
         if (profile?.watchlist?.length > 0) {
-          const enrichedList = await Promise.all(profile.watchlist.map(async (id) => {
-              const movie = await fetchDetails(id, 'movie');
-              if (movie) return { ...movie, item_type: 'movie' };
-              const show = await fetchDetails(id, 'tv');
-              if (show) return { ...show, item_type: 'tv' };
-              return null;
+          const enrichedList = await Promise.all(profile.watchlist.map(async (fullId) => {
+            // A função fetchDetails agora sabe se é tv ou movie pelo ID
+            return await fetchDetails(fullId, 'movie');
           }));
           setMyList(enrichedList.filter(i => i !== null));
+        } else {
+          setMyList([]); // Limpa a lista se o perfil estiver vazio
         }
       }
     }
@@ -83,11 +81,10 @@ export default function HomeClient() {
   return (
     <div className="bg-black min-h-screen pb-20 overflow-x-hidden font-sans">
       
-      {/* --- HERO SECTION (Destaque) --- */}
+      {/* --- HERO SECTION --- */}
       <div className="relative h-[85vh] w-full -mt-24">
         {featuredMovie && (
           <>
-            {/* Imagem de Fundo */}
             <div className="absolute inset-0 z-0">
               <img 
                 src={`https://image.tmdb.org/t/p/original${featuredMovie.backdrop_path}`} 
@@ -98,7 +95,6 @@ export default function HomeClient() {
               <div className="absolute inset-0 bg-gradient-to-r from-[#0a0a0a]/90 via-transparent to-transparent" />
             </div>
 
-            {/* Conteúdo do Destaque */}
             <div className="absolute bottom-0 left-0 p-6 md:p-16 w-full max-w-3xl z-10 flex flex-col justify-end h-full pb-24 md:pb-32">
               <h1 className="text-4xl md:text-6xl font-extrabold text-white drop-shadow-2xl mb-4 leading-tight">
                 {featuredMovie.title || featuredMovie.name}
@@ -127,18 +123,15 @@ export default function HomeClient() {
       </div>
 
       {/* --- LISTAS DE CONTEÚDO --- */}
-      {/* Ajustei o margin-top e o z-index para não bater no Hero */}
       <div className="relative z-20 px-4 md:px-12 space-y-2 -mt-12 bg-gradient-to-t from-black via-black to-transparent pt-10">
         
-        {/* 1. Continuar a Ver (Se existir) */}
         {continueList.length > 0 && (
           <ContinueWatching items={continueList} />
         )}
 
-        {/* 2. Minha Lista (Se existir) */}
+        {/* 2. Minha Lista - Título atualizado para combinar com o estilo */}
         {myList.length > 0 && <MediaRow title="📂 A Minha Lista" itemsProp={myList} />}
 
-        {/* 3. Categoria Sazonal (Natal) */}
         {isChristmas && (
           <MediaRow 
             title="🎄 Especial de Natal" 
@@ -152,7 +145,7 @@ export default function HomeClient() {
         <MediaRow title="🎬 Ação Pura" endpoint="discover/movie?with_genres=28&sort_by=popularity.desc" type="movie" />
         <MediaRow title="😂 Comédia" endpoint="discover/movie?with_genres=35&sort_by=popularity.desc" type="movie" />
         
-        {/* --- BOTÕES FINAIS PARA O CATÁLOGO --- */}
+        {/* --- BOTÕES FINAIS --- */}
         <div className="py-20 flex flex-col md:flex-row gap-6 justify-center items-center border-t border-white/5 mt-12">
           <Link 
             href="/movies"
@@ -180,7 +173,6 @@ export default function HomeClient() {
             </div>
           </Link>
         </div>
-
       </div>
     </div>
   );
