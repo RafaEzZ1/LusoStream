@@ -11,8 +11,6 @@ export default function Navbar() {
   const { user, profile, signOut } = useAuth();
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  
-  // Estados para a Pesquisa
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const searchInputRef = useRef(null);
@@ -26,14 +24,12 @@ export default function Navbar() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Foca no input quando a pesquisa abre
   useEffect(() => {
     if (searchOpen && searchInputRef.current) {
       searchInputRef.current.focus();
     }
   }, [searchOpen]);
 
-  // Fecha menus ao mudar de página
   useEffect(() => {
     setMobileMenuOpen(false);
     setSearchOpen(false);
@@ -65,7 +61,7 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 md:px-8 flex items-center justify-between relative">
         
         {/* --- LADO ESQUERDO: LOGO --- */}
-        <div className={`flex items-center gap-8 transition-opacity duration-300 ${searchOpen ? 'opacity-0 pointer-events-none md:opacity-100 md:pointer-events-auto' : 'opacity-100'}`}>
+        <div className={`flex items-center gap-8 transition-opacity duration-300 ${searchOpen ? 'opacity-0 md:opacity-100' : 'opacity-100'}`}>
           <Link href="/" className="active:scale-90 transition-transform duration-200">
             <Logo />
           </Link>
@@ -89,12 +85,18 @@ export default function Navbar() {
         {/* --- LADO DIREITO --- */}
         <div className="flex items-center justify-end gap-2 md:gap-4 relative">
           
-          {/* BARRA DE PESQUISA (Abre para a esquerda) */}
-          <div className={`flex items-center justify-end ${searchOpen ? 'absolute right-0 w-full md:w-auto z-50' : 'relative'}`}>
+          {/* BARRA DE PESQUISA (MODO OVERLAY NO MOBILE) */}
+          {/* No mobile, usa 'absolute inset-0' para cobrir a navbar toda. No desktop, usa animação normal. */}
+          <div className={`${
+            searchOpen 
+              ? 'absolute inset-0 -mx-4 px-4 bg-black md:bg-transparent md:static md:mx-0 md:px-0 flex items-center justify-center z-50 h-full' 
+              : 'relative'
+          }`}>
+            
             <form 
               onSubmit={handleSearchSubmit}
               className={`flex items-center bg-zinc-900 border border-white/10 rounded-full overflow-hidden transition-all duration-300 ease-out shadow-xl ${
-                searchOpen ? 'w-[calc(100vw-32px)] md:w-72 opacity-100 pl-4 pr-1 py-1' : 'w-0 opacity-0 border-0 p-0'
+                searchOpen ? 'w-full md:w-64 opacity-100 pl-4 pr-1 py-1' : 'w-0 opacity-0 border-0 p-0 hidden'
               }`}
             >
               <input
@@ -109,9 +111,9 @@ export default function Navbar() {
               <button 
                 type="button" 
                 onClick={() => { setSearchOpen(false); setSearchQuery(""); }}
-                className="text-zinc-400 hover:text-white p-1.5 rounded-full"
+                className="text-zinc-400 hover:text-white p-2 rounded-full flex-shrink-0"
               >
-                <FaTimes size={12} />
+                <FaTimes size={14} />
               </button>
               <button 
                 type="submit"
@@ -121,6 +123,7 @@ export default function Navbar() {
               </button>
             </form>
 
+            {/* Ícone Lupa (Visível quando fechado) */}
             <button 
               onClick={() => setSearchOpen(true)}
               className={`text-zinc-300 hover:text-white p-2.5 rounded-full active:scale-75 transition-all duration-200 ${searchOpen ? 'hidden' : 'block'}`}
@@ -129,15 +132,13 @@ export default function Navbar() {
             </button>
           </div>
 
-          {/* ÍCONES FIXOS (Admin, Notificações, Perfil) */}
+          {/* ÍCONES FIXOS */}
           <div className={`flex items-center gap-2 md:gap-4 transition-opacity duration-200 ${searchOpen ? 'hidden md:flex' : 'flex'}`}>
             
-            {/* BOTÃO ADMIN - SÓ APARECE SE FOR ADMIN */}
             {profile?.role === 'admin' && (
               <Link 
                 href="/admin" 
                 className="text-red-500 hover:text-red-400 p-2 rounded-full bg-red-500/10 border border-red-500/20 active:scale-90 transition-all flex items-center justify-center"
-                title="Painel Admin"
               >
                 <FaShieldAlt size={16} />
               </Link>
@@ -162,7 +163,6 @@ export default function Navbar() {
               </Link>
             )}
 
-            {/* Hambúrguer */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="md:hidden text-zinc-300 p-2 active:scale-75 transition-transform duration-200 active:text-white"

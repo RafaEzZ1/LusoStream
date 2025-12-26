@@ -7,30 +7,36 @@ import { FaStar, FaSearch, FaExclamationCircle } from "react-icons/fa";
 
 export default function SearchClient() {
   const searchParams = useSearchParams();
-  // Se vier vazio, começa vazio.
   const initialQuery = searchParams.get("q") || "";
   const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState([]);
-  const [loading, setLoading] = useState(false);
+  
+  // Estado inicial é true se houver uma query no URL
+  const [loading, setLoading] = useState(!!initialQuery); 
   const inputRef = useRef(null);
 
-  // Foca no input assim que a página abre
   useEffect(() => {
-    if (inputRef.current) {
-      inputRef.current.focus();
-    }
+    if (inputRef.current) inputRef.current.focus();
   }, []);
 
-  // Pesquisa automática com delay (debounce)
   useEffect(() => {
+    // Se a caixa estiver vazia, limpa tudo e para de carregar
+    if (!query.trim()) {
+      setResults([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true); // Começa a carregar imediatamente ao escrever
+
     const timer = setTimeout(async () => {
-      if (query.trim().length > 1) {
-        setLoading(true);
+      try {
         const data = await searchMulti(query);
         setResults(data.results || []);
-        setLoading(false);
-      } else {
-        setResults([]);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoading(false); // Só para de carregar no fim
       }
     }, 500);
 
@@ -41,7 +47,7 @@ export default function SearchClient() {
     <div className="min-h-screen bg-[#050505] pt-28 px-4 md:px-8 pb-20">
       <div className="max-w-6xl mx-auto space-y-8 relative z-10">
         
-        {/* Input de Pesquisa - Z-Index alto para garantir que é clicável */}
+        {/* Input */}
         <div className="relative group z-50">
           <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none">
             <FaSearch className="text-zinc-500 group-focus-within:text-purple-500 transition-colors text-xl" />
@@ -61,7 +67,10 @@ export default function SearchClient() {
 
         {/* Resultados */}
         {loading ? (
-          <div className="text-center py-20 text-zinc-500 animate-pulse font-medium">A pesquisar na base de dados...</div>
+          <div className="text-center py-20">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-purple-500 mb-4"></div>
+            <p className="text-zinc-500 font-medium">A procurar nos arquivos...</p>
+          </div>
         ) : results.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {results.map((item) => (
@@ -81,7 +90,6 @@ export default function SearchClient() {
                     Sem Imagem
                   </div>
                 )}
-                
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
                   <p className="text-white font-bold text-sm truncate">{item.title || item.name}</p>
                   <div className="flex items-center justify-between text-[10px] text-zinc-400 mt-1 uppercase font-bold tracking-widest">
@@ -93,13 +101,13 @@ export default function SearchClient() {
             ))}
           </div>
         ) : query.length > 1 ? (
-          <div className="text-center py-20 flex flex-col items-center gap-4">
+          <div className="text-center py-20 flex flex-col items-center gap-4 animate-in fade-in zoom-in duration-300">
             <div className="w-16 h-16 bg-zinc-900 rounded-full flex items-center justify-center text-zinc-600">
                <FaExclamationCircle size={24} />
             </div>
             <div>
               <h3 className="text-zinc-300 text-lg font-bold">Sem resultados</h3>
-              <p className="text-zinc-600 text-sm max-w-xs mx-auto">Não encontrámos nada com esse nome. Tenta o título original em inglês.</p>
+              <p className="text-zinc-600 text-sm max-w-xs mx-auto">Não encontrámos nada com esse nome.</p>
             </div>
           </div>
         ) : (

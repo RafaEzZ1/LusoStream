@@ -1,7 +1,7 @@
 "use client";
 import { useAuth } from "@/components/AuthProvider";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -9,32 +9,41 @@ export default function AdminClient({ children }) {
   const { user, profile, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
-    // Só toma decisões quando o loading termina
+    // Só validamos quando o Auth terminar de carregar
     if (!loading) {
       if (!user) {
+        // Não está logado -> Login
         router.push("/auth");
-        return;
+      } else if (profile) {
+        // Está logado E já temos o perfil -> Verifica Permissão
+        if (profile.role !== "admin") {
+          router.push("/");
+        } else {
+          // É admin -> Para de verificar e mostra o conteúdo
+          setIsChecking(false);
+        }
       }
-      // Verifica se o role é admin
-      if (profile?.role !== "admin") {
-        console.log("Acesso Admin negado. Role:", profile?.role);
-        router.push("/");
-      }
+      // Nota: Se user existe mas profile ainda é null, esperamos (não fazemos nada)
     }
   }, [user, profile, loading, router]);
 
-  // Enquanto carrega, mostra um spinner bonito em vez de texto branco
-  if (loading) return (
-    <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
-      <div className="w-8 h-8 border-4 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
-    </div>
-  );
-  
-  // Se não for admin, não mostra nada (o useEffect vai redirecionar)
-  if (!user || profile?.role !== "admin") return null;
+  // Mostra loading enquanto:
+  // 1. O Auth está a carregar
+  // 2. O User existe mas o Perfil ainda não chegou do Firebase
+  // 3. Estamos na fase de verificação
+  if (loading || (user && !profile) || isChecking) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center text-white gap-4">
+        <div className="w-10 h-10 border-4 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-zinc-500 text-sm animate-pulse">A verificar credenciais...</p>
+      </div>
+    );
+  }
 
+  // Menu Lateral (Sidebar)
   const links = [
     { name: "Dashboard", path: "/admin" },
     { name: "Conteúdo", path: "/admin/content" },
@@ -45,7 +54,6 @@ export default function AdminClient({ children }) {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] flex text-white font-sans">
-      {/* Sidebar Simples (Original) */}
       <aside className="w-64 border-r border-white/10 bg-black/50 hidden md:block h-screen sticky top-0 shrink-0">
         <div className="p-6">
           <h1 className="text-xl font-bold text-white mb-1">LusoStream</h1>
@@ -73,7 +81,6 @@ export default function AdminClient({ children }) {
         </nav>
       </aside>
 
-      {/* Conteúdo Principal */}
       <main className="flex-1 p-8 overflow-y-auto">
         {children}
       </main>
