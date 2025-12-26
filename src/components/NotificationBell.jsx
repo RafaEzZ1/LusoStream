@@ -26,6 +26,29 @@ export default function NotificationBell() {
       // Filtra para o user específico ou globais
       setNotifications(data.filter(n => !n.userId || n.userId === user.uid));
     });
+    const clearAllNotifications = async () => {
+  if (!user || notifications.length === 0) return;
+  if (!confirm("Queres apagar todas as notificações?")) return;
+
+  try {
+    const deletePromises = notifications.map(n => deleteDoc(doc(db, "notifications", n.id)));
+    await Promise.all(deletePromises);
+    setOpen(false);
+    toast.success("Notificações limpas!");
+  } catch (error) {
+    toast.error("Erro ao apagar notificações.");
+  }
+};
+
+// No JSX (dentro do menu dropdown das notificações), adiciona o botão:
+{notifications.length > 0 && (
+  <button 
+    onClick={clearAllNotifications}
+    className="w-full py-2 text-[10px] text-red-500 font-bold hover:bg-red-500/10 transition border-t border-white/5"
+  >
+    LIMPAR TODAS AS NOTIFICAÇÕES
+  </button>
+)}
 
     return () => unsubscribe();
   }, [user, profile]);

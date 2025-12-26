@@ -21,25 +21,25 @@ export default function AdminReportsClient() {
     fetchReports();
   }, []);
 
-  const handleResolve = async (report) => {
-    try {
-      // 1. Marcar como resolvido
-      await updateDoc(doc(db, "reports", report.id), { status: "resolved" });
+const handleResolve = async (report) => {
+  try {
+    await updateDoc(doc(db, "reports", report.id), { status: "resolved" });
 
-      // 2. ENVIAR NOTIFICAÇÃO AO UTILIZADOR
-      await addDoc(collection(db, "notifications"), {
-        userId: report.userId,
-        title: "Erro Resolvido! 🛠️",
-        message: `O problema que reportaste em "${report.movieTitle}" foi resolvido. A nossa equipa agradece o teu apoio!`,
-        type: "report_resolved",
-        createdAt: serverTimestamp(),
-        read: false
-      });
+    // ENVIAR NOTIFICAÇÃO AO UTILIZADOR
+    await addDoc(collection(db, "notifications"), {
+      userId: report.userId,
+      title: "Erro Resolvido! 🛠️",
+      // USAR report.mediaTitle ou report.movieTitle conforme gravado no DB
+      message: `O problema que reportaste em "${report.mediaTitle || report.movieTitle || 'um título'}" foi resolvido. A nossa equipa agradece!`,
+      type: "report_resolved",
+      createdAt: serverTimestamp(),
+      read: false
+    });
 
-      setReports(reports.map(r => r.id === report.id ? { ...r, status: "resolved" } : r));
-      toast.success("Report resolvido e utilizador notificado!");
-    } catch (error) { toast.error("Erro ao processar"); }
-  };
+    setReports(reports.map(r => r.id === report.id ? { ...r, status: "resolved" } : r));
+    toast.success("Report resolvido!");
+  } catch (error) { toast.error("Erro ao processar"); }
+};
 
   const handleDelete = async (id) => {
     if(!confirm("Apagar este registo?")) return;
