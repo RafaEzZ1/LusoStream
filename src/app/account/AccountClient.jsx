@@ -2,8 +2,9 @@
 import { useAuth } from "@/components/AuthProvider";
 import { useState, useEffect } from "react";
 import VideoCard from "@/components/VideoCard";
-import { SkeletonLoader } from "@/components/SkeletonLoader";
-import { FaBookmark, FaUser, FaEnvelope, FaCalendar } from "react-icons/fa";
+// CORREÇÃO: Removidas as chavetas porque a exportação é default
+import SkeletonLoader from "@/components/SkeletonLoader"; 
+import { FaBookmark, FaUser, FaEnvelope } from "react-icons/fa";
 
 export default function AccountClient() {
   const { user, profile } = useAuth();
@@ -21,10 +22,10 @@ export default function AccountClient() {
       setLoading(true);
       try {
         const promises = profile.watchlist.map(async (item) => {
-          // 1. Separar o prefixo do ID (ex: "tv_12345" -> ["tv", "12345"])
+          // Separar o prefixo (tv_ ou movie_) do ID
           const [prefix, id] = item.split("_");
           
-          // Se não houver prefixo (itens antigos), assume movie por padrão
+          // Se não houver prefixo, assume movie; se houver 'tv', usa tv
           const type = prefix === "tv" ? "tv" : "movie";
           const mediaId = id || prefix; 
 
@@ -35,11 +36,11 @@ export default function AccountClient() {
           if (!res.ok) return null;
           const data = await res.json();
           
-          // Normalizar os dados para o VideoCard (TMDB usa nomes diferentes para filmes/séries)
           return {
             ...data,
             id: mediaId,
-            type: type === "tv" ? "series" : "movie", // Para as tuas rotas /series/ ou /movies/
+            // Normaliza para as tuas rotas internas
+            type: type === "tv" ? "series" : "movie", 
             title: data.title || data.name,
             release_date: data.release_date || data.first_air_date
           };
@@ -55,7 +56,7 @@ export default function AccountClient() {
     }
 
     fetchWatchlist();
-  }, [profile?.watchlist]); // Atualiza a lista sempre que o perfil mudar
+  }, [profile?.watchlist]);
 
   if (!user) return null;
 
@@ -63,21 +64,18 @@ export default function AccountClient() {
     <div className="min-h-screen bg-[#050505] pt-24 pb-12 px-4 md:px-8">
       <div className="max-w-7xl mx-auto space-y-12">
         
-        {/* PERFIL DO UTILIZADOR */}
+        {/* PERFIL */}
         <section className="bg-zinc-900/50 border border-zinc-800 rounded-3xl p-6 md:p-8 flex flex-col md:flex-row items-center gap-6">
-          <div className="w-24 h-24 bg-purple-600 rounded-full flex items-center justify-center text-3xl font-bold shadow-[0_0_20px_rgba(147,51,234,0.3)]">
+          <div className="w-24 h-24 bg-purple-600 rounded-full flex items-center justify-center text-3xl font-bold">
             {user.email?.charAt(0).toUpperCase()}
           </div>
           <div className="flex-1 text-center md:text-left">
             <h1 className="text-2xl font-bold flex items-center justify-center md:justify-start gap-2">
-              <FaUser className="text-zinc-500 text-sm" /> {profile?.username || "Utilizador"}
+               {profile?.username || "Utilizador"}
             </h1>
             <p className="text-zinc-500 flex items-center justify-center md:justify-start gap-2 mt-1">
               <FaEnvelope className="text-xs" /> {user.email}
             </p>
-          </div>
-          <div className="text-xs text-zinc-600 font-mono bg-black/30 px-4 py-2 rounded-xl border border-white/5">
-            ID: {user.uid.slice(0, 8)}...
           </div>
         </section>
 
@@ -109,9 +107,7 @@ export default function AccountClient() {
             </div>
           ) : (
             <div className="text-center py-20 bg-zinc-900/20 rounded-3xl border border-dashed border-zinc-800">
-              <FaBookmark className="mx-auto text-zinc-800 text-4xl mb-4" />
-              <p className="text-zinc-500 font-medium">A tua lista está vazia.</p>
-              <p className="text-zinc-600 text-sm mt-1">Adiciona filmes ou séries para os veres aqui.</p>
+              <p className="text-zinc-500">A tua lista está vazia.</p>
             </div>
           )}
         </section>
