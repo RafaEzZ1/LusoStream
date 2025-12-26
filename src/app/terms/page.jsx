@@ -1,82 +1,97 @@
-// src/app/terms/page.jsx
+"use client"; // Adicionado para permitir animações
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import { FaShieldAlt, FaUserSecret, FaCookieBite, FaEnvelopeOpenText } from "react-icons/fa";
 
 export default function TermsPage() {
   return (
-    <div className="bg-black min-h-screen text-gray-300 font-sans">
+    <div className="bg-[#050505] min-h-screen text-gray-400 font-sans selection:bg-red-600/30">
       <Navbar />
       
-      <main className="pt-32 px-6 max-w-4xl mx-auto pb-20">
-        <h1 className="text-3xl md:text-4xl font-bold text-white mb-8 border-l-4 border-red-600 pl-4">
-          Termos e Condições
-        </h1>
+      {/* Efeito de luz de fundo para profundidade */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[500px] bg-red-600/5 blur-[120px] pointer-events-none" />
 
-        <div className="space-y-10 text-base leading-relaxed bg-gray-900/50 p-8 rounded-2xl border border-gray-800">
+      <main className="relative pt-32 px-6 max-w-4xl mx-auto pb-24 z-10 animate-in fade-in slide-in-from-bottom-8 duration-1000">
+        <header className="mb-12 text-center md:text-left">
+          <h1 className="text-4xl md:text-5xl font-black text-white mb-4 tracking-tighter">
+            Termos e <span className="text-red-600">Condições</span>
+          </h1>
+          <p className="text-zinc-500">Última atualização: {new Date().toLocaleDateString('pt-PT')}</p>
+        </header>
+
+        <div className="space-y-8 leading-relaxed">
           
-          {/* SECÇÃO 1: AVISO LEGAL (Estilo MrPiracy) */}
-          <section>
-            <h2 className="text-xl font-bold text-white mb-4 uppercase tracking-wide">1. Aviso Legal</h2>
-            <div className="space-y-4 text-gray-400">
+          {/* SECÇÃO 1: AVISO LEGAL */}
+          <section className="bg-zinc-900/40 backdrop-blur-md p-8 rounded-[2rem] border border-white/5 hover:border-white/10 transition-colors">
+            <div className="flex items-center gap-3 mb-6">
+              <FaShieldAlt className="text-red-600 text-xl" />
+              <h2 className="text-xl font-bold text-white uppercase tracking-widest text-sm">1. Responsabilidade e Indexação</h2>
+            </div>
+            <div className="space-y-4">
               <p>
-                Ao utilizares o <strong>LusoStream</strong> concordas com os seguintes pontos:
+                O <strong>LusoStream</strong> opera estritamente como um indexador automatizado de conteúdos audiovisuais disponíveis publicamente na rede mundial de computadores.
               </p>
-              <ul className="list-disc list-inside space-y-2 ml-2">
-                <li>Somos apenas um site que fornece links, funcionando exclusivamente como um motor de busca.</li>
-                <li><strong>Não temos nenhum ficheiro</strong> com direitos de autor alojado no nosso website ou nos nossos servidores.</li>
-                <li>Os links para os filmes/séries são armazenados por utilizadores em sites externos (MixDrop, UpStream, etc.) e controlados pela administração.</li>
-                <li>Não nos responsabilizamos pelos conteúdos alojados por terceiros.</li>
-                <li>Somos semelhantes ao Google: apenas indexamos o que já existe na internet.</li>
+              <ul className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm italic">
+                <li className="flex items-start gap-2 bg-black/20 p-3 rounded-xl border border-white/5">
+                  <span className="text-red-600">•</span> Não alojamos ficheiros nos nossos servidores.
+                </li>
+                <li className="flex items-start gap-2 bg-black/20 p-3 rounded-xl border border-white/5">
+                  <span className="text-red-600">•</span> Funcionamos como um diretório de links externos.
+                </li>
+                <li className="flex items-start gap-2 bg-black/20 p-3 rounded-xl border border-white/5">
+                  <span className="text-red-600">•</span> O conteúdo é gerido por plataformas de terceiros.
+                </li>
+                <li className="flex items-start gap-2 bg-black/20 p-3 rounded-xl border border-white/5">
+                  <span className="text-red-600">•</span> Não detemos controlo sobre a disponibilidade dos links.
+                </li>
               </ul>
             </div>
           </section>
 
           {/* SECÇÃO 2: PRIVACIDADE */}
-          <section>
-            <h2 className="text-xl font-bold text-white mb-4 uppercase tracking-wide">2. Privacidade e Dados</h2>
-            <div className="space-y-4 text-gray-400">
-              <p>
-                Os dados dos utilizadores <strong>não serão divulgados</strong>. O LusoStream zela pela privacidade total.
-              </p>
-              <p>
-                Ao registar-se, tem a possibilidade de escolher o seu nome de utilizador e email.
-                Para sua proteção, concorda em nunca partilhar a sua palavra-passe com terceiros.
-              </p>
-              <p>
-                Qualquer informação (comentários ou pedidos) considerada inadequada será removida pelos administradores sem aviso prévio.
-              </p>
+          <section className="bg-zinc-900/40 backdrop-blur-md p-8 rounded-[2rem] border border-white/5">
+            <div className="flex items-center gap-3 mb-6">
+              <FaUserSecret className="text-red-600 text-xl" />
+              <h2 className="text-xl font-bold text-white uppercase tracking-widest text-sm">2. Blindagem de Dados</h2>
             </div>
+            <p className="mb-4">
+              A privacidade é um pilar fundamental. O registo no LusoStream é minimalista: solicitamos apenas o necessário para a tua experiência de utilizador.
+            </p>
+            <blockquote className="border-l-2 border-red-600 pl-4 py-1 italic text-zinc-500 text-sm">
+              Concordas em manter a tua credencial de acesso confidencial. Atividades suspeitas ou abusivas resultarão na revogação imediata do acesso.
+            </blockquote>
           </section>
 
           {/* SECÇÃO 3: COOKIES */}
-          <section>
-            <h2 className="text-xl font-bold text-white mb-4 uppercase tracking-wide">3. Cookies</h2>
-            <p className="text-gray-400">
-              Este site utiliza apenas um pequeno ficheiro (cookie) para manter a sua sessão iniciada ("Login"). O software não recolhe nem envia qualquer outro tipo de informação do seu computador.
+          <section className="bg-zinc-900/40 backdrop-blur-md p-8 rounded-[2rem] border border-white/5">
+            <div className="flex items-center gap-3 mb-6">
+              <FaCookieBite className="text-red-600 text-xl" />
+              <h2 className="text-xl font-bold text-white uppercase tracking-widest text-sm">3. Cookies de Sessão</h2>
+            </div>
+            <p className="text-sm">
+              Utilizamos cookies estritamente funcionais. Estes pequenos identificadores servem apenas para reconhecer a tua conta e manter a tua sessão ativa, garantindo que não precisas de fazer login a cada clique.
             </p>
           </section>
 
-          {/* SECÇÃO 4: DMCA (Versão Simples e Direta) */}
-          <section id="dmca" className="scroll-mt-32 pt-6 border-t border-gray-800">
-            <h2 className="text-xl font-bold text-red-500 mb-4 uppercase tracking-wide">4. DMCA / Contacto</h2>
-            <p className="mb-4 text-gray-400">
-              O LusoStream respeita os direitos de propriedade intelectual. Se és o detentor dos direitos de autor de algum conteúdo aqui listado e queres que o link seja removido, entra em contacto connosco.
+          {/* SECÇÃO 4: REMOÇÃO DE CONTEÚDO (DMCA) */}
+          <section id="dmca" className="bg-red-600/5 backdrop-blur-md p-8 rounded-[2.5rem] border border-red-600/20 shadow-2xl shadow-red-600/5">
+            <div className="flex items-center gap-3 mb-6">
+              <FaEnvelopeOpenText className="text-red-600 text-xl" />
+              <h2 className="text-xl font-bold text-white uppercase tracking-widest text-sm">4. Notificação de Direitos de Autor</h2>
+            </div>
+            <p className="mb-6 text-sm">
+              Respeitamos a propriedade intelectual. Se deténs os direitos de algum conteúdo indexado e desejas solicitar a sua remoção do nosso índice, segue o protocolo abaixo:
             </p>
             
-            <div className="bg-black p-6 rounded-lg border border-gray-700">
-              <p className="text-white mb-2">Para remover um link, envia email com:</p>
-              <ul className="list-disc list-inside text-sm text-gray-400 mb-4 ml-2">
-                <li>Nome do Filme ou Série;</li>
-                <li>Link (URL) da página no LusoStream.</li>
-              </ul>
-
-              <p className="text-gray-500 text-xs uppercase font-bold mb-1">Email para Contacto:</p>
-              <a href="mailto:Streamyme1@proton.me" className="text-xl font-bold text-white hover:text-red-500 transition select-all">
+            <div className="bg-black/40 p-6 rounded-2xl border border-red-600/10 group transition-all hover:border-red-600/30">
+              <p className="text-white text-xs font-black uppercase tracking-widest mb-4 opacity-50">Canal de Contacto Oficial</p>
+              <a href="mailto:Streamyme1@proton.me" className="text-2xl md:text-3xl font-black text-white hover:text-red-600 transition-colors break-all">
                 Streamyme1@proton.me
               </a>
-              <p className="text-xs text-gray-600 mt-2 italic">
-                Removemos o conteúdo o mais breve possível após a receção do email.
-              </p>
+              <div className="mt-6 flex flex-col md:flex-row gap-4 text-xs font-bold">
+                <span className="bg-zinc-800 px-3 py-1 rounded-full text-zinc-400">Tempo de resposta: &lt; 48h</span>
+                <span className="bg-zinc-800 px-3 py-1 rounded-full text-zinc-400">Requer URL direta do LusoStream</span>
+              </div>
             </div>
           </section>
 
