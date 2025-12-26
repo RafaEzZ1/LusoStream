@@ -12,12 +12,14 @@ export default function AdminClient({ children }) {
 
   useEffect(() => {
     if (!loading) {
-      // Se não está logado, manda para login
       if (!user) {
         router.push("/auth");
         return;
       }
-      // Se está logado mas não é admin, manda para home
+      
+      // DEBUG: Isto vai aparecer na consola (F12) para veres o que o Firebase está a ler
+      console.log("Admin Check - Role:", profile?.role);
+
       if (profile?.role !== "admin") {
         router.push("/");
       }
@@ -26,11 +28,12 @@ export default function AdminClient({ children }) {
 
   if (loading) return <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center text-white">A verificar permissões...</div>;
   
+  // Bloqueio de renderização se não for admin
   if (!user || profile?.role !== "admin") return null;
 
   const links = [
     { name: "Dashboard", path: "/admin" },
-    { name: "Conteúdo", path: "/admin/content" }, // Adicionar filmes
+    { name: "Conteúdo", path: "/admin/content" },
     { name: "Reportes", path: "/admin/reports" },
     { name: "Sugestões", path: "/admin/suggestions" },
     { name: "Avisos", path: "/admin/announcements" },
@@ -38,8 +41,8 @@ export default function AdminClient({ children }) {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] flex">
-      {/* Sidebar Simples */}
-      <aside className="w-64 border-r border-white/10 bg-black/50 hidden md:block">
+      {/* Sidebar Simples (O teu layout original) */}
+      <aside className="w-64 border-r border-white/10 bg-black/50 hidden md:block shrink-0 h-screen sticky top-0">
         <div className="p-6">
           <h1 className="text-xl font-bold text-white mb-1">LusoStream</h1>
           <span className="text-xs text-red-500 font-bold tracking-wider">ADMINISTRADOR</span>

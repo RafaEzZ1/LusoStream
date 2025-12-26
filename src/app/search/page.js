@@ -8,8 +8,8 @@ export const metadata = {
 
 export default function SearchPage() {
   return (
-    // O Suspense é OBRIGATÓRIO para usar useSearchParams, senão o input bloqueia
-    <Suspense fallback={<div className="min-h-screen bg-[#050505] flex items-center justify-center text-zinc-500">A carregar pesquisa...</div>}>
+    // O Suspense é crucial para o input funcionar no Next.js App Router
+    <Suspense fallback={<div className="min-h-screen bg-[#050505] flex items-center justify-center text-zinc-500">A carregar barra de pesquisa...</div>}>
       <SearchClient />
     </Suspense>
   );
