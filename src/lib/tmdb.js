@@ -1,4 +1,4 @@
-const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
+const API_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY; // Agora lê do cofre
 const BASE_URL = "https://api.themoviedb.org/3";
 
 export async function getPopularMovies() {

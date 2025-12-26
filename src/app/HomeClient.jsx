@@ -9,7 +9,7 @@ import MediaRow from "@/components/MediaRow";
 import { listContinueWatching } from "@/lib/progress";
 import { FaPlay, FaInfoCircle, FaFilm, FaTv } from "react-icons/fa";
 
-const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
+const API_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY;
 
 async function fetchDetails(itemFullId, defaultType) {
   try {

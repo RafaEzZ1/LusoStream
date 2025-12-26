@@ -7,7 +7,6 @@ import ProgressTracker from "@/components/ProgressTracker";
 import PlayerControls from "@/components/PlayerControls";
 import ReportButton from "@/components/ReportButton";
 import VideoPlayer from "@/components/VideoPlayer"; // O novo player
-import Navbar from "@/components/Navbar";
 
 export default function WatchMoviePage() {
   const { id } = useParams();
@@ -36,7 +35,6 @@ export default function WatchMoviePage() {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white">
-      <Navbar />
       
       {/* Container do Player */}
       <div className="relative w-full pt-20 md:pt-24 bg-black shadow-2xl px-4 md:px-0">

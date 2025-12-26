@@ -1,139 +1,166 @@
 "use client";
 import Link from "next/link";
+import { useAuth } from "@/components/AuthProvider";
 import { useState, useEffect } from "react";
-import { useAuth } from "@/components/AuthProvider"; 
-import { useAuthModal } from "@/context/AuthModalContext";
-import { useRouter } from "next/navigation"; // Importante para a pesquisa
+import { usePathname } from "next/navigation";
+import { FaSearch, FaUser, FaBars, FaTimes, FaSignOutAlt } from "react-icons/fa";
 import Logo from "./Logo";
 import NotificationBell from "./NotificationBell";
 
 export default function Navbar() {
-  const { user, isAdmin } = useAuth(); // Profile não é estritamente necessário aqui se usarmos user.photoURL
-  const { openModal } = useAuthModal();
-  const [scrolled, setScrolled] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  
-  // Estado para a pesquisa
-  const [searchValue, setSearchValue] = useState("");
-  const router = useRouter();
+  const { user, profile, signOut } = useAuth();
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const pathname = usePathname();
 
-  // Efeito de scroll para escurecer a navbar
+  // Efeito de fundo preto ao fazer scroll
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 50);
+    const handleScroll = () => setIsScrolled(window.scrollY > 0);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Função de Pesquisa
-  const handleSearch = (e) => {
-    e.preventDefault();
-    if (searchValue.trim()) {
-      router.push(`/search?q=${encodeURIComponent(searchValue)}`);
-      setMenuOpen(false); // Fecha menu mobile se estiver aberto
-    }
-  };
+  // Fecha o menu mobile ao mudar de página
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
+
+  const navLinks = [
+    { name: "Início", href: "/" },
+    { name: "Filmes", href: "/movies" },
+    { name: "Séries", href: "/series" },
+    { name: "Minha Lista", href: "/account" },
+  ];
 
   return (
-    <nav className={`fixed top-0 w-full z-50 transition-all duration-300 ${scrolled ? "bg-black/90 backdrop-blur-md shadow-lg" : "bg-gradient-to-b from-black/80 to-transparent"}`}>
-      <div className="max-w-7xl mx-auto px-4 md:px-6">
-        <div className="flex items-center justify-between h-16 md:h-20">
+    <nav
+      className={`fixed top-0 w-full z-50 transition-all duration-300 border-b ${
+        isScrolled || mobileMenuOpen
+          ? "bg-black/90 backdrop-blur-md border-white/5 py-3"
+          : "bg-gradient-to-b from-black/80 to-transparent border-transparent py-5"
+      }`}
+    >
+      <div className="max-w-7xl mx-auto px-4 md:px-8 flex items-center justify-between">
+        
+        {/* Lado Esquerdo: Logo e Links Desktop */}
+        <div className="flex items-center gap-8">
+          <Link href="/" className="active:scale-95 transition-transform">
+            <Logo />
+          </Link>
           
-          {/* Lado Esquerdo: Logo e Links Principais */}
-          <div className="flex items-center gap-8">
-            <Link href="/" className="flex-shrink-0"><Logo /></Link>
-            
-            <div className="hidden md:flex items-center gap-6 text-sm font-medium">
-              <Link href="/" className="text-white hover:text-gray-300 transition">Início</Link>
-              <Link href="/movies" className="text-gray-300 hover:text-white transition">Filmes</Link>
-              <Link href="/series" className="text-gray-300 hover:text-white transition">Séries</Link>
-              <Link href="/suggestions" className="text-gray-300 hover:text-white transition">Pedir</Link>
-            </div>
-          </div>
-
-          {/* Lado Direito: Pesquisa, Admin, Avatar */}
-          <div className="flex items-center gap-4 md:gap-6">
-            
-            {/* BARRA DE PESQUISA (Desktop) */}
-            <form onSubmit={handleSearch} className="hidden md:flex items-center bg-white/10 rounded-full px-3 py-1 border border-white/5 focus-within:border-white/30 transition">
-               <svg className="w-4 h-4 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-               <input 
-                 type="text" 
-                 placeholder="Pesquisar..." 
-                 className="bg-transparent border-none outline-none text-sm text-white w-24 focus:w-48 transition-all placeholder-gray-400"
-                 value={searchValue}
-                 onChange={(e) => setSearchValue(e.target.value)}
-               />
-            </form>
-
-            {/* Lupa para Mobile (Link direto para search vazio) */}
-            <Link href="/search?q=" className="md:hidden text-gray-300">
-               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-            </Link>
-
-            {/* Sininho de Notificações */}
-            <NotificationBell />
-
-            {/* Estado de Autenticação */}
-            {user ? (
-              <div className="flex items-center gap-4">
-                {isAdmin && (
-                  <Link href="/admin" className="hidden md:block bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-1 rounded font-bold uppercase tracking-wider transition">
-                    Admin
-                  </Link>
-                )}
-                
-                <Link href="/account" className="relative group">
-                  <div className="w-9 h-9 rounded-full overflow-hidden border border-white/20 group-hover:border-white transition">
-                    <img 
-                      src={user.photoURL || "https://upload.wikimedia.org/wikipedia/commons/0/0b/Netflix-avatar.png"} 
-                      alt="Perfil"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
+          <ul className="hidden md:flex items-center gap-6">
+            {navLinks.map((link) => (
+              <li key={link.href}>
+                <Link
+                  href={link.href}
+                  className={`text-sm font-bold tracking-wide transition-colors ${
+                    pathname === link.href ? "text-white" : "text-zinc-400 hover:text-purple-500"
+                  }`}
+                >
+                  {link.name}
                 </Link>
-              </div>
-            ) : (
-              <button 
-                onClick={openModal}
-                className="bg-white text-black px-4 py-1.5 rounded font-bold text-sm hover:bg-gray-200 transition"
-              >
-                Entrar
-              </button>
-            )}
+              </li>
+            ))}
+          </ul>
+        </div>
 
-            {/* Menu Mobile (Hambúrguer) */}
-            <button onClick={() => setMenuOpen(!menuOpen)} className="md:hidden text-white">
-              <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={menuOpen ? "M6 18L18 6M6 6l12 12" : "M4 6h16M4 12h16M4 18h16"} /></svg>
-            </button>
-          </div>
+        {/* Lado Direito: Ícones */}
+        <div className="flex items-center gap-4 md:gap-6">
+          
+          {/* Lupa de Pesquisa (Agora funciona no mobile com clique direto) */}
+          <Link 
+            href="/search" 
+            className="text-white hover:text-purple-500 transition-all p-2 rounded-full active:scale-90 active:bg-white/10"
+          >
+            <FaSearch size={18} />
+          </Link>
+
+          {/* Notificações (Só se tiver logado) */}
+          {user && <NotificationBell />}
+
+          {/* Perfil (Desktop) */}
+          {user ? (
+            <div className="hidden md:flex items-center gap-4">
+              <Link href="/account">
+                <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-xs font-bold ring-2 ring-transparent hover:ring-purple-400 transition-all active:scale-90">
+                  {profile?.username?.[0]?.toUpperCase() || "U"}
+                </div>
+              </Link>
+            </div>
+          ) : (
+            <Link
+              href="/auth"
+              className="hidden md:block bg-white text-black px-5 py-2 rounded-full text-xs font-black hover:bg-zinc-200 transition active:scale-95"
+            >
+              ENTRAR
+            </Link>
+          )}
+
+          {/* Botão Menu Mobile (Hambúrguer) */}
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="md:hidden text-white p-2 active:scale-90 transition-transform"
+          >
+            {mobileMenuOpen ? <FaTimes size={24} /> : <FaBars size={24} />}
+          </button>
         </div>
       </div>
 
-      {/* Dropdown Mobile */}
-      {menuOpen && (
-        <div className="md:hidden bg-[#121212] border-t border-white/10 p-4 absolute w-full left-0 animate-in slide-in-from-top-5 shadow-2xl">
-          <div className="flex flex-col gap-4 text-white font-medium text-lg">
-            {/* Barra de pesquisa mobile */}
-            <form onSubmit={handleSearch} className="flex items-center bg-white/5 rounded-lg px-3 py-2 mb-2">
-               <input 
-                 type="text" 
-                 placeholder="Pesquisar filme ou série..." 
-                 className="bg-transparent border-none outline-none text-white w-full"
-                 value={searchValue}
-                 onChange={(e) => setSearchValue(e.target.value)}
-               />
-               <button type="submit">🔍</button>
-            </form>
-
-            <Link href="/" onClick={() => setMenuOpen(false)}>Início</Link>
-            <Link href="/movies" onClick={() => setMenuOpen(false)}>Filmes</Link>
-            <Link href="/series" onClick={() => setMenuOpen(false)}>Séries</Link>
-            <Link href="/suggestions" onClick={() => setMenuOpen(false)}>Pedir Filmes</Link>
-            {isAdmin && <Link href="/admin" onClick={() => setMenuOpen(false)} className="text-red-500">Painel Admin</Link>}
-            {user && <Link href="/account" onClick={() => setMenuOpen(false)} className="text-blue-400">Minha Conta</Link>}
+      {/* --- MENU MOBILE (Desliza de cima) --- */}
+      <div
+        className={`md:hidden absolute top-full left-0 w-full bg-black border-b border-white/10 overflow-hidden transition-all duration-300 ease-in-out ${
+          mobileMenuOpen ? "max-h-screen opacity-100" : "max-h-0 opacity-0"
+        }`}
+      >
+        <div className="px-6 py-8 flex flex-col gap-6">
+          
+          {/* Links de Navegação Mobile */}
+          <div className="flex flex-col gap-4">
+            {navLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`text-xl font-bold ${
+                  pathname === link.href ? "text-purple-500 pl-4 border-l-4 border-purple-500" : "text-zinc-400"
+                } active:text-white transition-all`}
+              >
+                {link.name}
+              </Link>
+            ))}
           </div>
+
+          <div className="h-px bg-white/10 w-full my-2" />
+
+          {/* Área de Utilizador Mobile */}
+          {user ? (
+            <div className="space-y-4">
+              <Link href="/account" className="flex items-center gap-3 text-zinc-300 active:text-white group">
+                <div className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center font-bold text-white group-active:scale-95 transition">
+                   {profile?.username?.[0]?.toUpperCase()}
+                </div>
+                <div className="flex flex-col">
+                  <span className="font-bold text-white">{profile?.username}</span>
+                  <span className="text-[10px] text-zinc-500">Ver Perfil</span>
+                </div>
+              </Link>
+              
+              <button 
+                onClick={signOut}
+                className="flex items-center gap-2 text-red-500 text-sm font-bold mt-4 active:scale-95 transition-transform"
+              >
+                <FaSignOutAlt /> Terminar Sessão
+              </button>
+            </div>
+          ) : (
+            <Link
+              href="/auth"
+              className="block w-full bg-purple-600 text-white text-center py-4 rounded-xl font-black active:scale-95 transition-transform"
+            >
+              INICIAR SESSÃO
+            </Link>
+          )}
         </div>
-      )}
+      </div>
     </nav>
   );
 }
