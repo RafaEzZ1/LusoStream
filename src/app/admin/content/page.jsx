@@ -2,233 +2,258 @@
 import { useState } from "react";
 import AdminClient from "../AdminClient";
 import { db } from "@/lib/firebase";
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
-import { searchMulti } from "@/lib/tmdb"; 
+import { doc, setDoc, getDoc, deleteDoc } from "firebase/firestore";
+import { searchMulti } from "@/lib/tmdb";
+import toast from "react-hot-toast";
 
 export default function ContentPage() {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState([]);
-  const [selectedMedia, setSelectedMedia] = useState(null);
-  
-  // Dados do Formulário
+  const [type, setType] = useState("movie"); // movie ou series
+  const [tmdbId, setTmdbId] = useState("");
+  const [season, setSeason] = useState("1");
+  const [episode, setEpisode] = useState("1");
   const [streamUrl, setStreamUrl] = useState("");
-  const [season, setSeason] = useState("1"); // Para séries
-  const [episode, setEpisode] = useState("1"); // Para séries
   
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
+  const [isEditing, setIsEditing] = useState(false); // Sabe se estamos a editar
 
-  const handleSearch = async (e) => {
+  // Pesquisa
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+
+  // --- FUNÇÃO INTELIGENTE: Verificar se já existe ---
+  const checkExisting = async (idToCheck) => {
+    try {
+      const docRef = doc(db, "embeds", idToCheck);
+      const docSnap = await getDoc(docRef);
+      
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setStreamUrl(data.streamUrl); // Preenche o link automaticamente
+        setIsEditing(true); // Ativa modo de edição
+        toast("Conteúdo encontrado! Podes editar.", { icon: '✏️' });
+      } else {
+        setStreamUrl(""); // Limpa se for novo
+        setIsEditing(false); // Modo criar
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  // Quando mudamos os inputs, verificamos se existe
+  const handleIdChange = (e) => {
+    const val = e.target.value;
+    setTmdbId(val);
+    if (type === 'movie' && val) checkExisting(val);
+    if (type === 'series' && val) checkExisting(`${val}_S${season}_E${episode}`);
+  };
+
+  const handleSeasonChange = (e) => {
+    const val = e.target.value;
+    setSeason(val);
+    if (type === 'series' && tmdbId) checkExisting(`${tmdbId}_S${val}_E${episode}`);
+  };
+
+  const handleEpisodeChange = (e) => {
+    const val = e.target.value;
+    setEpisode(val);
+    if (type === 'series' && tmdbId) checkExisting(`${tmdbId}_S${season}_E${val}`);
+  };
+
+  // --- SALVAR (Adicionar ou Atualizar) ---
+  const handleSave = async (e) => {
     e.preventDefault();
-    if (!searchQuery.trim()) return;
+    if (!tmdbId || !streamUrl) return toast.error("Preenche tudo!");
+
     setLoading(true);
     try {
-      const data = await searchMulti(searchQuery);
-      setSearchResults(data.results || []);
+      // Gera o ID correto
+      const docId = type === 'movie' ? tmdbId : `${tmdbId}_S${season}_E${episode}`;
+
+      await setDoc(doc, "embeds", docId, {
+        tmdbId,
+        type,
+        season: type === 'series' ? season : null,
+        episode: type === 'series' ? episode : null,
+        streamUrl,
+        updatedAt: new Date()
+      });
+
+      toast.success(isEditing ? "Conteúdo Atualizado!" : "Conteúdo Adicionado!");
+      
+      // Não limpamos tudo para facilitar adicionar o próximo episódio
+      if (type === 'series') {
+        const nextEp = String(Number(episode) + 1);
+        setEpisode(nextEp);
+        setStreamUrl("");
+        setIsEditing(false);
+        checkExisting(`${tmdbId}_S${season}_E${nextEp}`); // Verifica se o próximo já existe
+      } else {
+        setTmdbId("");
+        setStreamUrl("");
+        setIsEditing(false);
+      }
+
     } catch (error) {
-      setMessage("Erro ao pesquisar.");
+      console.error(error);
+      toast.error("Erro ao guardar.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSelect = (media) => {
-    setSelectedMedia(media);
-    setSearchResults([]);
-    setSearchQuery("");
-    setMessage("");
-    // Resetar valores
-    setSeason("1");
-    setEpisode("1");
-    setStreamUrl("");
-  };
-
-  const handleSave = async (e) => {
-    e.preventDefault();
-    if (!selectedMedia) return;
-
+  // --- APAGAR ---
+  const handleDelete = async () => {
+    if(!confirm("Tens a certeza que queres apagar este link?")) return;
+    
     setLoading(true);
     try {
-      const mediaId = String(selectedMedia.id);
-      const isTv = selectedMedia.media_type === 'tv';
+      const docId = type === 'movie' ? tmdbId : `${tmdbId}_S${season}_E${episode}`;
+      await deleteDoc(doc(db, "embeds", docId));
       
-      // Construir ID único para o embed
-      // Filmes: apenas o ID (ex: "550")
-      // Séries: ID_S1_E1 (ex: "12345_S1_E1")
-      const embedId = isTv ? `${mediaId}_S${season}_E${episode}` : mediaId;
-
-      // 1. Guardar o Link (Embed)
-      await setDoc(doc(db, "embeds", embedId), {
-        tmdbId: mediaId,
-        type: selectedMedia.media_type,
-        streamUrl: streamUrl,
-        season: isTv ? Number(season) : null,
-        episode: isTv ? Number(episode) : null,
-        updatedAt: serverTimestamp()
-      });
-
-      // 2. Guardar no Catálogo Geral (Para sabermos que existe no sistema)
-      // Se for série, guardamos apenas o registo da série (não do episódio)
-      await setDoc(doc(db, "catalog", mediaId), {
-        tmdbId: mediaId,
-        title: selectedMedia.title || selectedMedia.name,
-        poster_path: selectedMedia.poster_path,
-        type: selectedMedia.media_type,
-        addedAt: serverTimestamp()
-      });
-
-      setMessage(isTv 
-        ? `✅ Episódio S${season}E${episode} adicionado!` 
-        : "✅ Filme adicionado!");
-      
-      // Se for série, não limpamos tudo para facilitar adicionar o próximo episódio
-      if (!isTv) {
-        setSelectedMedia(null);
-      }
+      toast.success("Conteúdo Apagado!");
       setStreamUrl("");
-
+      setIsEditing(false);
     } catch (error) {
-      console.error(error);
-      setMessage("❌ Erro ao guardar.");
+      toast.error("Erro ao apagar.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // --- Pesquisa TMDB (Auxiliar) ---
+  const handleSearch = async (e) => {
+    e.preventDefault();
+    if (!searchQuery) return;
+    const data = await searchMulti(searchQuery);
+    setSearchResults(data.results || []);
+  };
+
+  const selectItem = (item) => {
+    setTmdbId(String(item.id));
+    setSearchQuery("");
+    setSearchResults([]);
+    setType(item.media_type === 'tv' ? 'series' : 'movie');
+    
+    // Verifica logo se existe
+    if (item.media_type === 'movie') {
+      checkExisting(String(item.id));
+    } else {
+      checkExisting(`${item.id}_S${season}_E${episode}`);
     }
   };
 
   return (
     <AdminClient>
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold text-white mb-8 border-l-4 border-purple-500 pl-4">
-          Adicionar Conteúdo
+          Gestão de Conteúdo
         </h1>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* COLUNA 1: PESQUISA */}
-          <div className="lg:col-span-1 space-y-6">
-            <div className="bg-white/5 p-6 rounded-2xl border border-white/10">
-              <h3 className="text-gray-400 text-sm font-bold uppercase mb-4">1. Encontrar no TMDB</h3>
-              <form onSubmit={handleSearch} className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Nome do filme/série..."
-                  className="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-purple-500"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-                <button type="submit" disabled={loading} className="bg-purple-600 p-2 rounded-lg text-white">
-                  🔍
-                </button>
-              </form>
-
-              {/* Lista de Resultados */}
-              {searchResults.length > 0 && (
-                <div className="mt-4 space-y-2 max-h-[400px] overflow-y-auto custom-scrollbar">
-                  {searchResults.map((item) => (
-                    <div 
-                      key={item.id} 
-                      onClick={() => handleSelect(item)}
-                      className="flex items-center gap-3 p-2 hover:bg-white/10 rounded cursor-pointer transition"
-                    >
-                      {item.poster_path ? (
-                        <img src={`https://image.tmdb.org/t/p/w92${item.poster_path}`} className="w-10 h-14 object-cover rounded" />
-                      ) : <div className="w-10 h-14 bg-gray-800 rounded"></div>}
-                      <div>
-                        <p className="text-white text-sm font-bold line-clamp-1">{item.title || item.name}</p>
-                        <span className="text-[10px] bg-white/10 px-1 rounded text-gray-400 uppercase">{item.media_type}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          
+          {/* LADO ESQUERDO: Pesquisa TMDB */}
+          <div className="space-y-4">
+             <div className="bg-zinc-900 p-4 rounded-xl border border-zinc-800">
+               <h3 className="font-bold text-white mb-2">1. Encontrar ID</h3>
+               <div className="flex gap-2">
+                 <input 
+                   type="text" 
+                   className="w-full bg-black border border-zinc-700 rounded px-3 py-2 text-white"
+                   placeholder="Nome do filme/série..."
+                   value={searchQuery}
+                   onChange={(e) => setSearchQuery(e.target.value)}
+                 />
+                 <button onClick={handleSearch} className="bg-blue-600 px-4 rounded text-white">🔍</button>
+               </div>
+               
+               <div className="mt-2 max-h-60 overflow-y-auto space-y-2">
+                 {searchResults.map(item => (
+                   <div key={item.id} onClick={() => selectItem(item)} className="flex items-center gap-2 p-2 hover:bg-zinc-800 cursor-pointer rounded">
+                     {item.poster_path && <img src={`https://image.tmdb.org/t/p/w92${item.poster_path}`} className="w-8 h-12 object-cover" />}
+                     <div>
+                       <p className="text-xs text-white font-bold">{item.title || item.name}</p>
+                       <p className="text-[10px] text-gray-400">{item.media_type} • {item.id}</p>
+                     </div>
+                   </div>
+                 ))}
+               </div>
+             </div>
           </div>
 
-          {/* COLUNA 2: EDIÇÃO (Só aparece se selecionado) */}
-          <div className="lg:col-span-2">
-            {selectedMedia ? (
-              <div className="bg-white/5 p-8 rounded-2xl border border-white/10 animate-fade-in relative overflow-hidden">
-                {/* Imagem de Fundo (Blur) */}
-                {selectedMedia.backdrop_path && (
-                  <div className="absolute inset-0 opacity-10 pointer-events-none">
-                     <img src={`https://image.tmdb.org/t/p/w780${selectedMedia.backdrop_path}`} className="w-full h-full object-cover" />
-                  </div>
-                )}
+          {/* LADO DIREITO: Editor */}
+          <form onSubmit={handleSave} className="bg-zinc-900 p-6 rounded-xl border border-zinc-800 space-y-4">
+            <h3 className="font-bold text-white mb-2 border-b border-zinc-700 pb-2">
+              {isEditing ? "✏️ Editar Conteúdo Existente" : "➕ Adicionar Novo Conteúdo"}
+            </h3>
 
-                <div className="relative z-10 flex gap-6 mb-8">
-                  <img src={`https://image.tmdb.org/t/p/w342${selectedMedia.poster_path}`} className="w-32 rounded-lg shadow-2xl" />
-                  <div>
-                    <h2 className="text-2xl font-bold text-white">{selectedMedia.title || selectedMedia.name}</h2>
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase ${selectedMedia.media_type === 'tv' ? 'bg-blue-500 text-white' : 'bg-purple-500 text-white'}`}>
-                        {selectedMedia.media_type === 'tv' ? 'Série de TV' : 'Filme'}
-                      </span>
-                      <span className="text-gray-400 text-sm">{selectedMedia.release_date || selectedMedia.first_air_date}</span>
-                    </div>
-                    <p className="text-gray-400 mt-4 text-sm line-clamp-3">{selectedMedia.overview}</p>
-                  </div>
+            <div className="flex gap-4">
+              <label className="text-white flex items-center gap-2">
+                <input type="radio" checked={type === 'movie'} onChange={() => { setType('movie'); setTmdbId(""); setIsEditing(false); }} /> Filme
+              </label>
+              <label className="text-white flex items-center gap-2">
+                <input type="radio" checked={type === 'series'} onChange={() => { setType('series'); setTmdbId(""); setIsEditing(false); }} /> Série
+              </label>
+            </div>
+
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">ID do TMDB</label>
+              <input 
+                type="text" 
+                required 
+                className="w-full bg-black border border-zinc-700 rounded px-3 py-2 text-white"
+                value={tmdbId}
+                onChange={handleIdChange}
+              />
+            </div>
+
+            {type === 'series' && (
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <label className="block text-xs text-gray-400 mb-1">Temporada</label>
+                  <input type="number" className="w-full bg-black border border-zinc-700 rounded px-3 py-2 text-white" value={season} onChange={handleSeasonChange} />
                 </div>
-
-                <form onSubmit={handleSave} className="relative z-10 space-y-6 bg-black/40 p-6 rounded-xl border border-white/5">
-                  
-                  {/* SE FOR SÉRIE: MOSTRAR CAMPOS DE TEMPORADA/EPISÓDIO */}
-                  {selectedMedia.media_type === 'tv' && (
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-blue-400 text-xs font-bold uppercase mb-1">Temporada</label>
-                        <input
-                          type="number"
-                          min="1"
-                          className="w-full bg-black border border-white/10 rounded px-3 py-2 text-white"
-                          value={season}
-                          onChange={(e) => setSeason(e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-blue-400 text-xs font-bold uppercase mb-1">Episódio</label>
-                        <input
-                          type="number"
-                          min="1"
-                          className="w-full bg-black border border-white/10 rounded px-3 py-2 text-white"
-                          value={episode}
-                          onChange={(e) => setEpisode(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  <div>
-                    <label className="block text-purple-400 text-xs font-bold uppercase mb-1">Link do Vídeo (Embed)</label>
-                    <input
-                      type="text"
-                      placeholder="https://mixdrop.co/e/..."
-                      className="w-full bg-black border border-white/10 rounded px-3 py-3 text-white focus:border-purple-500 outline-none"
-                      value={streamUrl}
-                      onChange={(e) => setStreamUrl(e.target.value)}
-                    />
-                  </div>
-
-                  <button 
-                    type="submit" 
-                    disabled={loading}
-                    className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-bold py-3 rounded-lg transition shadow-lg disabled:opacity-50"
-                  >
-                    {loading ? "A processar..." : "Salvar Conteúdo"}
-                  </button>
-
-                  {message && (
-                    <div className={`text-center text-sm font-medium ${message.includes("✅") ? "text-green-400" : "text-red-400"}`}>
-                      {message}
-                    </div>
-                  )}
-                </form>
-              </div>
-            ) : (
-              <div className="h-full flex flex-col items-center justify-center text-gray-500 bg-white/5 rounded-2xl border border-white/10 border-dashed min-h-[400px]">
-                <span className="text-4xl mb-4">🎬</span>
-                <p>Seleciona um filme ou série à esquerda para começar.</p>
+                <div className="flex-1">
+                  <label className="block text-xs text-gray-400 mb-1">Episódio</label>
+                  <input type="number" className="w-full bg-black border border-zinc-700 rounded px-3 py-2 text-white" value={episode} onChange={handleEpisodeChange} />
+                </div>
               </div>
             )}
-          </div>
+
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Link do MixDrop / Stream</label>
+              <input 
+                type="text" 
+                required 
+                className="w-full bg-black border border-zinc-700 rounded px-3 py-2 text-white"
+                placeholder="https://mixdrop.co/e/..."
+                value={streamUrl}
+                onChange={(e) => setStreamUrl(e.target.value)}
+              />
+            </div>
+
+            <div className="pt-4 flex gap-2">
+              <button 
+                type="submit" 
+                disabled={loading}
+                className={`flex-1 font-bold py-3 rounded hover:opacity-90 transition ${isEditing ? 'bg-orange-600 text-white' : 'bg-green-600 text-white'}`}
+              >
+                {loading ? "A guardar..." : (isEditing ? "Atualizar Link" : "Adicionar Link")}
+              </button>
+
+              {isEditing && (
+                <button 
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={loading}
+                  className="px-4 bg-red-600 text-white rounded hover:bg-red-700 font-bold"
+                >
+                  🗑️
+                </button>
+              )}
+            </div>
+          </form>
+
         </div>
       </div>
     </AdminClient>

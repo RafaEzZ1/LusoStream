@@ -1,47 +1,61 @@
-import { getEpisodeEmbed } from "@/lib/embeds"; // Vai buscar o link ao Firebase
-import ProgressTracker from "@/components/ProgressTracker"; // O tal cronómetro invisível
-import Link from "next/link"; // Para o botão de voltar
+import { getEpisodeEmbed } from "@/lib/embeds";
+import ProgressTracker from "@/components/ProgressTracker";
+import PlayerControls from "@/components/PlayerControls"; // <--- Novo Componente
+
+const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
+
+// Função para duração
+async function getEpisodeDuration(id, season, episode) {
+  try {
+    const res = await fetch(`https://api.themoviedb.org/3/tv/${id}/season/${season}/episode/${episode}?api_key=${API_KEY}`);
+    const data = await res.json();
+    return (data.runtime || 45) * 60;
+  } catch (e) { return 2700; }
+}
 
 export default async function WatchEpisodePage({ params }) {
-  // 1. Receber os dados do URL
   const { id, season, episode } = await params;
   
-  // 2. Ir buscar o link do vídeo
-  const streamUrl = await getEpisodeEmbed(id, season, episode);
+  const [streamUrl, duration] = await Promise.all([
+    getEpisodeEmbed(id, season, episode),
+    getEpisodeDuration(id, season, episode)
+  ]);
 
-  // 3. Se não houver link, avisa
   if (!streamUrl) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-black text-white gap-4">
-        <p className="text-xl">Episódio ainda indisponível.</p>
-        <Link href={`/series/${id}`} className="text-purple-400 hover:underline">
-          Voltar à Série
-        </Link>
+        <p className="text-xl">Episódio indisponível.</p>
+        <a href={`/series/${id}`} className="text-purple-400 hover:underline">Voltar à Série</a>
       </div>
     );
   }
 
-  // 4. Se houver link, mostra o vídeo e liga o cronómetro
+  // Calcular Próximo Episódio (Simplesmente soma +1)
+  const nextEpNum = Number(episode) + 1;
+  const nextLink = `/watch/series/${id}/season/${season}/episode/${nextEpNum}`;
+
   return (
     <div className="w-full h-screen bg-black relative group">
       
-      {/* Botão de Voltar (Aparece quando passas o rato) */}
-      <Link 
-        href={`/series/${id}`} 
-        className="absolute top-4 left-4 z-20 bg-black/50 hover:bg-purple-600 text-white px-4 py-2 rounded-lg backdrop-blur-md transition opacity-0 group-hover:opacity-100 duration-300"
-      >
-        ← Voltar
-      </Link>
+      {/* BOTÕES DE CONTROLO (Voltar, Visto, Próximo) */}
+      <PlayerControls 
+        mediaId={id} 
+        type="tv" 
+        season={season} 
+        episode={episode}
+        backLink={`/series/${id}`}
+        nextEpisodeLink={nextLink} 
+      />
 
-      {/* O CRONÓMETRO INVISÍVEL ESTÁ AQUI A TRABALHAR */}
+      {/* RASTREADOR DE TEMPO */}
       <ProgressTracker 
         mediaId={id} 
         type="tv" 
         season={season} 
         episode={episode} 
+        duration={duration} 
       />
 
-      {/* O VÍDEO */}
       <iframe 
         src={streamUrl} 
         className="w-full h-full border-0" 
