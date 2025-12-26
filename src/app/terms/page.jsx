@@ -1,12 +1,10 @@
 "use client"; // Adicionado para permitir animações
-import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { FaShieldAlt, FaUserSecret, FaCookieBite, FaEnvelopeOpenText } from "react-icons/fa";
 
 export default function TermsPage() {
   return (
     <div className="bg-[#050505] min-h-screen text-gray-400 font-sans selection:bg-red-600/30">
-      <Navbar />
       
       {/* Efeito de luz de fundo para profundidade */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[500px] bg-red-600/5 blur-[120px] pointer-events-none" />

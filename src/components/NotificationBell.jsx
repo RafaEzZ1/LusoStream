@@ -14,32 +14,28 @@ export default function NotificationBell() {
 
   useEffect(() => {
     if (!user || !profile) return;
-
     const q = query(
       collection(db, "notifications"),
       where("createdAt", ">=", profile.createdAt), 
       orderBy("createdAt", "desc")
     );
-
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setNotifications(data.filter(n => !n.userId || n.userId === user.uid));
     });
-
     return () => unsubscribe();
   }, [user, profile]);
 
   const clearAllNotifications = async () => {
     if (!user || notifications.length === 0) return;
-    if (!confirm("Queres apagar todas as notificações?")) return;
-
+    // Removido o confirm() para apagar instantaneamente
     try {
       const deletePromises = notifications.map(n => deleteDoc(doc(db, "notifications", n.id)));
       await Promise.all(deletePromises);
       setOpen(false);
       toast.success("Notificações limpas!");
     } catch (error) {
-      toast.error("Erro ao apagar notificações.");
+      toast.error("Erro ao apagar.");
     }
   };
 
@@ -59,7 +55,6 @@ export default function NotificationBell() {
       {open && (
         <div className="absolute right-0 mt-4 w-80 bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl z-[100] overflow-hidden animate-in fade-in zoom-in duration-200">
           <div className="p-4 border-b border-white/5 font-bold text-xs uppercase tracking-widest text-zinc-500">Notificações</div>
-          
           <div className="max-h-[400px] overflow-y-auto">
             {notifications.length > 0 ? (
               <>
@@ -67,26 +62,20 @@ export default function NotificationBell() {
                   <div key={n.id} className="p-4 border-b border-white/5 hover:bg-white/5 flex gap-4 items-start transition">
                     {n.movieImage && (
                       <div className="relative w-10 h-14 flex-shrink-0">
-                        <Image 
-                          src={`https://image.tmdb.org/t/p/w200${n.movieImage}`} 
-                          fill 
-                          className="object-cover rounded shadow-lg" 
-                          alt="poster" 
-                        />
+                        <Image src={`https://image.tmdb.org/t/p/w200${n.movieImage}`} fill className="object-cover rounded shadow-lg" alt="poster" />
                       </div>
                     )}
                     <div className="flex-1">
-                      <p className="text-xs font-bold text-white mb-1">{n.title}</p>
-                      <p className="text-[10px] text-zinc-500 leading-relaxed">{n.message}</p>
+                      <p className="text-xs font-bold text-white mb-1 leading-tight">{n.title}</p>
+                      <p className="text-[10px] text-zinc-500 leading-relaxed italic">{n.message}</p>
                     </div>
                   </div>
                 ))}
-                
                 <button 
                   onClick={clearAllNotifications}
                   className="w-full py-4 text-[10px] text-zinc-500 font-black hover:text-red-500 hover:bg-red-500/5 transition-all border-t border-white/5 uppercase tracking-widest flex items-center justify-center gap-2"
                 >
-                  <FaTrash size={10} /> Limpar Notificações
+                  <FaTrash size={10} /> Limpar Todas
                 </button>
               </>
             ) : (

@@ -1,30 +1,60 @@
-import { getMovieEmbed } from "@/lib/embeds";
-import ProgressTracker from "@/components/ProgressTracker";
-import PlayerControls from "@/components/PlayerControls";
-import ReportButton from "@/components/ReportButton";
+"use client";
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
+import { db } from "@/lib/firebase";
+import { collection, query, where, getDocs } from "firebase/firestore";
+import Navbar from "@/components/Navbar";
+import VideoPlayer from "@/components/VideoPlayer";
+import ProgressSaver from "@/components/ProgressSaver";
 
-export default async function WatchMoviePage({ params }) {
-  const { id } = await params;
-  const streamUrl = await getMovieEmbed(id);
+export default function WatchMoviePage() {
+  const { id } = useParams();
+  const [movieData, setMovieData] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  if (!streamUrl) return <div className="p-20 text-center text-white">Filme indisponível.</div>;
+  useEffect(() => {
+    async function getMovie() {
+      try {
+        const q = query(collection(db, "content"), where("tmdbId", "==", id));
+        const snapshot = await getDocs(q);
+        if (!snapshot.empty) {
+          setMovieData(snapshot.docs[0].data());
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    }
+    getMovie();
+  }, [id]);
+
+  if (loading) return <div className="min-h-screen bg-black" />;
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white">
-      <div className="relative w-full h-[50vh] md:h-[70vh] bg-black shadow-2xl">
-        <iframe src={streamUrl} className="w-full h-full border-0" allowFullScreen allow="autoplay" />
-      </div>
+    <div className="min-h-screen bg-[#050505]">
+      <Navbar />
+      <main className="pt-24 pb-12 px-4 md:px-8 max-w-7xl mx-auto">
+        {movieData ? (
+          <div className="space-y-8">
+            <h1 className="text-3xl font-black text-white italic tracking-tighter uppercase">
+              {movieData.title}
+            </h1>
+            
+            {/* Passamos os dois servidores para o Player */}
+            <VideoPlayer 
+              server1={movieData.server1 || movieData.embedUrl} 
+              server2={movieData.server2} 
+            />
 
-      <div className="p-5 md:p-10 max-w-5xl mx-auto space-y-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-black italic tracking-tighter uppercase underline decoration-purple-600">Assitir Filme</h1>
-          <ReportButton mediaId={id} mediaTitle={`Filme ID: ${id}`} />
-        </div>
-
-        <PlayerControls mediaId={id} type="movie" backLink={`/movies/${id}`} />
-      </div>
-
-      <ProgressTracker mediaId={id} type="movie" duration={7200} />
+            <ProgressSaver mediaId={id} mediaType="movie" />
+          </div>
+        ) : (
+          <div className="text-center py-20 text-zinc-500 italic">
+            Este filme ainda não está disponível nos nossos servidores.
+          </div>
+        )}
+      </main>
     </div>
   );
 }
