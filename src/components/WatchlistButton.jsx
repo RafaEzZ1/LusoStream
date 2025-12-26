@@ -11,13 +11,12 @@ export default function WatchlistButton({ mediaId, mediaType = "movie" }) {
   const { openModal } = useAuthModal();
   const [loading, setLoading] = useState(false);
   
-  // ID com prefixo para evitar confusão entre filmes e séries
+  // Define o prefixo correto: tv_ para séries, movie_ para filmes
   const typeKey = mediaType === 'tv' || mediaType === 'series' ? 'tv' : 'movie';
   const itemFullId = `${typeKey}_${mediaId}`;
   
   const [isAdded, setIsAdded] = useState(false);
 
-  // Sincroniza o estado inicial com o perfil do utilizador
   useEffect(() => {
     if (profile?.watchlist) {
       setIsAdded(profile.watchlist.includes(itemFullId));
@@ -32,7 +31,6 @@ export default function WatchlistButton({ mediaId, mediaType = "movie" }) {
     }
 
     setLoading(true);
-    // Mudança optimista: assume que vai correr bem para UX rápida
     const previousState = isAdded;
     setIsAdded(!previousState);
 
@@ -44,12 +42,10 @@ export default function WatchlistButton({ mediaId, mediaType = "movie" }) {
         await removeFromWatchlist(user.uid, itemFullId);
         toast("Removido da lista", { icon: '🗑️' });
       }
-      // NOTA: Se o teu AuthProvider não atualizar o profile automaticamente, 
-      // podes precisar de um window.location.reload() ou router.refresh() aqui.
     } catch (error) {
       console.error("Erro watchlist:", error);
       toast.error("Erro ao guardar.");
-      setIsAdded(previousState); // Reverte se falhar
+      setIsAdded(previousState);
     } finally {
       setLoading(false);
     }
@@ -65,7 +61,7 @@ export default function WatchlistButton({ mediaId, mediaType = "movie" }) {
           : "bg-white/10 text-white border border-white/10 hover:bg-white/20"
       }`}
     >
-      {isAdded ? <FaCheck size={12} /> : <FaPlus size={12} />}
+      {isAdded ? <FaCheck size={14} /> : <FaPlus size={14} />}
       <span>{isAdded ? "Na Lista" : "Minha Lista"}</span>
     </button>
   );
