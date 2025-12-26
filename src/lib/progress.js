@@ -5,16 +5,12 @@ import { doc, setDoc, getDoc, collection, query, orderBy, limit, getDocs } from 
 export async function saveVideoProgress(userId, mediaId, seconds, duration, type, season = null, episode = null) {
   if (!userId || !mediaId) return;
 
-  // Evita erros de divisão por zero
   const safeDuration = duration > 0 ? duration : 1;
   const percentage = Math.round((seconds / safeDuration) * 100);
-  
-  // ID Único: "movie_550" ou "tv_12345"
   const docId = `${type === 'series' ? 'tv' : type}_${mediaId}`;
   
   try {
     const progressRef = doc(db, "users", userId, "progress", docId);
-    
     await setDoc(progressRef, {
       mediaId: String(mediaId),
       mediaType: type === 'series' ? 'tv' : type,
@@ -23,10 +19,9 @@ export async function saveVideoProgress(userId, mediaId, seconds, duration, type
       percentage,
       season: season ? Number(season) : null,
       episode: episode ? Number(episode) : null,
-      updatedAt: new Date(), // Importante para ordenar
-      isFinished: percentage > 95 // Marca como visto se > 95%
+      updatedAt: new Date(),
+      isFinished: percentage > 95
     }, { merge: true });
-
   } catch (error) {
     console.error("Erro saveVideoProgress:", error);
   }
@@ -43,27 +38,38 @@ export async function getVideoProgress(userId, mediaId, type) {
   } catch(e) { return null; }
 }
 
-// LISTAR (Continue Watching List)
+// LISTAR (Continue Watching)
 export async function listContinueWatching(userId) {
   if (!userId) return [];
-
   try {
     const q = query(
       collection(db, "users", userId, "progress"),
-      orderBy("updatedAt", "desc"), // Do mais recente para o mais antigo
+      orderBy("updatedAt", "desc"),
       limit(20)
     );
-
     const snapshot = await getDocs(q);
-    
-    // Retorna apenas o que NÃO acabou (menos de 95%)
-    // E que tenha pelo menos 1% visto (para não mostrar coisas que só abriste e fechaste)
     return snapshot.docs
       .map(doc => doc.data())
       .filter(item => item.percentage < 95 && item.percentage > 0); 
-      
   } catch (error) {
     console.error("Erro listContinueWatching:", error);
     return [];
   }
+}
+
+// --- ESTA ERA A FUNÇÃO QUE FALTAVA ---
+export async function markAsFinished(userId, mediaId, type, season = null, episode = null) {
+  if (!userId || !mediaId) return;
+  const docId = `${type === 'series' ? 'tv' : type}_${mediaId}`;
+  const progressRef = doc(db, "users", userId, "progress", docId);
+  
+  return await setDoc(progressRef, {
+    mediaId: String(mediaId),
+    mediaType: type === 'series' ? 'tv' : type,
+    percentage: 100, // Força 100% para sumir do "Continuar a Ver"
+    updatedAt: new Date(),
+    isFinished: true,
+    season: season ? Number(season) : null,
+    episode: episode ? Number(episode) : null,
+  }, { merge: true });
 }
