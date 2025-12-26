@@ -12,7 +12,7 @@ export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
-  // Estados para a Pesquisa Animada
+  // Estados para a Pesquisa
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const searchInputRef = useRef(null);
@@ -26,7 +26,6 @@ export default function Navbar() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Foca no input automaticamente quando abres a pesquisa
   useEffect(() => {
     if (searchOpen && searchInputRef.current) {
       searchInputRef.current.focus();
@@ -56,17 +55,17 @@ export default function Navbar() {
   return (
     <nav
       className={`fixed top-0 w-full z-50 transition-all duration-300 border-b ${
-        isScrolled || mobileMenuOpen || searchOpen
+        isScrolled || mobileMenuOpen
           ? "bg-black/95 backdrop-blur-xl border-white/5 py-3 shadow-2xl"
           : "bg-gradient-to-b from-black/80 to-transparent border-transparent py-5"
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 md:px-8 flex items-center justify-between relative">
         
-        {/* --- LADO ESQUERDO: LOGO E LINKS --- */}
-        {/* Se a pesquisa estiver aberta no mobile, escondemos o logo para dar espaço */}
-        <div className={`flex items-center gap-8 transition-opacity duration-200 ${searchOpen ? 'opacity-0 md:opacity-100' : 'opacity-100'}`}>
-          <Link href="/" className="active:scale-90 transition-transform duration-200 z-50">
+        {/* --- LADO ESQUERDO: LOGO --- */}
+        {/* No mobile, se a pesquisa abrir, o logo desaparece suavemente */}
+        <div className={`flex items-center gap-8 transition-opacity duration-300 ${searchOpen ? 'opacity-0 pointer-events-none md:opacity-100 md:pointer-events-auto' : 'opacity-100'}`}>
+          <Link href="/" className="active:scale-90 transition-transform duration-200">
             <Logo />
           </Link>
           
@@ -86,78 +85,86 @@ export default function Navbar() {
           </ul>
         </div>
 
-        {/* --- CENTRO/DIREITA: BARRA DE PESQUISA EXPANDÍVEL --- */}
-        <div className={`flex items-center ${searchOpen ? 'absolute left-0 w-full px-4 h-full top-0 z-50 justify-center bg-black md:bg-transparent md:relative md:w-auto md:px-0' : 'relative'}`}>
-            
+        {/* --- LADO DIREITO: PESQUISA E ÍCONES --- */}
+        <div className="flex items-center justify-end gap-2 md:gap-6 relative">
+          
+          {/* BARRA DE PESQUISA (Abre para a esquerda) */}
+          <div className={`flex items-center justify-end ${searchOpen ? 'absolute right-0 w-full md:w-auto z-50' : 'relative'}`}>
             <form 
               onSubmit={handleSearchSubmit}
-              className={`flex items-center transition-all duration-300 ease-in-out bg-zinc-900/90 rounded-full px-4 py-2 border border-white/10 ${
-                searchOpen ? 'w-full md:w-80 opacity-100 scale-100' : 'w-0 opacity-0 scale-95 overflow-hidden border-0 p-0'
+              className={`flex items-center bg-zinc-900 border border-white/10 rounded-full overflow-hidden transition-all duration-300 ease-out shadow-xl ${
+                searchOpen ? 'w-[calc(100vw-32px)] md:w-80 opacity-100 pl-4 pr-1 py-1' : 'w-0 opacity-0 border-0 p-0'
               }`}
             >
-              <FaSearch className="text-zinc-500 mr-3 flex-shrink-0" />
               <input
                 ref={searchInputRef}
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Filmes ou Séries..."
-                className="w-full bg-transparent text-white text-sm font-medium outline-none placeholder:text-zinc-600"
+                placeholder="Pesquisar..."
+                className="w-full bg-transparent text-white text-sm font-medium outline-none placeholder:text-zinc-500 min-w-0"
                 autoComplete="off"
               />
+              {/* Botão de Fechar mais perto */}
               <button 
                 type="button" 
                 onClick={() => { setSearchOpen(false); setSearchQuery(""); }}
-                className="text-zinc-500 hover:text-white ml-2 p-1 active:scale-90"
+                className="text-zinc-400 hover:text-white hover:bg-white/10 p-2 rounded-full transition-colors flex-shrink-0"
               >
-                <FaTimes />
+                <FaTimes size={14} />
+              </button>
+              {/* Botão de Ir (Opcional, mas útil no mobile) */}
+              <button 
+                type="submit"
+                className="text-purple-500 hover:text-purple-400 bg-purple-500/10 hover:bg-purple-500/20 p-2 rounded-full ml-1 transition-colors flex-shrink-0"
+              >
+                <FaSearch size={14} />
               </button>
             </form>
 
-            {/* Ícone da Lupa (Só aparece quando a barra está fechada) */}
+            {/* Botão Lupa (Só aparece quando fechado) */}
             <button 
               onClick={() => setSearchOpen(true)}
               className={`text-zinc-300 hover:text-white p-3 rounded-full active:scale-75 transition-all duration-200 ${searchOpen ? 'hidden' : 'block'}`}
             >
-              <FaSearch size={20} />
+              <FaSearch size={18} />
             </button>
-        </div>
+          </div>
 
-        {/* --- LADO DIREITO: ÍCONES --- */}
-        {/* Escondemos no mobile se a pesquisa estiver aberta */}
-        <div className={`flex items-center gap-2 md:gap-6 ${searchOpen ? 'hidden md:flex' : 'flex'}`}>
-          
-          {user && <NotificationBell />}
+          {/* Outros Ícones (Desaparecem no mobile se a pesquisa abrir) */}
+          <div className={`flex items-center gap-2 md:gap-6 transition-opacity duration-200 ${searchOpen ? 'hidden md:flex' : 'flex'}`}>
+            {user && <NotificationBell />}
 
-          {user ? (
-            <div className="hidden md:block">
-              <Link href="/account" className="block active:scale-90 transition-transform">
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center text-sm font-bold ring-2 ring-black">
-                  {profile?.username?.[0]?.toUpperCase() || <FaUserCircle />}
-                </div>
+            {user ? (
+              <div className="hidden md:block">
+                <Link href="/account" className="block active:scale-90 transition-transform">
+                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center text-sm font-bold ring-2 ring-black">
+                    {profile?.username?.[0]?.toUpperCase() || <FaUserCircle />}
+                  </div>
+                </Link>
+              </div>
+            ) : (
+              <Link
+                href="/auth"
+                className="hidden md:block bg-white text-black px-6 py-2 rounded-full text-xs font-black hover:bg-zinc-200 transition active:scale-90 shadow-lg shadow-white/10"
+              >
+                ENTRAR
               </Link>
-            </div>
-          ) : (
-            <Link
-              href="/auth"
-              className="hidden md:block bg-white text-black px-6 py-2 rounded-full text-xs font-black hover:bg-zinc-200 transition active:scale-90 shadow-lg shadow-white/10"
-            >
-              ENTRAR
-            </Link>
-          )}
+            )}
 
-          <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden text-zinc-300 p-3 active:scale-75 transition-transform duration-200 active:text-white"
-          >
-            {mobileMenuOpen ? <FaTimes size={24} /> : <FaBars size={24} />}
-          </button>
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="md:hidden text-zinc-300 p-3 active:scale-75 transition-transform duration-200 active:text-white"
+            >
+              {mobileMenuOpen ? <FaTimes size={24} /> : <FaBars size={24} />}
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* --- MENU MOBILE (HAMBÚRGUER) --- */}
+      {/* MENU MOBILE */}
       <div
-        className={`md:hidden absolute top-full left-0 w-full bg-[#050505]/95 backdrop-blur-xl border-b border-white/10 overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
+        className={`md:hidden absolute top-full left-0 w-full bg-[#050505]/95 backdrop-blur-xl border-b border-white/10 overflow-hidden transition-all duration-300 ${
           mobileMenuOpen ? "max-h-[80vh] opacity-100" : "max-h-0 opacity-0"
         }`}
       >
