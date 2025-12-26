@@ -2,71 +2,84 @@
 import { useEffect, useState } from "react";
 import AdminClient from "../AdminClient";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, deleteDoc, doc, updateDoc } from "firebase/firestore";
+import { collection, getDocs, doc, updateDoc, deleteDoc, addDoc, serverTimestamp, query, orderBy } from "firebase/firestore";
+import toast from "react-hot-toast";
+import { FaCheck, FaTrash, FaExclamationTriangle, FaFilm } from "react-icons/fa";
 
 export default function AdminReportsClient() {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Carregar Reports
   useEffect(() => {
     async function fetchReports() {
       try {
-        const querySnapshot = await getDocs(collection(db, "reports"));
-        const data = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-        setReports(data);
-      } catch (error) {
-        console.error("Erro ao buscar reports:", error);
-      } finally {
-        setLoading(false);
-      }
+        const q = query(collection(db, "reports"), orderBy("createdAt", "desc"));
+        const snapshot = await getDocs(q);
+        setReports(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+      } catch (error) { console.error(error); } finally { setLoading(false); }
     }
     fetchReports();
   }, []);
 
-  // Apagar Report (Resolvido)
-  const handleResolve = async (id) => {
-    if(!confirm("Marcar como resolvido e apagar?")) return;
+  const handleResolve = async (report) => {
+    try {
+      // 1. Marcar como resolvido
+      await updateDoc(doc(db, "reports", report.id), { status: "resolved" });
+
+      // 2. ENVIAR NOTIFICAÇÃO AO UTILIZADOR
+      await addDoc(collection(db, "notifications"), {
+        userId: report.userId,
+        title: "Erro Resolvido! 🛠️",
+        message: `O problema que reportaste em "${report.movieTitle}" foi resolvido. A nossa equipa agradece o teu apoio!`,
+        type: "report_resolved",
+        createdAt: serverTimestamp(),
+        read: false
+      });
+
+      setReports(reports.map(r => r.id === report.id ? { ...r, status: "resolved" } : r));
+      toast.success("Report resolvido e utilizador notificado!");
+    } catch (error) { toast.error("Erro ao processar"); }
+  };
+
+  const handleDelete = async (id) => {
+    if(!confirm("Apagar este registo?")) return;
     try {
       await deleteDoc(doc(db, "reports", id));
       setReports(reports.filter(r => r.id !== id));
-    } catch (error) {
-      alert("Erro ao apagar");
-    }
+      toast.success("Removido com sucesso");
+    } catch (error) { toast.error("Erro ao apagar"); }
   };
 
   return (
     <AdminClient>
-      <h1 className="text-3xl font-bold text-white mb-8">Reports de Utilizadores</h1>
-      
-      {loading ? (
-        <p className="text-white">A carregar...</p>
-      ) : reports.length === 0 ? (
-        <div className="p-12 bg-white/5 rounded-xl border border-white/10 text-center text-gray-400">
-          Nenhum report pendente. Bom trabalho! 🌟
-        </div>
-      ) : (
-        <div className="space-y-4">
+      <div className="space-y-8">
+        <h1 className="text-3xl font-black italic tracking-tighter">REPORTE DE ERROS</h1>
+        
+        <div className="grid gap-4">
           {reports.map((report) => (
-            <div key={report.id} className="bg-black/40 border border-white/10 p-6 rounded-xl flex justify-between items-center">
-              <div>
-                <h3 className="text-white font-bold">{report.mediaTitle || "Conteúdo Desconhecido"}</h3>
-                <p className="text-gray-400 text-sm mt-1">Motivo: <span className="text-white">{report.reason}</span></p>
-                <p className="text-gray-500 text-xs mt-2">Reportado por: {report.userEmail || "Anónimo"}</p>
+            <div key={report.id} className="bg-zinc-900/50 border border-white/5 p-6 rounded-[2rem] flex flex-col md:flex-row justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-purple-500 font-bold text-xs uppercase">
+                  <FaFilm /> {report.movieTitle}
+                </div>
+                <p className="text-white text-sm italic">"{report.reason}"</p>
+                <p className="text-[10px] text-zinc-500 font-mono">{report.userEmail}</p>
               </div>
-              <button 
-                onClick={() => handleResolve(report.id)}
-                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition"
-              >
-                Resolver
-              </button>
+
+              <div className="flex gap-2">
+                {report.status !== "resolved" && (
+                  <button onClick={() => handleResolve(report)} className="bg-green-600/20 text-green-500 px-4 py-2 rounded-xl text-xs font-black hover:bg-green-600/40 transition">
+                    RESOLVIDO
+                  </button>
+                )}
+                <button onClick={() => handleDelete(report.id)} className="bg-zinc-800 text-zinc-400 p-3 rounded-xl hover:text-red-500 transition">
+                  <FaTrash size={12}/>
+                </button>
+              </div>
             </div>
           ))}
         </div>
-      )}
+      </div>
     </AdminClient>
   );
 }
