@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useAuth } from "@/components/AuthProvider";
 import { useState, useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { FaSearch, FaBars, FaTimes, FaSignOutAlt, FaUserCircle } from "react-icons/fa";
+import { FaSearch, FaBars, FaTimes, FaSignOutAlt, FaUserCircle, FaShieldAlt } from "react-icons/fa";
 import Logo from "./Logo";
 import NotificationBell from "./NotificationBell";
 
@@ -26,12 +26,14 @@ export default function Navbar() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // Foca no input quando a pesquisa abre
   useEffect(() => {
     if (searchOpen && searchInputRef.current) {
       searchInputRef.current.focus();
     }
   }, [searchOpen]);
 
+  // Fecha menus ao mudar de página
   useEffect(() => {
     setMobileMenuOpen(false);
     setSearchOpen(false);
@@ -63,7 +65,6 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 md:px-8 flex items-center justify-between relative">
         
         {/* --- LADO ESQUERDO: LOGO --- */}
-        {/* No mobile, se a pesquisa abrir, o logo desaparece suavemente */}
         <div className={`flex items-center gap-8 transition-opacity duration-300 ${searchOpen ? 'opacity-0 pointer-events-none md:opacity-100 md:pointer-events-auto' : 'opacity-100'}`}>
           <Link href="/" className="active:scale-90 transition-transform duration-200">
             <Logo />
@@ -85,15 +86,15 @@ export default function Navbar() {
           </ul>
         </div>
 
-        {/* --- LADO DIREITO: PESQUISA E ÍCONES --- */}
-        <div className="flex items-center justify-end gap-2 md:gap-6 relative">
+        {/* --- LADO DIREITO --- */}
+        <div className="flex items-center justify-end gap-2 md:gap-4 relative">
           
           {/* BARRA DE PESQUISA (Abre para a esquerda) */}
           <div className={`flex items-center justify-end ${searchOpen ? 'absolute right-0 w-full md:w-auto z-50' : 'relative'}`}>
             <form 
               onSubmit={handleSearchSubmit}
               className={`flex items-center bg-zinc-900 border border-white/10 rounded-full overflow-hidden transition-all duration-300 ease-out shadow-xl ${
-                searchOpen ? 'w-[calc(100vw-32px)] md:w-80 opacity-100 pl-4 pr-1 py-1' : 'w-0 opacity-0 border-0 p-0'
+                searchOpen ? 'w-[calc(100vw-32px)] md:w-72 opacity-100 pl-4 pr-1 py-1' : 'w-0 opacity-0 border-0 p-0'
               }`}
             >
               <input
@@ -105,15 +106,13 @@ export default function Navbar() {
                 className="w-full bg-transparent text-white text-sm font-medium outline-none placeholder:text-zinc-500 min-w-0"
                 autoComplete="off"
               />
-              {/* Botão de Fechar mais perto */}
               <button 
                 type="button" 
                 onClick={() => { setSearchOpen(false); setSearchQuery(""); }}
-                className="text-zinc-400 hover:text-white hover:bg-white/10 p-2 rounded-full transition-colors flex-shrink-0"
+                className="text-zinc-400 hover:text-white p-1.5 rounded-full"
               >
-                <FaTimes size={14} />
+                <FaTimes size={12} />
               </button>
-              {/* Botão de Ir (Opcional, mas útil no mobile) */}
               <button 
                 type="submit"
                 className="text-purple-500 hover:text-purple-400 bg-purple-500/10 hover:bg-purple-500/20 p-2 rounded-full ml-1 transition-colors flex-shrink-0"
@@ -122,17 +121,28 @@ export default function Navbar() {
               </button>
             </form>
 
-            {/* Botão Lupa (Só aparece quando fechado) */}
             <button 
               onClick={() => setSearchOpen(true)}
-              className={`text-zinc-300 hover:text-white p-3 rounded-full active:scale-75 transition-all duration-200 ${searchOpen ? 'hidden' : 'block'}`}
+              className={`text-zinc-300 hover:text-white p-2.5 rounded-full active:scale-75 transition-all duration-200 ${searchOpen ? 'hidden' : 'block'}`}
             >
               <FaSearch size={18} />
             </button>
           </div>
 
-          {/* Outros Ícones (Desaparecem no mobile se a pesquisa abrir) */}
-          <div className={`flex items-center gap-2 md:gap-6 transition-opacity duration-200 ${searchOpen ? 'hidden md:flex' : 'flex'}`}>
+          {/* ÍCONES FIXOS (Admin, Notificações, Perfil) */}
+          <div className={`flex items-center gap-2 md:gap-4 transition-opacity duration-200 ${searchOpen ? 'hidden md:flex' : 'flex'}`}>
+            
+            {/* BOTÃO ADMIN - SÓ APARECE SE FOR ADMIN */}
+            {profile?.role === 'admin' && (
+              <Link 
+                href="/admin" 
+                className="text-red-500 hover:text-red-400 p-2 rounded-full bg-red-500/10 border border-red-500/20 active:scale-90 transition-all flex items-center justify-center"
+                title="Painel Admin"
+              >
+                <FaShieldAlt size={16} />
+              </Link>
+            )}
+
             {user && <NotificationBell />}
 
             {user ? (
@@ -146,15 +156,16 @@ export default function Navbar() {
             ) : (
               <Link
                 href="/auth"
-                className="hidden md:block bg-white text-black px-6 py-2 rounded-full text-xs font-black hover:bg-zinc-200 transition active:scale-90 shadow-lg shadow-white/10"
+                className="hidden md:block bg-white text-black px-5 py-2 rounded-full text-xs font-black hover:bg-zinc-200 transition active:scale-90"
               >
                 ENTRAR
               </Link>
             )}
 
+            {/* Hambúrguer */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden text-zinc-300 p-3 active:scale-75 transition-transform duration-200 active:text-white"
+              className="md:hidden text-zinc-300 p-2 active:scale-75 transition-transform duration-200 active:text-white"
             >
               {mobileMenuOpen ? <FaTimes size={24} /> : <FaBars size={24} />}
             </button>
@@ -181,6 +192,15 @@ export default function Navbar() {
                 {link.name}
               </Link>
             ))}
+            
+            {profile?.role === 'admin' && (
+              <Link
+                href="/admin"
+                className="text-2xl font-bold py-3 text-red-500 active:scale-95 origin-left transition-transform flex items-center gap-2"
+              >
+                <FaShieldAlt /> Painel Admin
+              </Link>
+            )}
           </div>
 
           <div className="h-px bg-white/5 w-full my-2" />
