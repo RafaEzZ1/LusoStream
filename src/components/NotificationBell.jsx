@@ -1,147 +1,130 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { FaBell, FaTrash } from "react-icons/fa";
 import { db } from "@/lib/firebase";
-import { 
-  collection, 
-  query, 
-  where, 
-  onSnapshot, 
-  deleteDoc, 
-  doc, 
-  orderBy, 
-  writeBatch,
-  getDocs 
-} from "firebase/firestore";
+import { collection, query, where, orderBy, onSnapshot, deleteDoc, doc, writeBatch } from "firebase/firestore";
 import { useAuth } from "@/components/AuthProvider";
+import { FaBell, FaTrash } from "react-icons/fa";
+import Image from "next/image";
 import toast from "react-hot-toast";
 
 export default function NotificationBell() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [isOpen, setIsOpen] = useState(false);
+  const [open, setOpen] = useState(false);
   const dropdownRef = useRef(null);
 
   useEffect(() => {
-    if (!user) return;
+    // Só carregamos se tivermos perfil (para saber a data de criação)
+    if (!user || !profile?.createdAt) return;
 
-    // Buscar notificações globais (userId == null) ou específicas do user
+    // A QUERY MÁGICA:
+    // 1. createdAt >= profile.createdAt: Só mostra notificações criadas DEPOIS de o user se registar.
     const q = query(
       collection(db, "notifications"),
-      where("userId", "in", [user.uid, null]), 
+      where("createdAt", ">=", profile.createdAt), 
       orderBy("createdAt", "desc")
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const notifs = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setNotifications(notifs);
-      setUnreadCount(notifs.length);
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      // Filtra localmente para garantir que é para mim (userId == meu ID) ou Global (userId == null)
+      const myNotifications = data.filter(n => 
+        n.userId === user.uid || n.userId === null
+      );
+      
+      setNotifications(myNotifications);
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user, profile]);
 
-  // Fecha o dropdown se clicar fora
+  // Fecha ao clicar fora
   useEffect(() => {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setIsOpen(false);
+        setOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const deleteNotification = async (id) => {
-    try {
-      await deleteDoc(doc(db, "notifications", id));
-      toast.success("Notificação removida");
-    } catch (error) {
-      console.error("Erro ao apagar:", error);
-    }
-  };
-
-  const clearAllNotifications = async () => {
+  const clearMyNotifications = async () => {
     if (!user || notifications.length === 0) return;
-    
-    // SEGURANÇA: Filtrar apenas as notificações que pertencem a este user ou que ele pode ver
-    // (Nota: Num cenário real, não deves apagar notificações globais 'userId: null' se forem para todos)
-    // Aqui vamos apagar apenas as que o user vê.
-    
+
+    // SEGURANÇA: Só apagar as notificações PESSOAIS.
+    // As globais não podem ser apagadas pelo user (para não sumir para os outros).
+    const personalNotifs = notifications.filter(n => n.userId === user.uid);
+
+    if (personalNotifs.length === 0) {
+      toast("Avisos globais não podem ser apagados aqui.");
+      return;
+    }
+
     try {
       const batch = writeBatch(db);
-      
-      // Só apaga as notificações que estão carregadas na lista do utilizador atual
-      notifications.forEach((notif) => {
-        // Proteção extra: Só apaga se for do user ou se for global (dependendo da tua lógica)
-        // Se quiseres impedir apagar globais, mete: if (notif.userId === user.uid)
-        const ref = doc(db, "notifications", notif.id);
-        batch.delete(ref);
+      personalNotifs.forEach(n => {
+        batch.delete(doc(db, "notifications", n.id));
       });
-
       await batch.commit();
-      toast.success("Todas as notificações limpas!");
+      toast.success("Notificações pessoais limpas!");
     } catch (error) {
-      toast.error("Erro ao limpar notificações.");
       console.error(error);
+      toast.error("Erro ao apagar.");
     }
   };
+
+  const unreadCount = notifications.length;
 
   return (
     <div className="relative" ref={dropdownRef}>
-      <button 
-        onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 text-zinc-300 hover:text-white transition-colors active:scale-95"
-      >
+      <button onClick={() => setOpen(!open)} className="relative p-2 text-zinc-400 hover:text-white transition focus:outline-none active:scale-95">
         <FaBell size={20} />
         {unreadCount > 0 && (
-          <span className="absolute top-0 right-0 w-4 h-4 bg-red-600 text-white text-[10px] font-bold flex items-center justify-center rounded-full border border-black">
+          <span className="absolute top-1 right-1 w-4 h-4 bg-red-600 text-[10px] font-bold flex items-center justify-center rounded-full text-white animate-pulse border border-black">
             {unreadCount > 9 ? "+9" : unreadCount}
           </span>
         )}
       </button>
 
-      {isOpen && (
-        <div className="absolute right-0 mt-3 w-80 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-          <div className="flex items-center justify-between p-4 border-b border-white/5 bg-black/40">
-            <h3 className="text-sm font-bold text-white">Notificações</h3>
-            {notifications.length > 0 && (
-              <button 
-                onClick={clearAllNotifications}
-                className="text-[10px] text-zinc-400 hover:text-red-400 flex items-center gap-1 transition-colors"
-              >
-                <FaTrash size={10} /> Limpar
-              </button>
+      {open && (
+        <div className="absolute right-0 mt-4 w-80 bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl z-[100] overflow-hidden animate-in fade-in zoom-in duration-200">
+          <div className="p-4 border-b border-white/5 flex justify-between items-center bg-black/20">
+            <span className="font-bold text-xs uppercase tracking-widest text-zinc-500">Notificações</span>
+            {unreadCount > 0 && (
+               <button 
+                onClick={clearMyNotifications}
+                className="text-[10px] text-red-500 hover:text-red-400 flex items-center gap-1 transition-colors"
+                title="Limpar apenas notificações pessoais"
+               >
+                 <FaTrash size={10} /> Limpar
+               </button>
             )}
           </div>
-          
-          <div className="max-h-80 overflow-y-auto">
-            {notifications.length === 0 ? (
-              <div className="p-8 text-center text-zinc-500 text-xs">
-                Sem notificações novas.
-              </div>
-            ) : (
-              notifications.map((notif) => (
-                <div key={notif.id} className="p-4 border-b border-white/5 hover:bg-white/5 transition-colors relative group">
-                  <div className="pr-6">
-                    <h4 className="text-xs font-bold text-white mb-1">{notif.title}</h4>
-                    <p className="text-[11px] text-zinc-400 leading-relaxed">{notif.message}</p>
-                    <span className="text-[9px] text-zinc-600 mt-2 block">
-                      {notif.createdAt?.seconds ? new Date(notif.createdAt.seconds * 1000).toLocaleDateString() : 'Agora'}
-                    </span>
+
+          <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
+            {notifications.length > 0 ? (
+              notifications.map(n => (
+                <div key={n.id} className="p-4 border-b border-white/5 hover:bg-white/5 flex gap-4 items-start transition relative group">
+                  {n.movieImage ? (
+                    <div className="relative w-10 h-14 flex-shrink-0">
+                      <Image src={`https://image.tmdb.org/t/p/w200${n.movieImage}`} width={40} height={56} className="object-cover rounded shadow-lg" alt="poster" />
+                    </div>
+                  ) : (
+                    <div className="w-10 h-14 flex-shrink-0 bg-white/10 rounded flex items-center justify-center text-lg">📢</div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-white mb-1 leading-tight truncate">{n.title}</p>
+                    <p className="text-[10px] text-zinc-400 leading-relaxed line-clamp-3">{n.message}</p>
+                    <p className="text-[9px] text-zinc-600 mt-1">
+                      {n.userId === null ? "Global" : "Pessoal"} • {n.createdAt?.seconds ? new Date(n.createdAt.seconds * 1000).toLocaleDateString() : 'Agora'}
+                    </p>
                   </div>
-                  <button 
-                    onClick={() => deleteNotification(notif.id)}
-                    className="absolute top-4 right-4 text-zinc-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all p-1"
-                  >
-                    <FaTimes size={12} />
-                  </button>
                 </div>
               ))
+            ) : (
+              <div className="p-10 text-center text-zinc-600 text-xs italic">Sem notificações novas.</div>
             )}
           </div>
         </div>
@@ -149,6 +132,3 @@ export default function NotificationBell() {
     </div>
   );
 }
-
-// Pequeno fix para importar o ícone Times que faltava
-import { FaTimes } from "react-icons/fa";
