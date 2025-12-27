@@ -2,10 +2,21 @@
 import { useState, useEffect } from "react";
 import AdminClient from "../AdminClient";
 import { db } from "@/lib/firebase";
-// Importamos addDoc, collection, etc., para interagir com a coleção de notificações
-import { collection, addDoc, getDocs, deleteDoc, doc, orderBy, query, serverTimestamp, where } from "firebase/firestore";
+import { 
+  collection, 
+  addDoc, 
+  getDocs, 
+  deleteDoc, 
+  doc, 
+  orderBy, 
+  query, 
+  serverTimestamp, 
+  where 
+} from "firebase/firestore";
 import { searchMulti } from "@/lib/tmdb"; 
 import toast from "react-hot-toast";
+// CORREÇÃO: Adicionei esta linha que faltava no teu código original
+import { FaTrash, FaSearch, FaTimes } from "react-icons/fa"; 
 
 export default function AnnouncementsPage() {
   const [announcements, setAnnouncements] = useState([]);
@@ -13,29 +24,32 @@ export default function AnnouncementsPage() {
   // Estados do Formulário
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
-  const [type, setType] = useState("info"); // info, warning, success
-  const [selectedImage, setSelectedImage] = useState(null); // Caminho da imagem (backdrop_path)
+  const [selectedImage, setSelectedImage] = useState(null); // Caminho da imagem
   
-  // Estados da Pesquisa de Filme (Para o Anúncio)
+  // Estados da Pesquisa de Filme
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
 
   const [loading, setLoading] = useState(false);
 
-  // Carregar avisos/notificações globais existentes
+  // Carregar avisos
   useEffect(() => {
     fetchAnnouncements();
   }, []);
 
   const fetchAnnouncements = async () => {
-    // Procuramos na coleção 'notifications' onde não existe userId (são as globais)
-    const q = query(
-      collection(db, "notifications"), 
-      where("type", "==", "announcement"),
-      orderBy("createdAt", "desc")
-    );
-    const snapshot = await getDocs(q);
-    setAnnouncements(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    try {
+      // Procura na coleção 'notifications' onde type é 'announcement' (Globais)
+      const q = query(
+        collection(db, "notifications"), 
+        where("type", "==", "announcement"),
+        orderBy("createdAt", "desc")
+      );
+      const snapshot = await getDocs(q);
+      setAnnouncements(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    } catch (error) {
+      console.error("Erro ao carregar avisos:", error);
+    }
   };
 
   // --- LÓGICA DE PESQUISA ---
@@ -59,24 +73,24 @@ export default function AnnouncementsPage() {
     setSearchQuery("");
   };
 
-  // --- CRIAR AVISO (DISPARAR NOTIFICAÇÃO GLOBAL) ---
+  // --- CRIAR AVISO ---
   const handleCreate = async (e) => {
     e.preventDefault();
-    if (!title || !message) return;
+    if (!title || !message) return toast.error("Preenche o título e a mensagem!");
 
     setLoading(true);
     try {
-      // Guardamos na coleção 'notifications' para o NotificationBell ler
+      // Guardamos na coleção 'notifications'
       await addDoc(collection(db, "notifications"), {
         title,
         message,
         type: "announcement",
-        movieImage: selectedImage || null, // Campo que o sininho usa para a foto
+        movieImage: selectedImage || null,
         createdAt: serverTimestamp(),
-        // userId: null -> Fica implícito que é global
+        // Sem userId -> Significa Global
       });
       
-      toast.success("Aviso publicado para todos os utilizadores!");
+      toast.success("Aviso publicado para todos!");
       
       // Reset
       setTitle("");
@@ -104,57 +118,68 @@ export default function AnnouncementsPage() {
 
   return (
     <AdminClient>
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto space-y-8">
         <h1 className="text-3xl font-bold text-white mb-8 border-l-4 border-yellow-500 pl-4 italic tracking-tighter uppercase">
           Gestão de Avisos Globais
         </h1>
 
-        <div className="bg-zinc-900/50 p-6 rounded-[2.5rem] border border-white/5 mb-12 backdrop-blur-sm">
+        <div className="bg-zinc-900/50 p-6 rounded-[2.5rem] border border-white/5 mb-12 backdrop-blur-sm shadow-xl">
           <h2 className="text-xl font-bold text-white mb-6">Criar Notificação Global</h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            
+            {/* LADO ESQUERDO: PESQUISA DE FILME */}
             <div className="space-y-4 border-r border-white/5 pr-4">
               <p className="text-[10px] text-purple-500 font-black uppercase tracking-widest">Opção A: Pesquisar Filme</p>
               <div className="flex gap-2">
                 <input 
                   type="text" 
-                  placeholder="Pesquisar filme para o aviso..." 
+                  placeholder="Pesquisar filme..." 
                   className="w-full bg-black border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:ring-2 focus:ring-purple-600 outline-none"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
-                <button onClick={handleSearchMovie} className="bg-purple-600 px-4 rounded-xl text-white hover:bg-purple-500 transition">🔍</button>
+                <button onClick={handleSearchMovie} className="bg-purple-600 px-4 rounded-xl text-white hover:bg-purple-500 transition">
+                  <FaSearch />
+                </button>
               </div>
               
+              {/* Resultados da Pesquisa */}
               {searchResults.length > 0 && (
-                <div className="bg-black border border-white/10 rounded-xl max-h-48 overflow-y-auto divide-y divide-white/5">
+                <div className="bg-black border border-white/10 rounded-xl max-h-48 overflow-y-auto divide-y divide-white/5 custom-scrollbar">
                   {searchResults.map(item => (
                     <div 
                       key={item.id} 
                       onClick={() => selectMovieForAnnouncement(item)}
                       className="p-3 hover:bg-white/5 cursor-pointer flex gap-3 items-center transition"
                     >
-                      <img src={`https://image.tmdb.org/t/p/w92${item.poster_path}`} className="w-8 h-12 object-cover rounded shadow" />
+                      {item.poster_path && (
+                        <img src={`https://image.tmdb.org/t/p/w92${item.poster_path}`} className="w-8 h-12 object-cover rounded shadow" />
+                      )}
                       <span className="text-xs text-zinc-300 truncate font-medium">{item.title || item.name}</span>
                     </div>
                   ))}
                 </div>
               )}
 
+              {/* Imagem Selecionada */}
               {selectedImage && (
                 <div className="relative mt-4 rounded-2xl overflow-hidden border border-purple-500/30 group">
-                   <img src={`https://image.tmdb.org/t/p/w500${selectedImage}`} className="w-full h-32 object-cover opacity-60" />
-                   <div className="absolute inset-0 flex items-center justify-center">
+                    <img src={`https://image.tmdb.org/t/p/w500${selectedImage}`} className="w-full h-32 object-cover opacity-60" />
+                    <div className="absolute inset-0 flex items-center justify-center">
                       <span className="bg-black/60 px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase tracking-widest">Poster Selecionado</span>
-                   </div>
-                   <button 
-                    onClick={() => setSelectedImage(null)} 
-                    className="absolute top-2 right-2 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-500"
-                   >✕</button>
+                    </div>
+                    <button 
+                     onClick={() => setSelectedImage(null)} 
+                     className="absolute top-2 right-2 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-500"
+                    >
+                      <FaTimes />
+                    </button>
                 </div>
               )}
             </div>
 
+            {/* LADO DIREITO: MENSAGEM */}
             <form onSubmit={handleCreate} className="space-y-4">
               <p className="text-[10px] text-zinc-500 font-black uppercase tracking-widest">Detalhes da Mensagem</p>
               
@@ -172,7 +197,7 @@ export default function AnnouncementsPage() {
               <div>
                 <textarea
                   required
-                  placeholder="Conteúdo da mensagem que aparecerá no sininho..."
+                  placeholder="Conteúdo da mensagem..."
                   className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:ring-2 focus:ring-purple-600 h-28 resize-none"
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
@@ -182,7 +207,7 @@ export default function AnnouncementsPage() {
               <button 
                 type="submit" 
                 disabled={loading}
-                className="w-full bg-purple-600 text-white font-black py-4 rounded-2xl hover:bg-purple-500 transition shadow-lg shadow-purple-900/20 active:scale-95"
+                className="w-full bg-purple-600 text-white font-black py-4 rounded-2xl hover:bg-purple-500 transition shadow-lg shadow-purple-900/20 active:scale-95 disabled:opacity-50"
               >
                 {loading ? "A PUBLICAR..." : "DISPARAR PARA TODOS"}
               </button>
@@ -190,6 +215,7 @@ export default function AnnouncementsPage() {
           </div>
         </div>
 
+        {/* HISTÓRICO */}
         <div className="space-y-4">
           <h3 className="text-xl font-bold text-white flex items-center gap-2">
             <span className="w-2 h-2 bg-green-500 rounded-full"></span> Histórico de Notificações
@@ -214,6 +240,7 @@ export default function AnnouncementsPage() {
               <button 
                 onClick={() => handleDelete(item.id)}
                 className="bg-red-600/10 text-red-500 hover:bg-red-600 hover:text-white p-3 rounded-2xl transition-all"
+                title="Apagar para todos"
               >
                 <FaTrash size={14} />
               </button>
