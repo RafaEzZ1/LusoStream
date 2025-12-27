@@ -104,14 +104,24 @@ export async function createSuggestion(data) {
   });
 }
 
-// --- 4. GESTÃO DE NOTIFICAÇÕES (NOVO) ---
+// --- 4. GESTÃO DE NOTIFICAÇÕES ---
 
-// Função para "esconder" uma notificação global apenas para este user
+// Função para "esconder" UMA notificação global (apagar individualmente)
 export async function dismissNotification(uid, notificationId) {
   const userRef = doc(db, "users", uid);
-  // Adiciona o ID da notificação a um array no perfil do user
   await updateDoc(userRef, {
     dismissedNotifications: arrayUnion(notificationId)
+  });
+}
+
+// Função para "esconder" VÁRIAS notificações globais (apagar tudo)
+export async function dismissMultipleNotifications(uid, notificationIds) {
+  if (!notificationIds || notificationIds.length === 0) return;
+  
+  const userRef = doc(db, "users", uid);
+  // arrayUnion com spread operator (...) adiciona todos os IDs de uma vez
+  await updateDoc(userRef, {
+    dismissedNotifications: arrayUnion(...notificationIds)
   });
 }
 
@@ -126,5 +136,13 @@ export {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   updateProfile,
-  dismissNotification // Não esquecer de exportar a nova função!
+  checkUsernameExists,    // Adicionei explicitamente para garantir que funciona no AuthClient
+  createUserProfile,      // Adicionei explicitamente
+  getUserData,            // Adicionei explicitamente
+  addToWatchlist,         // Adicionei explicitamente
+  removeFromWatchlist,    // Adicionei explicitamente
+  createReport,           // Adicionei explicitamente
+  createSuggestion,       // Adicionei explicitamente
+  dismissNotification,
+  dismissMultipleNotifications // <--- NOVA FUNÇÃO ESSENCIAL
 };

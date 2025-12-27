@@ -1,9 +1,10 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { db, dismissNotification } from "@/lib/firebase"; // Importa a nova função
+// CORREÇÃO: Importamos a nova função dismissMultipleNotifications
+import { db, dismissMultipleNotifications } from "@/lib/firebase"; 
 import { collection, query, orderBy, limit, onSnapshot, deleteDoc, doc, writeBatch } from "firebase/firestore";
 import { useAuth } from "@/components/AuthProvider";
-import { FaBell, FaTrash } from "react-icons/fa";
+import { FaBell, FaTrash, FaTimes } from "react-icons/fa";
 import Image from "next/image";
 import toast from "react-hot-toast";
 
@@ -16,7 +17,6 @@ export default function NotificationBell() {
   useEffect(() => {
     if (!user) return;
 
-    // Pedimos as últimas 50 notificações (Globais e Pessoais misturadas)
     const q = query(
       collection(db, "notifications"),
       orderBy("createdAt", "desc"),
@@ -26,26 +26,20 @@ export default function NotificationBell() {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const allNotifs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       
-      // FILTRAGEM INTELIGENTE
       const myNotifs = allNotifs.filter(n => {
-        // 1. O utilizador já "apagou" esta notificação global?
-        if (profile?.dismissedNotifications?.includes(n.id)) {
-          return false; // Esconde
-        }
+        // Se já escondi esta notificação, não a mostres
+        if (profile?.dismissedNotifications?.includes(n.id)) return false;
 
-        // 2. É global ou é minha?
         const isGlobal = !n.userId || n.userId === null;
         const isMine = n.userId === user.uid;
         
         if (!isGlobal && !isMine) return false;
 
-        // 3. Verificação de Data (Só mostra avisos criados DEPOIS do registo)
         if (!profile?.createdAt) return true;
         
         const notifDate = n.createdAt?.seconds ? new Date(n.createdAt.seconds * 1000) : new Date();
         const userJoinDate = profile.createdAt?.seconds ? new Date(profile.createdAt.seconds * 1000) : new Date(0);
 
-        // Se é global, tem de ser mais recente que o meu registo
         if (isGlobal) {
            return notifDate >= userJoinDate;
         }
@@ -57,9 +51,8 @@ export default function NotificationBell() {
     });
 
     return () => unsubscribe();
-  }, [user, profile]); // Atualiza quando o perfil muda (ex: quando apagas uma notificação)
+  }, [user, profile]);
 
-  // Fecha ao clicar fora
   useEffect(() => {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -70,51 +63,50 @@ export default function NotificationBell() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Lógica de "Apagar" Individual
+  // Apagar individualmente (mantém-se igual, mas agora usas a versão arrayUnion array para 1 item se quiseres, ou mantens a antiga)
   const handleDeleteOne = async (n) => {
     try {
       if (n.userId === user.uid) {
-        // Se é PESSOAL, apaga mesmo da base de dados
         await deleteDoc(doc(db, "notifications", n.id));
-        toast.success("Notificação removida.");
       } else {
-        // Se é GLOBAL, apenas "esconde" para este user
-        await dismissNotification(user.uid, n.id);
-        toast.success("Aviso arquivado.");
+        // Usa a função bulk mesmo para um só, funciona igual (array de 1 item)
+        await dismissMultipleNotifications(user.uid, [n.id]);
       }
+      toast.success("Notificação removida.");
     } catch (error) {
       console.error(error);
       toast.error("Erro ao remover.");
     }
   };
 
-  // Limpar Tudo (Apaga as pessoais, esconde as globais)
+  // --- CORREÇÃO PRINCIPAL: LIMPAR TUDO DE UMA VEZ ---
   const clearAllVisible = async () => {
     if (!user || notifications.length === 0) return;
 
     try {
-      const batch = writeBatch(db);
-      const globalsToDismiss = [];
+      const batch = writeBatch(db); // Para apagar as pessoais
+      const globalsToDismiss = []; // Para recolher os IDs das globais
+      let hasPersonalToDelete = false;
 
       notifications.forEach(n => {
         if (n.userId === user.uid) {
-          // Pessoais: Apagar
+          // É pessoal? Prepara para apagar da BD
           batch.delete(doc(db, "notifications", n.id));
+          hasPersonalToDelete = true;
         } else {
-          // Globais: Adicionar à lista para esconder
+          // É global? Adiciona à lista para esconder
           globalsToDismiss.push(n.id);
         }
       });
 
-      // Executa o apagar das pessoais
-      await batch.commit();
+      // 1. Apagar Pessoais (Uma operação Batch rápida)
+      if (hasPersonalToDelete) {
+        await batch.commit();
+      }
 
-      // Executa o esconder das globais (uma a uma ou poderíamos otimizar no futuro)
+      // 2. Esconder Globais (Uma operação Update rápida)
       if (globalsToDismiss.length > 0) {
-        // Nota: O ideal seria fazer um update único, mas aqui fazemos loop por simplicidade
-        for (const nid of globalsToDismiss) {
-          await dismissNotification(user.uid, nid);
-        }
+        await dismissMultipleNotifications(user.uid, globalsToDismiss);
       }
 
       toast.success("Caixa de entrada limpa!");
@@ -144,7 +136,7 @@ export default function NotificationBell() {
             {unreadCount > 0 && (
                <button 
                 onClick={clearAllVisible}
-                className="text-[10px] text-zinc-400 hover:text-red-400 flex items-center gap-1 transition-colors"
+                className="text-[10px] text-zinc-400 hover:text-red-400 flex items-center gap-1 transition-colors cursor-pointer"
                >
                  <FaTrash size={10} /> Limpar Tudo
                </button>
@@ -174,13 +166,12 @@ export default function NotificationBell() {
                     </p>
                   </div>
 
-                  {/* Botão X para apagar/esconder individualmente */}
                   <button 
                     onClick={() => handleDeleteOne(n)}
                     className="absolute top-2 right-2 text-zinc-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all p-2"
                     title="Remover"
                   >
-                    <FaTrash size={10} />
+                    <FaTimes size={12} />
                   </button>
                 </div>
               ))
