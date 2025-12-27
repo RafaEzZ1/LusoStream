@@ -4,7 +4,7 @@ import {
   doc, 
   setDoc, 
   getDocs, 
-  getDoc,
+  getDoc, 
   query, 
   where, 
   orderBy, 
@@ -12,18 +12,19 @@ import {
   serverTimestamp 
 } from "firebase/firestore";
 
-// Nome da coleção (tem de ser igual às regras do Firebase)
+// Nome da coleção (tem de coincidir com as regras do Firebase)
 const COLLECTION_NAME = "continue_watching";
 
-export const saveProgress = async (userId, mediaId, mediaType, progress, duration, season = null, episode = null) => {
-  if (!userId) return; // Se não houver user, não faz nada (Evita erro de permissão)
+// --- FUNÇÕES PRINCIPAIS (SEGURAS) ---
 
-  // Cria um ID único para o documento
+export const saveProgress = async (userId, mediaId, mediaType, progress, duration, season = null, episode = null) => {
+  if (!userId) return; // Segurança: Não grava sem user
+
   const uniqueId = season && episode 
     ? `${userId}_${mediaId}_s${season}e${episode}` 
     : `${userId}_${mediaId}`;
 
-  const percentage = (progress / duration) * 100;
+  const percentage = duration > 0 ? (progress / duration) * 100 : 0;
 
   try {
     const progressRef = doc(db, COLLECTION_NAME, uniqueId);
@@ -38,14 +39,14 @@ export const saveProgress = async (userId, mediaId, mediaType, progress, duratio
       season,
       episode,
       updatedAt: serverTimestamp()
-    }, { merge: true }); // merge: true não apaga outros campos se existirem
+    }, { merge: true });
   } catch (error) {
     console.error("Erro ao guardar progresso:", error);
   }
 };
 
 export const getProgress = async (userId, mediaId, season = null, episode = null) => {
-  if (!userId) return null; // Proteção contra erro de permissão
+  if (!userId) return null; // Segurança
 
   const uniqueId = season && episode 
     ? `${userId}_${mediaId}_s${season}e${episode}` 
@@ -66,13 +67,13 @@ export const getProgress = async (userId, mediaId, season = null, episode = null
 };
 
 export const listContinueWatching = async (userId) => {
-  if (!userId) return []; // CRÍTICO: Se não houver user, retorna lista vazia imediatamente
+  if (!userId) return []; // Segurança crítica
 
   try {
     const q = query(
       collection(db, COLLECTION_NAME),
       where("userId", "==", userId),
-      orderBy("updatedAt", "desc"), // Ordena pelos vistos mais recentemente
+      orderBy("updatedAt", "desc"),
       limit(10)
     );
 
@@ -85,4 +86,16 @@ export const listContinueWatching = async (userId) => {
     console.error("Erro listContinueWatching:", error);
     return [];
   }
+};
+
+// --- SECÇÃO DE COMPATIBILIDADE (CORRIGE O ERRO DO VERCEL) ---
+// Estas funções mapeiam os nomes antigos para as funções novas
+
+export const saveVideoProgress = saveProgress;
+
+export const getVideoProgress = getProgress;
+
+export const markAsFinished = async (userId, mediaId, mediaType, duration, season = null, episode = null) => {
+  // Marca como 100% visto (progresso = duração)
+  return saveProgress(userId, mediaId, mediaType, duration, duration, season, episode);
 };
