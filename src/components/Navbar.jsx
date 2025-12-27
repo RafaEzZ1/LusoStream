@@ -25,9 +25,7 @@ export default function Navbar() {
   }, []);
 
   useEffect(() => {
-    if (searchOpen && searchInputRef.current) {
-      searchInputRef.current.focus();
-    }
+    if (searchOpen && searchInputRef.current) searchInputRef.current.focus();
   }, [searchOpen]);
 
   useEffect(() => {
@@ -47,6 +45,7 @@ export default function Navbar() {
     { name: "Início", href: "/" },
     { name: "Filmes", href: "/movies" },
     { name: "Séries", href: "/series" },
+    { name: "Sugestões", href: "/suggestions" }, // VOLTOU!
     { name: "Minha Lista", href: "/account" },
   ];
 
@@ -60,7 +59,7 @@ export default function Navbar() {
     >
       <div className="max-w-7xl mx-auto px-4 md:px-8 flex items-center justify-between relative">
         
-        {/* --- LADO ESQUERDO: LOGO --- */}
+        {/* LOGO */}
         <div className={`flex items-center gap-8 transition-opacity duration-300 ${searchOpen ? 'opacity-0 md:opacity-100' : 'opacity-100'}`}>
           <Link href="/" className="active:scale-90 transition-transform duration-200">
             <Logo />
@@ -82,17 +81,15 @@ export default function Navbar() {
           </ul>
         </div>
 
-        {/* --- LADO DIREITO --- */}
+        {/* LADO DIREITO */}
         <div className="flex items-center justify-end gap-2 md:gap-4 relative">
           
-          {/* BARRA DE PESQUISA (MODO OVERLAY NO MOBILE) */}
-          {/* No mobile, usa 'absolute inset-0' para cobrir a navbar toda. No desktop, usa animação normal. */}
+          {/* PESQUISA */}
           <div className={`${
             searchOpen 
               ? 'absolute inset-0 -mx-4 px-4 bg-black md:bg-transparent md:static md:mx-0 md:px-0 flex items-center justify-center z-50 h-full' 
               : 'relative'
           }`}>
-            
             <form 
               onSubmit={handleSearchSubmit}
               className={`flex items-center bg-zinc-900 border border-white/10 rounded-full overflow-hidden transition-all duration-300 ease-out shadow-xl ${
@@ -123,7 +120,6 @@ export default function Navbar() {
               </button>
             </form>
 
-            {/* Ícone Lupa (Visível quando fechado) */}
             <button 
               onClick={() => setSearchOpen(true)}
               className={`text-zinc-300 hover:text-white p-2.5 rounded-full active:scale-75 transition-all duration-200 ${searchOpen ? 'hidden' : 'block'}`}
@@ -132,14 +128,11 @@ export default function Navbar() {
             </button>
           </div>
 
-          {/* ÍCONES FIXOS */}
+          {/* ÍCONES */}
           <div className={`flex items-center gap-2 md:gap-4 transition-opacity duration-200 ${searchOpen ? 'hidden md:flex' : 'flex'}`}>
             
             {profile?.role === 'admin' && (
-              <Link 
-                href="/admin" 
-                className="text-red-500 hover:text-red-400 p-2 rounded-full bg-red-500/10 border border-red-500/20 active:scale-90 transition-all flex items-center justify-center"
-              >
+              <Link href="/admin" className="text-red-500 hover:text-red-400 p-2 rounded-full bg-red-500/10 border border-red-500/20 active:scale-90 transition-all flex items-center justify-center">
                 <FaShieldAlt size={16} />
               </Link>
             )}
@@ -155,10 +148,7 @@ export default function Navbar() {
                 </Link>
               </div>
             ) : (
-              <Link
-                href="/auth"
-                className="hidden md:block bg-white text-black px-5 py-2 rounded-full text-xs font-black hover:bg-zinc-200 transition active:scale-90"
-              >
+              <Link href="/auth" className="hidden md:block bg-white text-black px-5 py-2 rounded-full text-xs font-black hover:bg-zinc-200 transition active:scale-90">
                 ENTRAR
               </Link>
             )}
@@ -174,30 +164,20 @@ export default function Navbar() {
       </div>
 
       {/* MENU MOBILE */}
-      <div
-        className={`md:hidden absolute top-full left-0 w-full bg-[#050505]/95 backdrop-blur-xl border-b border-white/10 overflow-hidden transition-all duration-300 ${
-          mobileMenuOpen ? "max-h-[80vh] opacity-100" : "max-h-0 opacity-0"
-        }`}
-      >
+      <div className={`md:hidden absolute top-full left-0 w-full bg-[#050505]/95 backdrop-blur-xl border-b border-white/10 overflow-hidden transition-all duration-300 ${mobileMenuOpen ? "max-h-[80vh] opacity-100" : "max-h-0 opacity-0"}`}>
         <div className="px-6 py-8 flex flex-col gap-6">
           <div className="flex flex-col gap-2">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className={`text-2xl font-bold py-3 active:scale-95 origin-left transition-transform ${
-                  pathname === link.href ? "text-purple-500" : "text-zinc-400"
-                }`}
+                className={`text-2xl font-bold py-3 active:scale-95 origin-left transition-transform ${pathname === link.href ? "text-purple-500" : "text-zinc-400"}`}
               >
                 {link.name}
               </Link>
             ))}
-            
             {profile?.role === 'admin' && (
-              <Link
-                href="/admin"
-                className="text-2xl font-bold py-3 text-red-500 active:scale-95 origin-left transition-transform flex items-center gap-2"
-              >
+              <Link href="/admin" className="text-2xl font-bold py-3 text-red-500 active:scale-95 origin-left transition-transform flex items-center gap-2">
                 <FaShieldAlt /> Painel Admin
               </Link>
             )}
@@ -216,18 +196,12 @@ export default function Navbar() {
                   <span className="text-xs text-zinc-500 uppercase tracking-widest">Minha Conta</span>
                 </div>
               </Link>
-              <button 
-                onClick={signOut}
-                className="w-full flex items-center justify-center gap-2 text-red-500 bg-red-500/10 py-4 rounded-xl text-sm font-bold active:scale-95 transition-all"
-              >
+              <button onClick={signOut} className="w-full flex items-center justify-center gap-2 text-red-500 bg-red-500/10 py-4 rounded-xl text-sm font-bold active:scale-95 transition-all">
                 <FaSignOutAlt /> Terminar Sessão
               </button>
             </div>
           ) : (
-            <Link
-              href="/auth"
-              className="block w-full bg-white text-black text-center py-4 rounded-xl font-black active:scale-95 transition-transform shadow-xl"
-            >
+            <Link href="/auth" className="block w-full bg-white text-black text-center py-4 rounded-xl font-black active:scale-95 transition-transform shadow-xl">
               INICIAR SESSÃO
             </Link>
           )}
