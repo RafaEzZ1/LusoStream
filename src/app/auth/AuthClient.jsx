@@ -6,7 +6,7 @@ import {
   createUserWithEmailAndPassword, 
   updateProfile,
   createUserProfile,
-  checkUsernameExists 
+  checkUsernameExists
 } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
 import toast from 'react-hot-toast';
@@ -30,25 +30,32 @@ export default function AuthClient() {
       if (isLogin) {
         // --- LOGIN ---
         await signInWithEmailAndPassword(auth, email, password);
+        toast.success("Bem-vindo de volta!");
+        router.push("/");
       } else {
         // --- REGISTO ---
         if (!username || username.length < 3) {
           throw new Error("O nome de utilizador deve ter pelo menos 3 letras.");
         }
 
+        // 1. Verificar se nome já existe (Agora funciona porque mudámos as regras!)
         const exists = await checkUsernameExists(username);
         if (exists) throw new Error("Este nome de utilizador já está a ser usado.");
 
+        // 2. Criar Conta
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
 
+        // 3. Atualizar Auth
         await updateProfile(user, { displayName: username });
+        
+        // 4. Criar na Base de Dados
         await createUserProfile(user, username);
+        
+        toast.success("Conta criada com sucesso!");
+        router.push("/");
       }
 
-      toast.success(isLogin ? "Bem-vindo de volta!" : "Conta criada com sucesso!");
-      router.push("/");
-      
     } catch (error) {
       console.error(error);
       let msg = "Ocorreu um erro.";
@@ -67,9 +74,14 @@ export default function AuthClient() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0a0a0a] relative overflow-hidden">
-      {/* Fundo abstrato */}
-      <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-black to-black" />
       
+      {/* MUDANÇA: Fundo estável (Gradient) em vez de imagem quebrada */}
+      <div className="absolute inset-0 bg-gradient-to-br from-purple-900/40 via-black to-black animate-in fade-in duration-1000" />
+      
+      {/* Círculos decorativos de fundo */}
+      <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-purple-600/20 rounded-full blur-[100px]" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-blue-600/20 rounded-full blur-[100px]" />
+
       <div className="relative z-10 w-full max-w-md bg-black/60 backdrop-blur-xl p-8 rounded-3xl border border-white/10 shadow-2xl">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-black text-white mb-2 tracking-tighter uppercase italic">
