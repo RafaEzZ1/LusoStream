@@ -1,9 +1,9 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { db } from "@/lib/firebase";
-import { collection, query, where, orderBy, onSnapshot, deleteDoc, doc, writeBatch } from "firebase/firestore";
+import { collection, query, orderBy, limit, onSnapshot, doc, writeBatch } from "firebase/firestore";
 import { useAuth } from "@/components/AuthProvider";
-import { FaBell, FaTrash } from "react-icons/fa";
+import { FaBell, FaTrash, FaTimes } from "react-icons/fa";
 import Image from "next/image";
 import toast from "react-hot-toast";
 
@@ -14,26 +14,47 @@ export default function NotificationBell() {
   const dropdownRef = useRef(null);
 
   useEffect(() => {
-    // Só carregamos se tivermos perfil (para saber a data de criação)
-    if (!user || !profile?.createdAt) return;
+    if (!user) return;
 
-    // A QUERY MÁGICA:
-    // 1. createdAt >= profile.createdAt: Só mostra notificações criadas DEPOIS de o user se registar.
+    // QUERY SIMPLES E INFALÍVEL
+    // Pede as últimas 50 notificações ordenadas por data.
+    // Não usamos 'where' aqui para evitar erros de índice ou permissões bloqueadas.
     const q = query(
       collection(db, "notifications"),
-      where("createdAt", ">=", profile.createdAt), 
-      orderBy("createdAt", "desc")
+      orderBy("createdAt", "desc"),
+      limit(50)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const allNotifs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       
-      // Filtra localmente para garantir que é para mim (userId == meu ID) ou Global (userId == null)
-      const myNotifications = data.filter(n => 
-        n.userId === user.uid || n.userId === null
-      );
+      // FILTRAGEM INTELIGENTE (NO CLIENTE)
+      const myNotifs = allNotifs.filter(n => {
+        // 1. Verifica a quem se destina (Global ou Pessoal)
+        // Aceita se userId for null (global) ou se for igual ao meu ID
+        const isGlobal = !n.userId || n.userId === null;
+        const isMine = n.userId === user.uid;
+        
+        if (!isGlobal && !isMine) return false; // Se for de outra pessoa, esconde.
+
+        // 2. Verifica a Data (O teu requisito: Só receber avisos criados DEPOIS de criar conta)
+        // Se fores admin ou não tiveres perfil carregado, mostra tudo por segurança
+        if (!profile?.createdAt) return true;
+
+        // Converte as datas do Firebase para objetos de Data normais para comparar
+        const notifDate = n.createdAt?.seconds ? new Date(n.createdAt.seconds * 1000) : new Date();
+        const userJoinDate = profile.createdAt?.seconds ? new Date(profile.createdAt.seconds * 1000) : new Date(0); // Data antiga se falhar
+
+        // Se a notificação é global, só mostra se foi criada DEPOIS de eu me registar
+        if (isGlobal) {
+           return notifDate >= userJoinDate;
+        }
+
+        // Se é pessoal (isMine), mostra sempre
+        return true;
+      });
       
-      setNotifications(myNotifications);
+      setNotifications(myNotifs);
     });
 
     return () => unsubscribe();
@@ -53,8 +74,7 @@ export default function NotificationBell() {
   const clearMyNotifications = async () => {
     if (!user || notifications.length === 0) return;
 
-    // SEGURANÇA: Só apagar as notificações PESSOAIS.
-    // As globais não podem ser apagadas pelo user (para não sumir para os outros).
+    // Apenas apaga as notificações PESSOAIS para não estragar a base de dados
     const personalNotifs = notifications.filter(n => n.userId === user.uid);
 
     if (personalNotifs.length === 0) {
@@ -115,10 +135,13 @@ export default function NotificationBell() {
                     <div className="w-10 h-14 flex-shrink-0 bg-white/10 rounded flex items-center justify-center text-lg">📢</div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-white mb-1 leading-tight truncate">{n.title}</p>
+                    <p className="text-xs font-bold text-white mb-1 leading-tight truncate flex items-center gap-2">
+                       {n.userId === null && <span className="bg-purple-600/50 text-purple-200 text-[8px] px-1 rounded uppercase">Novo</span>}
+                       {n.title}
+                    </p>
                     <p className="text-[10px] text-zinc-400 leading-relaxed line-clamp-3">{n.message}</p>
                     <p className="text-[9px] text-zinc-600 mt-1">
-                      {n.userId === null ? "Global" : "Pessoal"} • {n.createdAt?.seconds ? new Date(n.createdAt.seconds * 1000).toLocaleDateString() : 'Agora'}
+                      {n.createdAt?.seconds ? new Date(n.createdAt.seconds * 1000).toLocaleDateString() : 'Agora'}
                     </p>
                   </div>
                 </div>
