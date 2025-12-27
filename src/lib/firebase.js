@@ -63,7 +63,8 @@ export async function createUserProfile(user, customName = null) {
       photoURL: user.photoURL || null,
       role: "user",
       createdAt: new Date(),
-      watchlist: []
+      watchlist: [],
+      dismissedNotifications: [] // Inicializa o array vazio
     });
   }
 }
@@ -74,7 +75,7 @@ export async function getUserData(uid) {
   return docSnap.exists() ? docSnap.data() : null;
 }
 
-// --- 2. WATCHLIST (Faltavam estas funções!) ---
+// --- 2. WATCHLIST ---
 
 export async function addToWatchlist(uid, movieId) {
   const userRef = doc(db, "users", uid);
@@ -103,6 +104,17 @@ export async function createSuggestion(data) {
   });
 }
 
+// --- 4. GESTÃO DE NOTIFICAÇÕES (NOVO) ---
+
+// Função para "esconder" uma notificação global apenas para este user
+export async function dismissNotification(uid, notificationId) {
+  const userRef = doc(db, "users", uid);
+  // Adiciona o ID da notificação a um array no perfil do user
+  await updateDoc(userRef, {
+    dismissedNotifications: arrayUnion(notificationId)
+  });
+}
+
 // Exportar tudo
 export { 
   auth, 
@@ -113,5 +125,6 @@ export {
   onAuthStateChanged,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  updateProfile
+  updateProfile,
+  dismissNotification // Não esquecer de exportar a nova função!
 };
