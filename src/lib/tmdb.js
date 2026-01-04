@@ -1,6 +1,17 @@
 const API_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY;
 const BASE_URL = "https://api.themoviedb.org/3";
 
+// --- FUNÇÃO QUE FALTAVA (ADICIONADA AGORA) ---
+export const getMovie = async (id) => {
+  if (!API_KEY) return null;
+  try {
+    const res = await fetch(`${BASE_URL}/movie/${id}?api_key=${API_KEY}&language=pt-PT&append_to_response=videos,credits`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (error) { return null; }
+};
+// ----------------------------------------------
+
 export const getTrending = async (type = "movie") => {
   if (!API_KEY) return [];
   try {
@@ -40,7 +51,7 @@ export const searchMulti = async (query) => {
       (item.media_type === 'movie' || item.media_type === 'tv') && item.poster_path
     );
 
-    // 2. ORDENA POR POPULARIDADE (Do mais famoso para o menos famoso)
+    // 2. ORDENA POR POPULARIDADE
     filtered.sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
 
     return { results: filtered };
