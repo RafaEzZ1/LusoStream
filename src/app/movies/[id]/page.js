@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import DraggableScroll from "@/components/DraggableScroll";
 import TrailerButton from "@/components/TrailerButton";
+import DubbingBadge from "@/components/DubbingBadge"; // <--- NOVO IMPORT
 
 const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
 
@@ -75,6 +76,10 @@ export default async function MoviePage({ params }) {
           <h1 className="text-4xl md:text-6xl font-bold mb-4 drop-shadow-xl">{movie.title}</h1>
           
           <div className="flex flex-wrap gap-4 text-sm text-gray-300 mb-6 items-center">
+            
+            {/* --- AQUI ESTÁ A INFO DE DOBRAGEM --- */}
+            <DubbingBadge tmdbId={movie.id} type="detail" />
+            
             <span className="text-green-400 font-bold">{movie.vote_average.toFixed(1)} Classificação</span>
             <span>{movie.release_date?.split("-")[0]}</span>
             <span>{hours}h {minutes}m</span>
@@ -107,7 +112,6 @@ export default async function MoviePage({ params }) {
           <h2 className="text-2xl font-bold mb-4">Sinopse</h2>
           <p className="text-gray-300 leading-relaxed text-lg mb-8">{movie.overview}</p>
           
-          {/* Elenco */}
           <h3 className="text-xl font-bold mb-4">Elenco Principal</h3>
           <DraggableScroll className="gap-4 pb-4">
             {movie.credits?.cast?.slice(0, 10).map(actor => (
@@ -130,19 +134,17 @@ export default async function MoviePage({ params }) {
             ))}
           </DraggableScroll>
           
-          {/* Recomendações */}
           {recommendations.length > 0 && (
             <div className="mt-12 pt-8 border-t border-white/10">
               <h3 className="text-xl font-bold mb-4 border-l-4 border-purple-500 pl-3">
                 Também poderás gostar
               </h3>
-              
               <DraggableScroll className="gap-4 pb-6">
                 {recommendations.map((item) => (
                   <Link 
                     key={item.id} 
                     href={`/movies/${item.id}`}
-                    draggable={false} // <--- CORREÇÃO AQUI
+                    draggable={false}
                     className="flex-shrink-0 w-40 group relative rounded-lg overflow-hidden bg-gray-800 select-none"
                   >
                     <div className="relative aspect-[2/3] w-full">
