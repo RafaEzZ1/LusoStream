@@ -1,147 +1,113 @@
-// src/app/movies/page.js
-"use client";
-
-import { useState, useEffect } from "react";
+import { getMovieEmbed } from "@/lib/embeds";
+import WatchlistButton from "@/components/WatchlistButton";
+import MovieProgressClient from "./MovieProgressClient";
 import Link from "next/link";
+import Image from "next/image";
+import DraggableScroll from "@/components/DraggableScroll";
+import TrailerButton from "@/components/TrailerButton";
+import DubbingBadge from "@/components/DubbingBadge"; // <--- NOVO
 
 const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
 
-// Lista de Géneros Oficiais do TMDB para FILMES
-const GENRES = [
-  { id: null, name: "Todos" },
-  { id: 28, name: "Ação" },
-  { id: 12, name: "Aventura" },
-  { id: 35, name: "Comédia" },
-  { id: 18, name: "Drama" },
-  { id: 27, name: "Terror" },
-  { id: 878, name: "Ficção Científica" },
-  { id: 10749, name: "Romance" },
-  { id: 53, name: "Suspense" },
-  { id: 16, name: "Animação" },
-  { id: 80, name: "Crime" },
-  { id: 10752, name: "Guerra" },
-];
+async function getMovieData(id) {
+  try {
+    const baseUrl = 'https://api.themoviedb.org/3';
+    const res = await fetch(`${baseUrl}/movie/${id}?api_key=${API_KEY}&language=pt-BR&append_to_response=credits,videos`);
+    const recs = await fetch(`${baseUrl}/movie/${id}/recommendations?api_key=${API_KEY}&language=pt-BR&page=1`);
+    if (!res.ok) return { movie: null, recommendations: [] };
+    const movie = await res.json();
+    const recsData = await recs.json();
+    return { movie, recommendations: recsData.results || [] };
+  } catch (e) { return { movie: null, recommendations: [] }; }
+}
 
-export default function MoviesPage() {
-  const [movies, setMovies] = useState([]);
-  const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(false);
-  const [selectedGenre, setSelectedGenre] = useState(null); // Estado do Filtro
+export async function generateMetadata({ params }) {
+  const { id } = await params;
+  const { movie } = await getMovieData(id);
+  return { title: movie ? `${movie.title} - LusoStream` : "Filme", description: movie?.overview };
+}
 
-  // Resetar a lista sempre que mudamos de género
-  useEffect(() => {
-    setMovies([]); // Limpa visualmente para dar feedback
-    setPage(1);    // Volta à página 1
-    fetchMovies(1, selectedGenre);
-  }, [selectedGenre]);
+export default async function MoviePage({ params }) {
+  const { id } = await params;
+  const { movie, recommendations } = await getMovieData(id);
 
-  async function fetchMovies(pageNum, genreId) {
-    setLoading(true);
-    try {
-      let url = `https://api.themoviedb.org/3/discover/movie?api_key=${API_KEY}&language=pt-BR&sort_by=popularity.desc&page=${pageNum}`;
-      
-      if (genreId) {
-        url += `&with_genres=${genreId}`;
-      }
-
-      const res = await fetch(url);
-      const data = await res.json();
-      
-      if (pageNum === 1) {
-        setMovies(data.results);
-      } else {
-        setMovies((prev) => [...prev, ...data.results]);
-      }
-    } catch (error) {
-      console.error("Erro ao buscar filmes:", error);
-    }
-    setLoading(false);
-  }
-
-  function handleLoadMore() {
-    const nextPage = page + 1;
-    setPage(nextPage);
-    fetchMovies(nextPage, selectedGenre);
-  }
+  if (!movie) return <div className="min-h-screen flex items-center justify-center text-white">Filme não encontrado.</div>;
+  const hours = Math.floor(movie.runtime / 60);
+  const minutes = movie.runtime % 60;
+  const director = movie.credits?.crew?.find(c => c.job === "Director")?.name;
+  const trailer = movie.videos?.results?.find(v => v.type === "Trailer" && v.site === "YouTube");
 
   return (
-    <div className="bg-black min-h-screen text-white font-sans">
-      
-      <main className="pt-24 px-6 max-w-7xl mx-auto pb-20">
-        
-        {/* CABEÇALHO + FILTROS */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-4 border-l-4 border-red-600 pl-4">Filmes</h1>
-          
-          <div className="flex gap-3 overflow-x-auto pb-4 no-scrollbar">
-            {GENRES.map((genre) => (
-              <button
-                key={genre.name}
-                onClick={() => setSelectedGenre(genre.id)}
-                className={`
-                  whitespace-nowrap px-4 py-2 rounded-full text-sm font-bold transition duration-300 border
-                  ${selectedGenre === genre.id 
-                    ? "bg-red-600 border-red-600 text-white shadow-lg shadow-red-900/50" 
-                    : "bg-gray-900 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white"
-                  }
-                `}
-              >
-                {genre.name}
-              </button>
-            ))}
-          </div>
+    <div className="min-h-screen bg-[#0a0a0a] pb-20 text-white">
+      <div className="relative h-[70vh] w-full">
+        <div className="absolute inset-0">
+          <Image src={`https://image.tmdb.org/t/p/original${movie.backdrop_path}`} alt={movie.title} fill className="object-cover opacity-60" priority />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/40 to-transparent" />
         </div>
+        <div className="absolute bottom-0 left-0 w-full p-6 md:p-12 max-w-7xl mx-auto z-10">
+          <h1 className="text-4xl md:text-6xl font-bold mb-4 drop-shadow-xl">{movie.title}</h1>
+          
+          <div className="flex flex-wrap gap-4 text-sm text-gray-300 mb-6 items-center">
+            
+            {/* --- BADGE NOS DETALHES --- */}
+            <DubbingBadge tmdbId={movie.id} type="detail" />
+            
+            <span className="text-green-400 font-bold">{movie.vote_average.toFixed(1)} Classificação</span>
+            <span>{movie.release_date?.split("-")[0]}</span>
+            <span>{hours}h {minutes}m</span>
+            {movie.genres?.map(g => (<span key={g.id} className="border border-white/20 px-2 py-0.5 rounded text-xs">{g.name}</span>))}
+          </div>
 
-        {/* GRELHA DE FILMES */}
-        {movies.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 animate-in fade-in duration-700">
-            {movies.map((movie) => (
-              <Link 
-                key={`${movie.id}-${movie.vote_count}`} 
-                href={`/movies/${movie.id}`} 
-                className="group relative bg-gray-900 rounded-xl overflow-hidden shadow-lg border border-gray-800 hover:border-gray-500 transition hover:scale-105 hover:z-10"
-              >
-                <div className="aspect-[2/3] w-full relative">
-                  <img 
-                    src={movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : "/no-image.jpg"} 
-                    alt={movie.title} 
-                    className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition"
-                    loading="lazy"
-                  />
-                  <div className="absolute top-2 right-2 bg-black/80 text-yellow-400 text-xs font-bold px-2 py-1 rounded backdrop-blur-sm">
-                     ★ {movie.vote_average?.toFixed(1)}
-                  </div>
+          <div className="flex flex-wrap gap-4">
+            <Link href={`/watch/movie/${movie.id}`} className="bg-white text-black px-8 py-3 rounded-lg font-bold text-lg hover:bg-gray-200 transition flex items-center gap-2 shadow-lg"><svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>Ver Filme</Link>
+            {trailer && <TrailerButton trailerKey={trailer.key} />}
+            <WatchlistButton mediaId={movie.id} mediaType="movie" />
+          </div>
+          <div className="mt-8 max-w-md"><MovieProgressClient mediaId={movie.id} /></div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-6 mt-12 grid grid-cols-1 md:grid-cols-3 gap-12">
+        <div className="md:col-span-2">
+          <h2 className="text-2xl font-bold mb-4">Sinopse</h2>
+          <p className="text-gray-300 leading-relaxed text-lg mb-8">{movie.overview}</p>
+          
+          {/* --- ELENCO (MANTIDO) --- */}
+          <h3 className="text-xl font-bold mb-4">Elenco Principal</h3>
+          <DraggableScroll className="gap-4 pb-4">
+            {movie.credits?.cast?.slice(0, 10).map(actor => (
+              <div key={actor.id} className="flex-shrink-0 w-32 text-center select-none">
+                <div className="w-24 h-24 mx-auto rounded-full overflow-hidden mb-2 border border-white/10 relative">
+                  {actor.profile_path ? <Image src={`https://image.tmdb.org/t/p/w185${actor.profile_path}`} alt={actor.name} fill className="object-cover" /> : <div className="bg-gray-800 w-full h-full"/>}
                 </div>
-                
-                <div className="p-3">
-                  <h2 className="font-bold text-sm truncate text-gray-200 group-hover:text-white">{movie.title}</h2>
-                  <p className="text-xs text-gray-500 mt-1 flex justify-between">
-                    <span>{movie.release_date?.split("-")[0] || "N/A"}</span>
-                  </p>
-                </div>
-              </Link>
+                <p className="text-sm font-bold truncate">{actor.name}</p>
+              </div>
             ))}
-          </div>
-        ) : (
-          <div className="text-center py-20 text-gray-500">
-             {loading ? "A procurar..." : "Nenhum filme encontrado nesta categoria."}
-          </div>
-        )}
-
-        {movies.length > 0 && (
-          <div className="mt-12 text-center">
-            <button 
-              onClick={handleLoadMore} 
-              disabled={loading}
-              className="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-8 rounded-full transition transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-red-900/20"
-            >
-              {loading ? "A carregar..." : "Carregar Mais"}
-            </button>
-          </div>
-        )}
-
-      </main>
-      {/* Footer removido daqui, pois já está no layout.js */}
+          </DraggableScroll>
+          
+          {recommendations.length > 0 && (
+            <div className="mt-12 pt-8 border-t border-white/10">
+              <h3 className="text-xl font-bold mb-4 border-l-4 border-purple-500 pl-3">Também poderás gostar</h3>
+              <DraggableScroll className="gap-4 pb-6">
+                {recommendations.map((item) => (
+                  <Link key={item.id} href={`/movies/${item.id}`} draggable={false} className="flex-shrink-0 w-40 group relative rounded-lg overflow-hidden bg-gray-800 select-none">
+                    <div className="relative aspect-[2/3] w-full">
+                      {item.poster_path ? <Image src={`https://image.tmdb.org/t/p/w342${item.poster_path}`} alt={item.title} fill className="object-cover group-hover:scale-110 transition duration-500" /> : <div className="w-full h-full flex items-center justify-center text-xs text-gray-500">Sem Capa</div>}
+                      {/* Badge também nas recomendações! */}
+                      <DubbingBadge tmdbId={item.id} type="card" />
+                    </div>
+                  </Link>
+                ))}
+              </DraggableScroll>
+            </div>
+          )}
+        </div>
+        <div className="bg-white/5 p-6 rounded-xl h-fit border border-white/10">
+          <p className="text-gray-400 text-sm mb-1">Realizador</p><p className="font-medium mb-4">{director || "N/A"}</p>
+          <p className="text-gray-400 text-sm mb-1">Orçamento</p><p className="font-medium mb-4">{movie.budget > 0 ? `$${(movie.budget / 1000000).toFixed(1)}M` : "N/A"}</p>
+          <p className="text-gray-400 text-sm mb-1">Estúdio</p><p className="font-medium">{movie.production_companies?.[0]?.name || "N/A"}</p>
+        </div>
+      </div>
     </div>
   );
 }

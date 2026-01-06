@@ -1,155 +1,117 @@
-// src/app/series/page.js
-"use client";
-
-import { useState, useEffect, useRef } from "react";
-import Link from "next/link";
-import { useDraggableScroll } from "@/hooks/useDraggableScroll";
+import Image from 'next/image';
+import Link from 'next/link';
+import { FaStar, FaCalendar } from 'react-icons/fa';
+import DraggableScroll from "@/components/DraggableScroll";
+import TrailerButton from "@/components/TrailerButton";
+import WatchlistButton from "@/components/WatchlistButton";
+import DubbingBadge from "@/components/DubbingBadge"; // <--- NOVO
 
 const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
 
-const GENRES = [
-  { id: null, name: "Todas" },
-  { id: "anime", name: "🇯🇵 Animes" },
-  { id: 10759, name: "Ação & Aventura" },
-  { id: 16, name: "Animação (Geral)" },
-  { id: 35, name: "Comédia" },
-  { id: 80, name: "Crime" },
-  { id: 18, name: "Drama" },
-  { id: 10751, name: "Família" },
-  { id: 9648, name: "Mistério" },
-  { id: 10765, name: "Sci-Fi & Fantasia" },
-  { id: 37, name: "Western" },
-  { id: 10768, name: "Guerra & Política" },
-];
+async function getData(id, seasonNumber) {
+  const baseUrl = 'https://api.themoviedb.org/3';
+  try {
+    const seriesReq = fetch(`${baseUrl}/tv/${id}?api_key=${API_KEY}&language=pt-BR&append_to_response=videos,credits`);
+    const seasonReq = fetch(`${baseUrl}/tv/${id}/season/${seasonNumber}?api_key=${API_KEY}&language=pt-BR`);
+    const recsReq = fetch(`${baseUrl}/tv/${id}/recommendations?api_key=${API_KEY}&language=pt-BR`);
+    const [seriesRes, seasonRes, recsRes] = await Promise.all([seriesReq, seasonReq, recsReq]);
+    if (!seriesRes.ok) return { series: null };
+    return { series: await seriesRes.json(), seasonData: await seasonRes.json(), recommendations: (await recsRes.json()).results || [] };
+  } catch (e) { return { series: null }; }
+}
 
-export default function SeriesPage() {
-  const [series, setSeries] = useState([]);
-  const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(false);
-  const [selectedGenre, setSelectedGenre] = useState(null);
-  
-  const scrollRef = useRef(null); 
-  const { events } = useDraggableScroll();
+export default async function SeriesPage({ params, searchParams }) {
+  const { id } = await params;
+  const sp = await searchParams;
+  const currentSeason = sp.season ? Number(sp.season) : 1;
+  const { series, seasonData, recommendations } = await getData(id, currentSeason);
 
-  useEffect(() => {
-    setSeries([]);
-    setPage(1);
-    fetchSeries(1, selectedGenre);
-  }, [selectedGenre]);
-
-  async function fetchSeries(pageNum, genreId) {
-    setLoading(true);
-    try {
-      let url = `https://api.themoviedb.org/3/discover/tv?api_key=${API_KEY}&language=pt-BR&sort_by=popularity.desc&page=${pageNum}`;
-      
-      if (genreId === "anime") {
-        url += `&with_genres=16&with_original_language=ja`;
-      } 
-      else if (genreId) {
-        url += `&with_genres=${genreId}`;
-      }
-
-      const res = await fetch(url);
-      const data = await res.json();
-      
-      if (pageNum === 1) {
-        setSeries(data.results);
-      } else {
-        setSeries((prev) => [...prev, ...data.results]);
-      }
-    } catch (error) {
-      console.error("Erro ao buscar séries:", error);
-    }
-    setLoading(false);
-  }
-
-  function handleLoadMore() {
-    const nextPage = page + 1;
-    setPage(nextPage);
-    fetchSeries(nextPage, selectedGenre);
-  }
+  if (!series || series.success === false) return <div className="min-h-screen flex items-center justify-center text-white">Série não encontrada.</div>;
+  const trailer = series.videos?.results?.find(v => v.type === "Trailer" && v.site === "YouTube");
 
   return (
-    <div className="bg-black min-h-screen text-white font-sans">
-      
-      <main className="pt-24 px-6 max-w-7xl mx-auto pb-20">
-        
+    <div className="min-h-screen pb-20 bg-black text-white">
+      <div className="relative w-full h-[60vh] md:h-[70vh]">
+        <div className="absolute inset-0">
+          <Image src={`https://image.tmdb.org/t/p/original${series.backdrop_path}`} alt={series.name} fill className="object-cover opacity-40" priority />
+          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+        </div>
+        <div className="absolute bottom-0 left-0 w-full p-6 md:p-12 container mx-auto">
+          <h1 className="text-4xl md:text-6xl font-bold mb-4">{series.name}</h1>
+          <div className="flex flex-wrap items-center gap-6 text-sm md:text-base text-zinc-300 mb-6">
+            
+            {/* --- BADGE DETALHADO --- */}
+            <DubbingBadge tmdbId={series.id} type="detail" />
+
+            <span className="flex items-center text-yellow-400 font-bold gap-1"><FaStar /> {series.vote_average?.toFixed(1)}</span>
+            <span className="flex items-center gap-1"><FaCalendar /> {series.first_air_date?.split('-')[0]}</span>
+            <span className="bg-zinc-800 px-2 py-1 rounded text-xs uppercase">{series.genres?.map(g => g.name).slice(0, 2).join(', ')}</span>
+          </div>
+          <p className="max-w-3xl text-lg text-zinc-300 line-clamp-3 md:line-clamp-4 mb-6">{series.overview}</p>
+          <div className="flex flex-wrap gap-4">
+             {trailer && <TrailerButton trailerKey={trailer.key} />}
+             <WatchlistButton mediaId={series.id} mediaType="tv" />
+          </div>
+        </div>
+      </div>
+
+      <div className="container mx-auto px-6 md:px-12 mt-10">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-4 border-l-4 border-blue-600 pl-4">Séries & Animes</h1>
-          
-          <div 
-            ref={scrollRef}
-            {...events(scrollRef)}
-            className="flex gap-3 overflow-x-auto pb-4 no-scrollbar cursor-grab active:cursor-grabbing"
-          >
-            {GENRES.map((genre) => (
-              <button
-                key={genre.name}
-                onClick={() => setSelectedGenre(genre.id)}
-                className={`
-                  flex-none whitespace-nowrap px-4 py-2 rounded-full text-sm font-bold transition duration-300 border select-none
-                  ${selectedGenre === genre.id 
-                    ? "bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-900/50" 
-                    : "bg-gray-900 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white"
-                  }
-                `}
-              >
-                {genre.name}
-              </button>
+          <h2 className="text-2xl font-bold mb-4 border-l-4 border-purple-600 pl-3">Temporadas</h2>
+          <DraggableScroll className="gap-2 pb-2">
+            {series.seasons?.filter(s => s.season_number > 0).map((season) => (
+              <Link key={season.id} href={`/series/${id}?season=${season.season_number}`} scroll={false} draggable={false} className={`flex-none px-4 py-2 rounded-full text-sm font-medium transition-colors select-none ${currentSeason === season.season_number ? 'bg-purple-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}>{season.name}</Link>
+            ))}
+          </DraggableScroll>
+        </div>
+
+        <div className="mb-12">
+          <h3 className="text-xl font-semibold mb-6 text-zinc-300">Episódios da {seasonData?.name}</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {seasonData?.episodes?.map((ep) => (
+              <Link key={ep.id} href={`/watch/series/${id}/season/${currentSeason}/episode/${ep.episode_number}`} className="bg-zinc-900 rounded-lg overflow-hidden group hover:ring-2 hover:ring-purple-600 transition block cursor-pointer">
+                <div className="relative aspect-video w-full bg-zinc-800">
+                  {ep.still_path ? <Image src={`https://image.tmdb.org/t/p/w500${ep.still_path}`} alt={ep.name} fill className="object-cover group-hover:scale-105 transition duration-500" /> : <div className="flex items-center justify-center h-full text-zinc-600">Sem Imagem</div>}
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition bg-black/40"><div className="bg-purple-600 rounded-full p-3 shadow-lg transform scale-0 group-hover:scale-100 transition duration-300"><svg className="w-6 h-6 text-white ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div></div>
+                  <div className="absolute top-2 right-2 bg-black/70 px-2 py-1 text-xs rounded">{ep.runtime || '?'}m</div>
+                </div>
+                <div className="p-4"><h4 className="font-bold text-sm truncate text-white w-full">{ep.episode_number}. {ep.name}</h4><p className="text-xs text-zinc-500 line-clamp-3 mt-1">{ep.overview || "Sem descrição."}</p></div>
+              </Link>
             ))}
           </div>
         </div>
 
-        {/* GRELHA */}
-        {series.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 animate-in fade-in duration-700">
-            {series.map((show) => (
-              <Link 
-                key={`${show.id}-${show.vote_count}`} 
-                href={`/series/${show.id}`} 
-                className="group relative bg-gray-900 rounded-xl overflow-hidden shadow-lg border border-gray-800 hover:border-blue-500 transition hover:scale-105 hover:z-10"
-              >
-                <div className="aspect-[2/3] w-full relative">
-                  <img 
-                    src={show.poster_path ? `https://image.tmdb.org/t/p/w500${show.poster_path}` : "/no-image.jpg"} 
-                    alt={show.name} 
-                    className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition pointer-events-none"
-                    loading="lazy"
-                  />
-                  <div className="absolute top-2 right-2 bg-black/80 text-yellow-400 text-xs font-bold px-2 py-1 rounded backdrop-blur-sm">
-                     ★ {show.vote_average?.toFixed(1)}
-                  </div>
-                </div>
-                
-                <div className="p-3">
-                  <h2 className="font-bold text-sm truncate text-gray-200 group-hover:text-white">{show.name}</h2>
-                  <p className="text-xs text-gray-500 mt-1 flex justify-between">
-                    <span>{show.original_language === 'ja' && show.genre_ids?.includes(16) ? "ANIME" : (show.first_air_date?.split("-")[0] || "N/A")}</span>
-                  </p>
-                </div>
-              </Link>
+        {/* --- ELENCO (MANTIDO) --- */}
+        <div className="mb-12">
+          <h3 className="text-xl font-bold mb-4 text-white">Elenco Principal</h3>
+          <DraggableScroll className="gap-4 pb-4">
+            {series.credits?.cast?.slice(0, 10).map(actor => (
+              <div key={actor.id} className="flex-shrink-0 w-32 text-center select-none">
+                <div className="w-24 h-24 mx-auto rounded-full overflow-hidden mb-2 border border-white/10 relative">{actor.profile_path ? <Image src={`https://image.tmdb.org/t/p/w185${actor.profile_path}`} alt={actor.name} fill className="object-cover pointer-events-none" /> : <div className="w-full h-full bg-gray-800" />}</div>
+                <p className="text-sm font-bold truncate">{actor.name}</p>
+                <p className="text-xs text-zinc-500 truncate">{actor.character}</p>
+              </div>
             ))}
-          </div>
-        ) : (
-          <div className="text-center py-20 text-gray-500">
-             {loading ? "A procurar..." : "Nada encontrado nesta categoria."}
+          </DraggableScroll>
+        </div>
+
+        {recommendations && recommendations.length > 0 && (
+          <div className="pt-8 border-t border-zinc-800">
+            <h2 className="text-2xl font-bold mb-6 border-l-4 border-purple-600 pl-3">Recomendado para ti</h2>
+            <DraggableScroll className="gap-4 pb-4">
+              {recommendations.map((rec) => (
+                <Link key={rec.id} href={rec.media_type === 'tv' ? `/series/${rec.id}` : `/movies/${rec.id}`} draggable={false} className="flex-none w-[160px] group select-none">
+                  <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-zinc-800 mb-2">
+                    {rec.poster_path ? <Image src={`https://image.tmdb.org/t/p/w500${rec.poster_path}`} alt={rec.name || rec.title} fill className="object-cover group-hover:scale-110 transition duration-300 pointer-events-none" /> : <div className="h-full flex items-center justify-center text-xs">Sem Capa</div>}
+                    <DubbingBadge tmdbId={rec.id} type="card" />
+                  </div>
+                  <p className="text-sm font-medium text-zinc-300 truncate group-hover:text-purple-400 transition">{rec.name || rec.title}</p>
+                </Link>
+              ))}
+            </DraggableScroll>
           </div>
         )}
-
-        {series.length > 0 && (
-          <div className="mt-12 text-center">
-            <button 
-              onClick={handleLoadMore} 
-              disabled={loading}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full transition transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-900/20"
-            >
-              {loading ? "A carregar..." : "Carregar Mais"}
-            </button>
-          </div>
-        )}
-
-      </main>
-      {/* Footer removido daqui também */}
+      </div>
     </div>
   );
 }

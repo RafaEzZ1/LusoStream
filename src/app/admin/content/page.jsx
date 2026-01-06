@@ -5,14 +5,14 @@ import { db } from "@/lib/firebase";
 import { collection, addDoc, updateDoc, deleteDoc, doc, query, where, getDocs, serverTimestamp } from "firebase/firestore";
 import { searchMulti } from "@/lib/tmdb";
 import toast from "react-hot-toast";
-import { FaSearch, FaServer, FaFilm, FaTv, FaTrash, FaSave, FaExclamationCircle, FaHashtag, FaMicrophoneAlt } from "react-icons/fa";
+import { FaSearch, FaServer, FaTrash, FaSave, FaExclamationCircle, FaHashtag, FaMicrophoneAlt } from "react-icons/fa";
 
 export default function AdminContentPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [results, setResults] = useState([]);
   const [selectedMedia, setSelectedMedia] = useState(null);
   
-  // Estados do Formulário (Teus)
+  // Estados do Formulário
   const [server1, setServer1] = useState("");
   const [server2, setServer2] = useState("");
   const [existingId, setExistingId] = useState(null); 
@@ -22,7 +22,7 @@ export default function AdminContentPage() {
   const [isDubbed, setIsDubbed] = useState(false);
   const [dubbedInfo, setDubbedInfo] = useState(""); 
 
-  // Estados para Séries (Teus)
+  // Estados para Séries
   const [season, setSeason] = useState(1);
   const [episode, setEpisode] = useState(1);
   const [existingEpisodesData, setExistingEpisodesData] = useState({}); 
@@ -175,7 +175,7 @@ export default function AdminContentPage() {
                     )}
                 </div>
 
-                {/* ZONA DE SELEÇÃO DE EPISÓDIO (TEU CÓDIGO) */}
+                {/* ZONA DE SELEÇÃO DE EPISÓDIO */}
                 {selectedMedia.media_type === 'tv' && (
                   <div className="bg-black/40 p-6 rounded-2xl border border-white/5 space-y-4">
                     <h3 className="text-purple-400 font-bold text-xs uppercase tracking-widest flex items-center gap-2"><FaHashtag /> Selecionar Episódio para Adicionar/Editar</h3>

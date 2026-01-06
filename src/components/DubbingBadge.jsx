@@ -23,24 +23,24 @@ export default function DubbingBadge({ tmdbId, type = "detail" }) {
 
   if (!data?.isDubbed) return null;
 
-  // MODO CAPA (Selo simples)
+  // MODO CAPA (Para as listas /movies e /series)
   if (type === "card") {
     return (
-      <div className="absolute top-2 right-2 z-20 shadow-xl">
-        <div className="bg-green-600 text-white text-[9px] font-black px-2 py-1 rounded shadow-md shadow-black/80 uppercase tracking-wider border border-green-400/50">
+      <div className="absolute top-2 left-2 z-20">
+        <div className="bg-green-600 text-white text-[10px] font-black px-2 py-1 rounded shadow-md shadow-black/80 uppercase tracking-wider border border-green-400/50">
           PT-PT
         </div>
       </div>
     );
   }
 
-  // MODO DETALHES (Info completa)
+  // MODO DETALHES (Para dentro do filme/série)
   return (
-    <div className="flex items-center gap-2 bg-green-900/40 border border-green-500/50 px-3 py-1.5 rounded-lg text-green-400 text-xs md:text-sm font-bold animate-in fade-in select-none">
+    <div className="flex items-center gap-2 bg-green-600/20 border border-green-500/30 px-3 py-1 rounded-lg text-green-400 text-xs md:text-sm font-bold animate-in fade-in select-none h-fit">
       <FaMicrophoneAlt />
       <span>PT-PT</span>
       {data.dubbedInfo && (
-        <span className="text-white/80 border-l border-white/20 pl-2 ml-1 font-medium">
+        <span className="text-white/70 border-l border-white/10 pl-2 ml-1 font-medium">
           {data.dubbedInfo}
         </span>
       )}
