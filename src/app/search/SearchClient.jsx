@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { searchMulti } from "@/lib/tmdb";
 import Link from "next/link";
 import { FaStar, FaSearch, FaExclamationCircle } from "react-icons/fa";
+import DubbingBadge from "@/components/DubbingBadge"; // <--- 1. IMPORTAR AQUI
 
 export default function SearchClient() {
   const searchParams = useSearchParams();
@@ -90,6 +91,10 @@ export default function SearchClient() {
                     Sem Imagem
                   </div>
                 )}
+                
+                {/* --- 2. O SELO ENTRA AQUI (NOVO) --- */}
+                <DubbingBadge tmdbId={item.id} type="card" />
+
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
                   <p className="text-white font-bold text-sm truncate">{item.title || item.name}</p>
                   <div className="flex items-center justify-between text-[10px] text-zinc-400 mt-1 uppercase font-bold tracking-widest">

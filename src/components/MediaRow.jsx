@@ -2,6 +2,7 @@
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { useDraggableScroll } from "@/hooks/useDraggableScroll";
+import DubbingBadge from "@/components/DubbingBadge"; // <--- 1. IMPORTAR AQUI
 
 const API_KEY = "f0bde271cd8fdf3dea9cd8582b100a8e";
 
@@ -78,6 +79,9 @@ export default function MediaRow({ title, endpoint, type = "movie", itemsProp = 
                   loading="lazy"
                 />
                 
+                {/* --- 2. O SELO ENTRA AQUI (NOVO) --- */}
+                <DubbingBadge tmdbId={item.id} type="card" />
+
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-0 group-hover/card:opacity-100 transition-opacity flex flex-col justify-end p-3">
                   <span className="text-xs font-bold text-yellow-400 mb-1">★ {item.vote_average?.toFixed(1)}</span>
                 </div>
