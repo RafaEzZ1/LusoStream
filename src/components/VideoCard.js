@@ -1,5 +1,5 @@
 "use client";
-import DubbingBadge from "./DubbingBadge"; // <--- Importa o Detetive
+import DubbingBadge from "./DubbingBadge"; // <--- Importamos o badge aqui
 
 export default function VideoCard({ movie, onClick }) {
   return (
@@ -7,7 +7,6 @@ export default function VideoCard({ movie, onClick }) {
       className="relative group cursor-pointer min-w-[150px] transform transition-transform duration-300 hover:scale-105"
       onClick={onClick}
     >
-      {/* Imagem */}
       <img
         src={movie.image}
         alt={movie.title || movie.name}
@@ -15,11 +14,9 @@ export default function VideoCard({ movie, onClick }) {
         loading="lazy"
       />
 
-      {/* --- AQUI ESTÁ A MAGIA: O Badge na Capa --- */}
-      {/* Passamos o ID e ele decide sozinho se mostra o selo */}
+      {/* --- O SELO APARECE AQUI AUTOMATICAMENTE --- */}
       <DubbingBadge tmdbId={movie.id || movie.tmdbId} type="card" />
 
-      {/* Título (Fica por cima da imagem no fundo) */}
       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
         <h3 className="text-white font-bold text-sm">{movie.title || movie.name}</h3>
       </div>

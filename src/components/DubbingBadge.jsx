@@ -11,7 +11,6 @@ export default function DubbingBadge({ tmdbId, type = "detail" }) {
     async function checkDubbing() {
       if (!tmdbId) return;
       try {
-        // Vai ver à base de dados se este ID tem dobragem
         const q = query(collection(db, "content"), where("tmdbId", "==", tmdbId.toString()));
         const snap = await getDocs(q);
         if (!snap.empty) {
@@ -22,10 +21,9 @@ export default function DubbingBadge({ tmdbId, type = "detail" }) {
     checkDubbing();
   }, [tmdbId]);
 
-  // Se não tiver info de dobragem, não mostra nada
   if (!data?.isDubbed) return null;
 
-  // --- MODO CAPA (Selo Pequeno Verde no Canto) ---
+  // MODO CAPA (Selo simples)
   if (type === "card") {
     return (
       <div className="absolute top-2 right-2 z-20 shadow-xl">
@@ -36,7 +34,7 @@ export default function DubbingBadge({ tmdbId, type = "detail" }) {
     );
   }
 
-  // --- MODO DETALHES (Info Completa com Texto) ---
+  // MODO DETALHES (Info completa)
   return (
     <div className="flex items-center gap-2 bg-green-900/40 border border-green-500/50 px-3 py-1.5 rounded-lg text-green-400 text-xs md:text-sm font-bold animate-in fade-in select-none">
       <FaMicrophoneAlt />
