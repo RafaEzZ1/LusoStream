@@ -31,8 +31,6 @@ type EmbedServer = {
     AdvancedVideoPlayerProps) => string | null;
 };
 
-const LOAD_TIMEOUT_MS = 12000;
-
 const SERVERS: EmbedServer[] = [
   {
     id: "videasy",
@@ -84,6 +82,7 @@ export default function AdvancedVideoPlayer({
   episode,
 }: AdvancedVideoPlayerProps) {
   const shellRef = useRef<HTMLDivElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const [serverIndex, setServerIndex] = useState(0);
   const [status, setStatus] = useState<"loading" | "ready" | "error">(
     "loading"
@@ -138,8 +137,26 @@ export default function AdvancedVideoPlayer({
   };
 
   const openFullscreen = async () => {
+    const target = shellRef.current;
+    if (!target) return;
+
     try {
-      await shellRef.current?.requestFullscreen();
+      if (target.requestFullscreen) {
+        await target.requestFullscreen();
+        return;
+      }
+
+      const legacyTarget = target as HTMLDivElement & {
+        webkitRequestFullscreen?: () => Promise<void> | void;
+        mozRequestFullScreen?: () => Promise<void> | void;
+        msRequestFullscreen?: () => Promise<void> | void;
+      };
+
+      await (
+        legacyTarget.webkitRequestFullscreen?.() ||
+        legacyTarget.mozRequestFullScreen?.() ||
+        legacyTarget.msRequestFullscreen?.()
+      );
     } catch {
       setMessage("Fullscreen bloqueado pelo browser. Usa o botão interno do player.");
     }
@@ -160,13 +177,6 @@ export default function AdvancedVideoPlayer({
 
     setStatus("loading");
     setMessage(`A carregar ${currentServer.name}...`);
-
-    const timeout = window.setTimeout(() => {
-      setMessage(`${currentServer.name} demorou demasiado. A tentar outro servidor...`);
-      tryNextServer();
-    }, LOAD_TIMEOUT_MS);
-
-    return () => window.clearTimeout(timeout);
   }, [currentServer.id, sourceUrl]);
 
   const hasAnyPlayableId = Boolean(tmdbId || imdbId);
@@ -268,7 +278,7 @@ export default function AdvancedVideoPlayer({
 
         <div
           ref={shellRef}
-          className="relative aspect-video w-full overflow-hidden rounded-2xl border border-white/10 bg-black"
+          className="relative aspect-video w-full overflow-hidden rounded-2xl border border-white/10 bg-black fullscreen:aspect-auto fullscreen:h-screen fullscreen:w-screen fullscreen:rounded-none fullscreen:border-0"
         >
           {status === "loading" && (
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-zinc-950">
@@ -279,6 +289,7 @@ export default function AdvancedVideoPlayer({
 
           {sourceUrl && (
             <iframe
+              ref={iframeRef}
               key={`${currentServer.id}-${sourceUrl}`}
               src={sourceUrl}
               title={`${title} - ${currentServer.name}`}
@@ -293,7 +304,12 @@ export default function AdvancedVideoPlayer({
                   `${currentServer.name} carregado. Legendas PT-BR/PT-PT quando disponíveis no servidor.`
                 );
               }}
-              onError={tryNextServer}
+              onError={() => {
+                setStatus("error");
+                setMessage(
+                  `${currentServer.name} falhou. Podes trocar de servidor manualmente.`
+                );
+              }}
             />
           )}
 
