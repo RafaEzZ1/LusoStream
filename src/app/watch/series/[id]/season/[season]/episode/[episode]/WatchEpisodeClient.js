@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import ProgressTracker from "@/components/ProgressTracker";
 import PlayerControls from "@/components/PlayerControls";
 import ReportButton from "@/components/ReportButton";
-import VideoPlayer from "@/components/VideoPlayer";
+import AdvancedVideoPlayer from "@/components/AdvancedVideoPlayer";
 
 const API_KEY =
   process.env.NEXT_PUBLIC_TMDB_API_KEY || "f0bde271cd8fdf3dea9cd8582b100a8e";
@@ -81,7 +81,14 @@ export default function WatchEpisodeClient({ id, season, episode }) {
             <ReportButton mediaId={id} mediaTitle={playerTitle} />
           </div>
 
-          <VideoPlayer imdbId={imdbId} title={playerTitle} type="series" />
+          <AdvancedVideoPlayer
+            imdbId={imdbId}
+            tmdbId={id}
+            title={playerTitle}
+            type="series"
+            season={season}
+            episode={episode}
+          />
         </div>
       </div>
 
